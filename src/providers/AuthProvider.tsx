@@ -12,6 +12,8 @@ import type { PlanValue } from '@/lib/plans';
 
 export interface Profile {
   id: string;
+  /** FK to auth.users — profiles.id is the row's own UUID, NOT the auth uid. */
+  user_id: string;
   display_name: string | null;
   avatar_url: string | null;
   plan: PlanValue;
@@ -41,19 +43,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [initializing, setInitializing] = useState(true);
 
+  const PROFILE_COLS =
+    'id, user_id, display_name, avatar_url, plan, phone, phone_verified, preferences, ai_blocked';
+
   const loadProfile = useCallback(async (userId: string) => {
+    // profiles is keyed by user_id (its id column is a separate row UUID).
+    // maybeSingle avoids a 406 if the row hasn't landed yet.
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_url, plan, phone, phone_verified, preferences, ai_blocked')
-      .eq('id', userId)
-      .single();
+      .select(PROFILE_COLS)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (data) {
+      setProfile(data as Profile);
+      return;
+    }
     if (error) {
-      // A brand-new user's profile row is created by a DB trigger; it may not be
-      // readable for a beat. Don't hard-fail auth on a transient miss.
       setProfile(null);
       return;
     }
-    setProfile(data as Profile);
+
+    // The handle_new_user trigger normally creates the row at signup; this is a
+    // safety net if it ever hasn't. RLS permits inserts where auth.uid() = user_id.
+    const { data: created } = await supabase
+      .from('profiles')
+      .upsert({ user_id: userId }, { onConflict: 'user_id' })
+      .select(PROFILE_COLS)
+      .maybeSingle();
+    setProfile((created as Profile) ?? null);
   }, []);
 
   useEffect(() => {

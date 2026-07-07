@@ -59,13 +59,11 @@ Deno.serve(async (req) => {
       'ai_usage',
       'subscriptions',
       'device_tokens',
-      'profiles',
+      'profiles', // keyed by user_id like the rest (its id column is a row UUID)
     ];
     for (const t of tables) {
       await admin.from(t).delete().eq('user_id', uid);
     }
-    // profiles is keyed by id, not user_id.
-    await admin.from('profiles').delete().eq('id', uid);
 
     // 3) Delete the auth user itself.
     const { error: delErr } = await admin.auth.admin.deleteUser(uid);

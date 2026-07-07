@@ -59,7 +59,7 @@ export function AIConsentProvider({ children }: { children: React.ReactNode }) {
           .update({
             preferences: { ...prev, ai_consent: true, ai_consent_at: new Date().toISOString() },
           })
-          .eq('id', user.id);
+          .eq('user_id', user.id);
         await refreshProfile();
       }
       resolverRef.current?.(agree);

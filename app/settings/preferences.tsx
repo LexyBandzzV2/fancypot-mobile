@@ -34,7 +34,7 @@ export default function Preferences() {
       const { error } = await supabase
         .from('profiles')
         .update({ preferences: { ...prefs, styles: styles_, stores, budget, completed: true } })
-        .eq('id', user.id);
+        .eq('user_id', user.id);
       if (error) throw error;
       await refreshProfile();
       router.back();

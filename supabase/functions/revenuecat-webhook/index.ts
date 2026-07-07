@@ -81,10 +81,11 @@ Deno.serve(async (req) => {
     }
   }
 
+  // profiles is keyed by user_id (its id column is a separate row UUID).
   const { error } = await supabase
     .from('profiles')
     .update({ plan })
-    .eq('id', userId);
+    .eq('user_id', userId);
 
   if (error) {
     console.error('revenuecat-webhook: failed to update plan', error);
