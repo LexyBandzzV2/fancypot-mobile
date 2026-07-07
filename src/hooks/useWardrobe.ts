@@ -13,6 +13,7 @@ import {
   deleteWardrobeObject,
 } from '@/lib/storage';
 import { useAuth } from '@/providers/AuthProvider';
+import { useAIConsent } from '@/providers/AIConsentProvider';
 
 export interface WardrobeDisplayItem extends WardrobeItem {
   /** Signed, renderable URL (the raw image_url is a private storage path). */
@@ -26,6 +27,7 @@ export interface WardrobeDisplayItem extends WardrobeItem {
  */
 export function useWardrobe() {
   const { user } = useAuth();
+  const { ensureConsent } = useAIConsent();
   const [items, setItems] = useState<WardrobeDisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,13 +78,17 @@ export function useWardrobe() {
   const add = useCallback(
     async (base64: string) => {
       if (!user) throw new Error('Not signed in');
+      // Uploading a piece triggers AI classification + background removal, so the
+      // same third-party-AI consent applies here as on the explicit AI screens.
+      const consented = await ensureConsent();
+      if (!consented) return;
       const path = await uploadWardrobeImage(user.id, base64);
       const row = await insertWardrobeItem(user.id, path); // may throw on limit
       // Fire-and-forget AI classify + background removal.
       processWardrobeItem(row.id).catch(() => {});
       await load();
     },
-    [user, load],
+    [user, load, ensureConsent],
   );
 
   const remove = useCallback(

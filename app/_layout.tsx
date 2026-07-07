@@ -19,6 +19,7 @@ import {
 import { View } from 'react-native';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { SubscriptionProvider } from '@/providers/SubscriptionProvider';
+import { AIConsentProvider } from '@/providers/AIConsentProvider';
 import { useAuthDeepLinks } from '@/hooks/useAuthDeepLinks';
 import { ErrorScreen } from '@/components';
 import { colors } from '@/theme';
@@ -111,8 +112,10 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <AuthProvider>
           <SubscriptionProvider>
-            <StatusBar style="dark" />
-            <RootNavigator />
+            <AIConsentProvider>
+              <StatusBar style="dark" />
+              <RootNavigator />
+            </AIConsentProvider>
           </SubscriptionProvider>
         </AuthProvider>
       </SafeAreaProvider>

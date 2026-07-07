@@ -49,6 +49,7 @@ dashboard/hosting step — code side is ready) · ⛔ blocker if skipped.
 | `wardrobe-process` gap closed | 🟡 | Apply `supabase/PATCH-wardrobe-process.md` (the one function that lacked the guard) and redeploy. |
 | `ai_usage` logging (type, cost, tier) | ✅ | Existing `ai_usage` table + optional additive migration for the exact spec columns. |
 | No secrets in the app | ✅ | Only publishable Supabase + RevenueCat keys ship; verified `.env`/`eas.json` contain no service-role/provider secrets. |
+| **AI data-sharing disclosure + consent** (Apple 5.1.2(i) / 2025 AI-transparency / Google Prominent Disclosure) | ✅ | A one-time in-app consent sheet (`AIConsentProvider`) gates every AI action — analyze, generate, try-on, recommend, and closet uploads. Discloses that photos are sent to third-party AI, links the privacy policy, requires affirmative "Agree" before any sharing, and persists on `profiles.preferences.ai_consent`. Your hosted **privacy policy must also describe this third-party-AI sharing**. |
 
 ## E. Content safety — Apple 1.2 / Play UGC
 

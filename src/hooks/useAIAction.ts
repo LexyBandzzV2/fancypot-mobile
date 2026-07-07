@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { UsageLimitError } from '@/lib/api';
+import { useAIConsent } from '@/providers/AIConsentProvider';
 
 /**
  * Wraps an AI edge-function call with consistent loading state + error handling.
@@ -12,10 +13,15 @@ import { UsageLimitError } from '@/lib/api';
  */
 export function useAIAction() {
   const router = useRouter();
+  const { ensureConsent } = useAIConsent();
   const [running, setRunning] = useState(false);
 
   const run = useCallback(
     async <T>(action: () => Promise<T>): Promise<T | null> => {
+      // Apple 5.1.2(i) / Google Prominent Disclosure: get consent before sending
+      // the user's photos to third-party AI. No-op after the first grant.
+      const consented = await ensureConsent();
+      if (!consented) return null;
       setRunning(true);
       try {
         const result = await action();
@@ -42,7 +48,7 @@ export function useAIAction() {
         setRunning(false);
       }
     },
-    [router],
+    [router, ensureConsent],
   );
 
   return { run, running };
