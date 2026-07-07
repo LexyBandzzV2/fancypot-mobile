@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Support — Fancy Pot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #FAF3E7;
+      color: #241E1C;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 640px;
+      width: 100%;
+      padding: 60px 40px;
+    }
+
+    .wordmark {
+      font-family: 'Pinyon Script', cursive;
+      font-size: 36px;
+      color: #FF73B6;
+      text-align: center;
+      margin-bottom: 60px;
+      font-weight: normal;
+      letter-spacing: 1px;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 44px;
+      font-weight: 600;
+      color: #241E1C;
+      text-align: center;
+      margin-bottom: 40px;
+      line-height: 1.2;
+    }
+
+    .contact-section {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+
+    .contact-intro {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      color: #241E1C;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .contact-button {
+      display: inline-block;
+      font-family: 'Inter', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      background-color: #FF73B6;
+      color: white;
+      padding: 16px 32px;
+      border-radius: 24px;
+      text-decoration: none;
+      transition: background-color 0.2s ease;
+      border: none;
+      cursor: pointer;
+    }
+
+    .contact-button:hover {
+      background-color: #E55A9F;
+    }
+
+    h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 600;
+      color: #241E1C;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .faq-grid {
+      display: grid;
+      gap: 24px;
+    }
+
+    .faq-card {
+      background: white;
+      border: 1px solid #E7DCCB;
+      border-radius: 24px;
+      padding: 32px;
+    }
+
+    .faq-card h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: #241E1C;
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+
+    .faq-card p {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      color: #241E1C;
+      line-height: 1.7;
+    }
+
+    .faq-card a {
+      color: #FF73B6;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .faq-card a:hover {
+      color: #E55A9F;
+    }
+
+    .faq-card code {
+      font-family: 'Inter', sans-serif;
+      background-color: #FAF3E7;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #FF73B6;
+    }
+
+    .footer {
+      border-top: 1px solid #E7DCCB;
+      margin-top: 60px;
+      padding-top: 32px;
+      text-align: center;
+    }
+
+    .footer-links {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: #6E625C;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: #6E625C;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    .footer-links a:hover {
+      color: #241E1C;
+    }
+
+    .footer-credit {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: #6E625C;
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 40px 24px;
+      }
+
+      .wordmark {
+        font-size: 28px;
+        margin-bottom: 40px;
+      }
+
+      h1 {
+        font-size: 32px;
+        margin-bottom: 32px;
+      }
+
+      h2 {
+        font-size: 24px;
+        margin-bottom: 32px;
+      }
+
+      .contact-intro {
+        font-size: 16px;
+      }
+
+      .faq-card {
+        padding: 24px;
+      }
+
+      .faq-card h3 {
+        font-size: 16px;
+      }
+
+      .footer-links {
+        gap: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="wordmark">Fancy Pot</div>
+
+    <h1>We're here to help</h1>
+
+    <div class="contact-section">
+      <p class="contact-intro">Have a question or need assistance? Reach out to our support team.</p>
+      <a href="mailto:support@fancypot.org" class="contact-button">support@fancypot.org</a>
+    </div>
+
+    <h2>Frequently Asked Questions</h2>
+
+    <div class="faq-grid">
+      <div class="faq-card">
+        <h3>How do subscriptions work?</h3>
+        <p>Pro and Business subscriptions are billed through your Apple App Store or Google Play account and will automatically renew each billing period until you cancel. You can cancel your subscription anytime in your store settings. To restore a previous purchase, visit the Paywall or Profile screen in the app.</p>
+      </div>
+
+      <div class="faq-card">
+        <h3>How do AI features use my photos?</h3>
+        <p>When you choose to use an AI feature, your photos are securely sent to trusted third-party AI services only to create your specific results—such as outfit analysis, styling recommendations, or virtual try-ons. Your photos are never used for training AI models, advertising, or facial identification. Learn more in our <a href="/privacy">Privacy Policy</a>.</p>
+      </div>
+
+      <div class="faq-card">
+        <h3>How do I delete my account?</h3>
+        <p>You can delete your account anytime from the app by going to <code>Profile → Delete account</code>. Alternatively, you can request deletion by emailing support@fancypot.org. For more details, visit our <a href="/delete-account">account deletion page</a>.</p>
+      </div>
+
+      <div class="faq-card">
+        <h3>I hit my monthly limit</h3>
+        <p>Usage limits reset monthly (try-ons reset weekly). To get higher limits and access more features, upgrade to Pro or Business directly in the app. These plans give you more generous allowances and exclusive styling tools.</p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="footer-links">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/delete-account">Delete Account</a>
+      </div>
+      <div class="footer-credit">© Fancy Pot</div>
+    </div>
+  </div>
+</body>
+</html>

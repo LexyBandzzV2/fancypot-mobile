@@ -10,26 +10,67 @@ spend caps + rate limits (10/min, 60/hr, 200/day) via
 
 Close the gap so uploads can't be used to bypass limits.
 
-### The change
-
-In `supabase/functions/wardrobe-process/index.ts`, right after the existing
-`requireUser(req)` call, add the same guard the other functions use:
+### Actual helper signatures (from `_shared/ai-router.ts`)
 
 ```ts
-import { requireUser, chargeAiSpend } from "../_shared/ai-router.ts";
+// Returns the authed user, or a 401 Response to return directly — never throws.
+export async function requireUser(
+  req: Request
+): Promise<{ user: { id: string; email?: string } } | Response>;
 
-// ...inside the handler, after you resolve the user:
-const { user } = await requireUser(req);
-
-// NEW: enforce tier limit + rate limit + spend cap before doing any AI work.
-// wardrobe-process runs 2 model calls (classify + bg-removal), so charge ~2¢.
-await chargeAiSpend(user.id, "wardrobe-process", req);
+// Records the charge and enforces admin-block / rate-limit / 30-day spend cap /
+// global circuit breaker. Returns null on success, or a Response (402/403/429/503)
+// to return directly on refusal — never throws.
+export async function chargeAiSpend(
+  userId: string,
+  fn: AiFunction,
+  req?: Request
+): Promise<Response | null>;
 ```
 
-`chargeAiSpend` throws a `Response` with status 429 (rate limited) / 402-403
-(over limit / blocked) that the client already understands
-(`src/lib/api.ts::UsageLimitError`), so the mobile UI will surface the right
-message with no extra work.
+`AiFunction` is a closed union (`"try-on" | "generate-outfit" | "analyze-outfit"
+| "recommend-pieces" | "feed-refresh"`) mapped to per-call cost estimates in
+`AI_FUNCTION_COST_CENTS`. It did not include `wardrobe-process`, so the type and
+cost table both needed a new entry — not just a call site fix.
+
+### The change actually applied
+
+**1. `supabase/functions/_shared/ai-router.ts`** — added `wardrobe-process` to
+the `AiFunction` union and gave it a cost entry (4¢, same tier as `try-on` /
+`generate-outfit`, since one of its two calls is an image-edit-class model call
+just like those):
+
+```ts
+export type AiFunction = "try-on" | "generate-outfit" | "analyze-outfit" | "recommend-pieces" | "feed-refresh" | "wardrobe-process";
+export const AI_FUNCTION_COST_CENTS: Record<AiFunction, number> = {
+  "try-on": 4,            // Nano Banana Pro image edit
+  "generate-outfit": 4,   // Nano Banana Pro image generation
+  "analyze-outfit": 5,    // vision call + downstream image gens
+  "recommend-pieces": 2,  // vision + Firecrawl search
+  "feed-refresh": 2,      // batched Firecrawl + structured extraction
+  "wardrobe-process": 4,  // classify vision call + background-removal image edit
+};
+```
+
+**2. `supabase/functions/wardrobe-process/index.ts`** — the file already called
+`requireUser`, but never called `chargeAiSpend`. Import it and insert the guard
+immediately after auth, before the (currently un-metered) AI work is kicked off:
+
+```ts
+import { corsHeaders, jsonResponse, requireUser, chargeAiSpend } from "../_shared/ai-router.ts";
+```
+
+```ts
+    const auth = await requireUser(req);
+    if (auth instanceof Response) return auth;
+    const userId = auth.user.id;
+    const capped = await chargeAiSpend(userId, "wardrobe-process", req);
+    if (capped) return capped;
+
+    const { itemId } = await req.json();
+```
+
+This matches `analyze-outfit`'s idiom exactly (`if (auth instanceof Response) return auth;` then `if (capped) return capped;`) — `chargeAiSpend` does NOT throw, it returns a `Response | null` that the handler must check and return itself.
 
 ### Deploy
 

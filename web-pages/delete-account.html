@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delete your account — Fancy Pot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pinyon+Script&family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #FAF3E7;
+      color: #241E1C;
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 640px;
+      width: 100%;
+      padding: 60px 40px;
+    }
+
+    .wordmark {
+      font-family: 'Pinyon Script', cursive;
+      font-size: 36px;
+      color: #FF73B6;
+      text-align: center;
+      margin-bottom: 60px;
+      font-weight: normal;
+      letter-spacing: 1px;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 44px;
+      font-weight: 600;
+      color: #241E1C;
+      text-align: center;
+      margin-bottom: 40px;
+      line-height: 1.2;
+    }
+
+    .section {
+      margin-bottom: 40px;
+    }
+
+    h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px;
+      font-weight: 600;
+      color: #241E1C;
+      margin-bottom: 20px;
+      margin-top: 32px;
+    }
+
+    .section h2:first-child {
+      margin-top: 0;
+    }
+
+    .deletion-methods {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+
+    .method {
+      background: white;
+      border: 1px solid #E7DCCB;
+      border-radius: 24px;
+      padding: 28px;
+    }
+
+    .method h3 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: #241E1C;
+      margin-bottom: 12px;
+    }
+
+    .method p {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      color: #241E1C;
+      line-height: 1.6;
+    }
+
+    .method code {
+      font-family: 'Inter', sans-serif;
+      background-color: #FAF3E7;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #FF73B6;
+    }
+
+    .info-box {
+      background: white;
+      border: 1px solid #E7DCCB;
+      border-radius: 24px;
+      padding: 24px;
+      margin-top: 32px;
+    }
+
+    .info-box p {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      color: #241E1C;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    .info-box p:last-child {
+      margin-bottom: 0;
+    }
+
+    .info-box strong {
+      font-weight: 600;
+      color: #241E1C;
+    }
+
+    a {
+      color: #FF73B6;
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:hover {
+      color: #E55A9F;
+    }
+
+    .footer {
+      border-top: 1px solid #E7DCCB;
+      margin-top: 60px;
+      padding-top: 32px;
+      text-align: center;
+    }
+
+    .footer-links {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: #6E625C;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: #6E625C;
+    }
+
+    .footer-links a:hover {
+      color: #241E1C;
+    }
+
+    .footer-credit {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: #6E625C;
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 40px 24px;
+      }
+
+      .wordmark {
+        font-size: 28px;
+        margin-bottom: 40px;
+      }
+
+      h1 {
+        font-size: 32px;
+        margin-bottom: 32px;
+      }
+
+      h2 {
+        font-size: 20px;
+      }
+
+      .method {
+        padding: 20px;
+      }
+
+      .footer-links {
+        gap: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="wordmark">Fancy Pot</div>
+
+    <h1>Delete your Fancy Pot account</h1>
+
+    <div class="section">
+      <h2>How to delete your account</h2>
+
+      <div class="deletion-methods">
+        <div class="method">
+          <h3>In the app</h3>
+          <p>Go to <code>Profile → Delete account</code> and type <code>DELETE</code> to confirm. Your account will be permanently deleted immediately.</p>
+        </div>
+
+        <div class="method">
+          <h3>By email</h3>
+          <p>Send a deletion request from the email address associated with your account to <strong>support@fancypot.org</strong> with the subject line "<strong>Delete my account</strong>". We'll process your request within 30 days.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>What gets deleted</h2>
+      <div class="info-box">
+        <p>When you delete your Fancy Pot account, the following information is permanently removed from our servers:</p>
+        <p style="margin-top: 12px;">
+          • Account credentials and login information<br>
+          • Closet photos and images<br>
+          • Saved outfits and collections<br>
+          • Style preferences and personal settings<br>
+          • AI usage history and generated results
+        </p>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="info-box">
+        <p><strong>Important:</strong> If you have an active subscription (Pro or Business), you must cancel it separately in your Apple App Store or Google Play account settings. Deleting your Fancy Pot account does not cancel store billing.</p>
+
+        <p style="margin-top: 16px;"><strong>Privacy & compliance:</strong> Minimal records may be retained where required for security, fraud prevention, or legal compliance, in accordance with our <a href="/privacy">Privacy Policy</a>.</p>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="footer-links">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+        <a href="/delete-account">Delete Account</a>
+      </div>
+      <div class="footer-credit">© Fancy Pot</div>
+    </div>
+  </div>
+</body>
+</html>
