@@ -1,0 +1,131 @@
+import React, { useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  Pressable,
+  Alert,
+} from 'react-native';
+import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import {
+  AppHeader,
+  BottomSheet,
+  SheetAction,
+  EmptyState,
+  SkeletonGrid,
+} from '@/components';
+import { ThemedText } from '@/components';
+import { colors, radius, spacing } from '@/theme';
+import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
+
+export default function SavedScreen() {
+  const router = useRouter();
+  const { outfits, loading, reload, remove } = useOutfits();
+  const [selected, setSelected] = useState<OutfitDisplay | null>(null);
+
+  const confirmDelete = (o: OutfitDisplay) => {
+    setSelected(null);
+    Alert.alert('Delete outfit?', 'This removes it from your saved looks.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => remove(o.id) },
+    ]);
+  };
+
+  return (
+    <View style={styles.root}>
+      <AppHeader title="Saved Looks" subtitle="Your outfit library" />
+      {loading && outfits.length === 0 ? (
+        <View style={styles.pad}>
+          <SkeletonGrid count={4} />
+        </View>
+      ) : outfits.length === 0 ? (
+        <EmptyState
+          icon="bookmark-outline"
+          title="No saved looks yet"
+          body="Outfits you create with your stylist will appear here."
+          actionLabel="Create an outfit"
+          onAction={() => router.push('/style/stylist')}
+        />
+      ) : (
+        <FlatList
+          data={outfits}
+          keyExtractor={(o) => o.id}
+          numColumns={2}
+          columnWrapperStyle={styles.column}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={false} onRefresh={reload} tintColor={colors.blushDeep} />
+          }
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.tile}
+              onPress={() => router.push('/style/try-on')}
+              onLongPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setSelected(item);
+              }}
+            >
+              {item.signedUrl ? (
+                <Image source={{ uri: item.signedUrl }} style={styles.img} contentFit="cover" transition={200} />
+              ) : (
+                <View style={[styles.img, styles.placeholder]}>
+                  <Ionicons name="image-outline" size={28} color={colors.blushDeep} />
+                </View>
+              )}
+              {item.name ? (
+                <View style={styles.label}>
+                  <ThemedText variant="labelSmall" numberOfLines={1}>
+                    {item.name}
+                  </ThemedText>
+                </View>
+              ) : null}
+            </Pressable>
+          )}
+        />
+      )}
+
+      <BottomSheet visible={!!selected} onClose={() => setSelected(null)}>
+        <SheetAction
+          label="Try this on"
+          icon={<Ionicons name="body-outline" size={22} color={colors.ink} />}
+          onPress={() => {
+            setSelected(null);
+            router.push('/style/try-on');
+          }}
+        />
+        <SheetAction
+          label="Delete outfit"
+          destructive
+          icon={<Ionicons name="trash-outline" size={22} color={colors.danger} />}
+          onPress={() => selected && confirmDelete(selected)}
+        />
+      </BottomSheet>
+    </View>
+  );
+}
+
+const GAP = spacing.md;
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.cream },
+  pad: { paddingHorizontal: spacing.lg },
+  list: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
+  column: { gap: GAP },
+  tile: {
+    flex: 1,
+    marginBottom: GAP,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  img: { width: '100%', aspectRatio: 0.8 },
+  placeholder: { backgroundColor: colors.pearl, alignItems: 'center', justifyContent: 'center' },
+  label: { padding: spacing.sm },
+});
