@@ -102,9 +102,27 @@ export default function Paywall() {
         })}
 
         <ThemedText variant="labelSmall" color={colors.inkMuted} center style={styles.fine}>
-          Subscriptions auto-renew until cancelled. Manage in your{' '}
-          {`App Store / Google Play`} account. Prices may vary by region.
+          Payment is charged to your App Store / Google Play account. Subscriptions
+          auto-renew unless turned off at least 24 hours before the period ends. Manage
+          or cancel anytime in your store account settings. Prices may vary by region.
         </ThemedText>
+
+        {/* Apple 3.1.2 / Google Play: functional Terms + Privacy links on the purchase screen. */}
+        <View style={styles.legalLinks}>
+          <Pressable onPress={() => router.push('/legal/terms')} hitSlop={8}>
+            <ThemedText variant="labelSmall" color={colors.blushDeep}>
+              Terms of Use
+            </ThemedText>
+          </Pressable>
+          <ThemedText variant="labelSmall" color={colors.inkMuted}>
+            ·
+          </ThemedText>
+          <Pressable onPress={() => router.push('/legal/privacy')} hitSlop={8}>
+            <ThemedText variant="labelSmall" color={colors.blushDeep}>
+              Privacy Policy
+            </ThemedText>
+          </Pressable>
+        </View>
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -155,6 +173,13 @@ const styles = StyleSheet.create({
   perks: { marginTop: spacing.md, gap: spacing.sm },
   perk: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   fine: { marginTop: spacing.md, maxWidth: 340, alignSelf: 'center' },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
   footer: {
     padding: spacing.lg,
     borderTopWidth: 1,

@@ -7,11 +7,8 @@ import React, {
   useCallback,
 } from 'react';
 import { Platform } from 'react-native';
-import Purchases, {
-  type CustomerInfo,
-  type PurchasesOffering,
-  LOG_LEVEL,
-} from 'react-native-purchases';
+import Purchases, { LOG_LEVEL } from '@/lib/purchases';
+import type { CustomerInfo, PurchasesOffering } from 'react-native-purchases';
 import { config } from '@/lib/config';
 import { tierForPlan, type Tier, type EntitlementId } from '@/lib/plans';
 import { useAuth } from './AuthProvider';

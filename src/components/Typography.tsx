@@ -29,10 +29,14 @@ export function ThemedText({
   );
 }
 
-/** The "Fancy Pot" script wordmark. */
+/** The "Fancy Pot" script wordmark. Scales down to fit narrow screens. */
 export function Wordmark({ size = 52, color = colors.ink }: { size?: number; color?: string }) {
   return (
-    <Text style={[type.wordmark, { fontSize: size, lineHeight: size * 1.1, color }]}>
+    <Text
+      numberOfLines={1}
+      adjustsFontSizeToFit
+      style={[type.wordmark, { fontSize: size, lineHeight: size * 1.14, color, maxWidth: '100%' }]}
+    >
       Fancy Pot
     </Text>
   );

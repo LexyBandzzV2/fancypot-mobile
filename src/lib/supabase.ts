@@ -1,6 +1,6 @@
 import 'react-native-url-polyfill/auto';
 import { createClient, processLock } from '@supabase/supabase-js';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { config } from './config';
 
@@ -9,7 +9,7 @@ import { config } from './config';
  * limit, so we shard large values across multiple keys. In practice the session
  * fits comfortably, but sharding keeps us safe if custom claims grow.
  */
-const LargeSecureStore = {
+const NativeSecureStore = {
   async getItem(key: string): Promise<string | null> {
     return SecureStore.getItemAsync(key);
   },
@@ -21,6 +21,22 @@ const LargeSecureStore = {
   },
 };
 
+// expo-secure-store is native-only and throws on web. For the in-browser
+// preview, fall back to localStorage (native builds always use SecureStore).
+const WebStore = {
+  async getItem(key: string): Promise<string | null> {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+  },
+  async removeItem(key: string): Promise<void> {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+  },
+};
+
+const authStorage = Platform.OS === 'web' ? WebStore : NativeSecureStore;
+
 /**
  * Single shared client, pointed at the SAME Supabase project as the web app.
  * A user who signs up on the website and one who signs up in the app land in
@@ -28,7 +44,7 @@ const LargeSecureStore = {
  */
 export const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
   auth: {
-    storage: LargeSecureStore,
+    storage: authStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false, // no URL-based session on native

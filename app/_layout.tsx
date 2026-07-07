@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 import { PinyonScript_400Regular } from '@expo-google-fonts/pinyon-script';
@@ -19,9 +19,16 @@ import {
 import { View } from 'react-native';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { SubscriptionProvider } from '@/providers/SubscriptionProvider';
+import { useAuthDeepLinks } from '@/hooks/useAuthDeepLinks';
+import { ErrorScreen } from '@/components';
 import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+/** Root error boundary — expo-router renders this on any uncaught render error. */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  return <ErrorScreen error={error} retry={retry} />;
+}
 
 /**
  * Redirects between the (auth) and (tabs) groups based on session state.
@@ -47,6 +54,7 @@ function useProtectedRoute() {
 function RootNavigator() {
   const { initializing } = useAuth();
   useProtectedRoute();
+  useAuthDeepLinks();
 
   useEffect(() => {
     if (!initializing) SplashScreen.hideAsync().catch(() => {});
