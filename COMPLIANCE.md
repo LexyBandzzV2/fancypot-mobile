@@ -25,7 +25,7 @@ dashboard/hosting step — code side is ready) · ⛔ blocker if skipped.
 | Permission usage strings | ✅ | Camera + Photos strings set in `app.json` (`NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, Android `CAMERA` / `READ_MEDIA_IMAGES`). |
 | Encrypted session storage | ✅ | `expo-secure-store` on device (localStorage only in the browser-preview build). |
 | Private user data (RLS) | ✅ | Closet/outfits owner-scoped; images served via short-lived signed URLs from a private bucket. |
-| Reviewer **demo account** | 🟡 ⛔ | Create a real account with a seeded closet + grant it Pro in RevenueCat **sandbox**, and paste credentials into App Review notes. Without this, gated AI features can't be reviewed → rejection. |
+| Reviewer **demo account** | 🟡 ⛔ | Account already created and verified working: `fancypot.testreview@gmail.com` / `FancyPotReview2026!`. Still to do: seed its closet with a few pieces and grant it Pro in RevenueCat **sandbox**, then paste the credentials into App Review notes. Without this, gated AI features can't be reviewed → rejection. |
 
 ## C. Subscriptions & payments — Apple 3.1.1 / 3.1.2 / Play Billing
 
@@ -71,6 +71,20 @@ dashboard/hosting step — code side is ready) · ⛔ blocker if skipped.
 | Sign in with Apple (4.8) | ✅ n/a | Not required — no third-party/social login, only email/password. |
 | EAS build/submit configured | ✅ 🟡 | `eas.json` ready; fill `REPLACE_WITH_*` (Apple ID, ASC app id, team id) and run `eas init` for the project id. |
 | Type-check & bundle | ✅ | `tsc --noEmit` clean; `expo export` produces a valid iOS bundle. |
+
+## F2. 2026 store-tech requirements
+
+| Requirement | Status | Notes |
+| --- | --- | --- |
+| iOS 26 SDK (Apple, mandatory April 2026) | ✅ | Expo SDK 57 / RN 0.86 — EAS builds with Xcode 26 / iOS 26 SDK. |
+| Android target API ≥ 34 (Play) | ✅ | Expo SDK 57 targets API 36 (Android 16). |
+| Android App Bundle (.aab) | ✅ | `eas.json` production profile defaults to app-bundle; only preview builds .apk. |
+| 64-bit support | ✅ | RN/Hermes arm64 builds by default. |
+| IPv6-only networks (Apple 2.5.5) | ✅ | Pure HTTPS via fetch to Supabase; no hardcoded IPv4. |
+| App name ≤ 30 chars | ✅ | "Fancy Pot" (9). |
+| Play CSAE declaration (Jan 2026) | 🟡 | A Play Console *form*, not code. App has no UGC/social/chat, so declare "no child sexual abuse material risk surface"; support contact exists in-app (Profile → Contact support). |
+| US age-verification laws (TX/UT, Jan 2026) | ✅ n/a | Enforced at store/OS level via declared age range; no age-gated content in the app. Answer the age-rating questionnaire honestly (likely 4+/Everyone). |
+| Crash-free stability (top rejection cause) | ✅ | Root ErrorBoundary + not-found route; typecheck + Metro bundle + live click-through verified. **Still test the real build on a physical device before submitting.** |
 
 ## G. Hosted pages you must have live (linked from the app)
 
