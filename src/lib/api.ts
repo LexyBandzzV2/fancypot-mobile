@@ -183,6 +183,27 @@ export async function analyzeOutfit(imageBase64: string): Promise<AnalyzedPiece[
   return res.pieces ?? [];
 }
 
+// ---- Get the Look (non-AI reverse image search) ----
+export interface LookMatch {
+  title: string | null;
+  link: string | null;
+  source: string | null;
+  thumbnail: string | null;
+  price: number | null;
+}
+
+/**
+ * NON-AI reverse image search (SerpAPI Google Lens). Takes a signed URL to the
+ * user's uploaded photo and returns shoppable look-alikes. Uses invokeAI purely
+ * for its structured 429/limit error handling — no AI credits are spent.
+ */
+export async function getTheLookSearch(imageUrl: string): Promise<LookMatch[]> {
+  const res = await invokeAI<{ results: LookMatch[] }>('get-the-look-search', {
+    imageUrl,
+  });
+  return res.results ?? [];
+}
+
 export async function generateOutfit(params: {
   itemIds: string[];
   occasion?: string;

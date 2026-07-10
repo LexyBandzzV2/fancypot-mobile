@@ -15,6 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "org.fancypot.app",
       "buildNumber": "1",
       "infoPlist": {
@@ -60,7 +61,10 @@
           "resizeMode": "contain"
         }
       ],
-      "expo-image"
+      "expo-image",
+      "expo-web-browser",
+      "expo-apple-authentication",
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true

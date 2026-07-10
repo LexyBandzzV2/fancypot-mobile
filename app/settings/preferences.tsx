@@ -7,7 +7,22 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 
 const STYLES = ['Classic', 'Minimal', 'Trendy', 'Streetwear', 'Romantic', 'Edgy', 'Preppy', 'Boho'];
-const STORES = ['Zara', 'H&M', 'Aritzia', 'Nordstrom', 'Reformation', 'Uniqlo', 'SSENSE', 'Free People'];
+const STORES = [
+  'H&M',
+  'Zara',
+  'Aritzia',
+  'Revolve',
+  'ASOS',
+  'Nike',
+  'Lululemon',
+  'Urban Outfitters',
+  'Mango',
+  'Uniqlo',
+  'Nordstrom',
+  'Reformation',
+  'SSENSE',
+  'Free People',
+];
 const BUDGETS = ['Budget', 'Mid-range', 'Premium', 'Luxury'];
 
 /** Style profile editor — writes profiles.preferences (jsonb), same shape as web. */

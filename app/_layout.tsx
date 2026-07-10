@@ -17,17 +17,21 @@ import {
   Inter_600SemiBold,
 } from '@expo-google-fonts/inter';
 import { View } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { SubscriptionProvider } from '@/providers/SubscriptionProvider';
 import { AIConsentProvider } from '@/providers/AIConsentProvider';
 import { useAuthDeepLinks } from '@/hooks/useAuthDeepLinks';
 import { ErrorScreen } from '@/components';
 import { colors } from '@/theme';
+import { initSentry } from '@/lib/sentry';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+initSentry();
 
 /** Root error boundary — expo-router renders this on any uncaught render error. */
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  Sentry.captureException(error);
   return <ErrorScreen error={error} retry={retry} />;
 }
 
@@ -92,7 +96,7 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     PinyonScript_400Regular,
     CormorantGaramond_500Medium,
@@ -122,3 +126,5 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+export default Sentry.wrap(RootLayout);

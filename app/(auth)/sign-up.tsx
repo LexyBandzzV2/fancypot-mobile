@@ -5,11 +5,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, Screen, TextField, ThemedText, Wordmark } from '@/components';
+import { Button, Screen, SocialAuthButtons, TextField, ThemedText, Wordmark } from '@/components';
 import { useAuth } from '@/providers/AuthProvider';
+import { signInWithApple, signInWithGoogle } from '@/lib/socialAuth';
 import { colors, spacing } from '@/theme';
 
 export default function SignUp() {
@@ -20,6 +22,7 @@ export default function SignUp() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
 
   const onSubmit = async () => {
     setError(null);
@@ -33,12 +36,44 @@ export default function SignUp() {
       const { needsConfirmation } = await signUp(email.trim(), password);
       if (needsConfirmation) {
         setNotice('Check your inbox to confirm your email, then sign in.');
+      } else {
+        // If confirmation is off, the session appears and the root guard redirects
+        // into (tabs). Prompt the one-time phone check on top of that — this is a
+        // soft gate, so the rest of the app (closet, feed) stays browsable either way.
+        router.push('/verify-phone');
       }
-      // If confirmation is off, the session appears and the guard redirects.
     } catch (e: any) {
       setError(e?.message ?? 'Could not create your account. Try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Social sign-up creates the same fresh account a password sign-up would,
+  // so it needs the same one-time phone-verification prompt.
+  const onAppleSignUp = async () => {
+    setError(null);
+    setSocialLoading('apple');
+    try {
+      const result = await signInWithApple();
+      if (result) router.push('/verify-phone');
+    } catch (e: any) {
+      Alert.alert('Apple sign-in failed', e?.message ?? 'Please try again.');
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
+  const onGoogleSignUp = async () => {
+    setError(null);
+    setSocialLoading('google');
+    try {
+      const result = await signInWithGoogle();
+      if (result) router.push('/verify-phone');
+    } catch (e: any) {
+      Alert.alert('Google sign-in failed', e?.message ?? 'Please try again.');
+    } finally {
+      setSocialLoading(null);
     }
   };
 
@@ -86,7 +121,20 @@ export default function SignUp() {
           </View>
         ) : null}
 
-        <Button label="Create account" onPress={onSubmit} loading={loading} />
+        <Button
+          label="Create account"
+          onPress={onSubmit}
+          loading={loading}
+          disabled={socialLoading !== null}
+        />
+
+        <SocialAuthButtons
+          mode="sign-up"
+          onApple={onAppleSignUp}
+          onGoogle={onGoogleSignUp}
+          loading={loading || socialLoading !== null}
+          loadingProvider={socialLoading}
+        />
 
         <ThemedText
           variant="labelSmall"

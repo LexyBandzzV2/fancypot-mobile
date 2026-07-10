@@ -90,6 +90,8 @@ All values are **publishable** (safe to ship). No secret keys live in the app.
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Existing anon key (RLS-protected) |
 | `EXPO_PUBLIC_REVENUECAT_IOS_KEY` | RevenueCat public iOS SDK key |
 | `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | RevenueCat public Android SDK key |
+| `EXPO_PUBLIC_SKIMLINKS_ID` | Skimlinks affiliate program ID (optional; product links wrapped for commission when set) |
+| `EXPO_PUBLIC_SENTRY_DSN` | Sentry DSN (optional; error monitoring — crashes from real devices appear in your Sentry dashboard) |
 
 Local dev reads `.env`. **EAS cloud builds** read the `env` block in `eas.json`
 (Supabase values are already there; add the RC keys as EAS secrets — see below).
@@ -110,6 +112,16 @@ supabase functions deploy delete-account
 
 # 3. (optional) additive ai_usage columns for the mobile analytics shape
 supabase db push
+```
+
+### Get the Look (SerpAPI)
+
+"Get the Look" uses **non-AI** reverse image search (SerpAPI Google Lens, flat-rate
+per query — no per-token AI spend). Deploy the function and set its key:
+
+```bash
+supabase secrets set SERPAPI_KEY=<key>
+supabase functions deploy get-the-look-search
 ```
 
 Then apply [`supabase/PATCH-wardrobe-process.md`](./supabase/PATCH-wardrobe-process.md)

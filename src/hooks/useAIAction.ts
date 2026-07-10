@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { UsageLimitError } from '@/lib/api';
 import { useAIConsent } from '@/providers/AIConsentProvider';
+import { useAuth } from '@/providers/AuthProvider';
 
 /**
  * Wraps an AI edge-function call with consistent loading state + error handling.
@@ -14,10 +15,24 @@ import { useAIConsent } from '@/providers/AIConsentProvider';
 export function useAIAction() {
   const router = useRouter();
   const { ensureConsent } = useAIConsent();
+  const { profile } = useAuth();
   const [running, setRunning] = useState(false);
 
   const run = useCallback(
     async <T>(action: () => Promise<T>): Promise<T | null> => {
+      // One-time phone verification gate: browsing stays open, but AI features
+      // require a verified phone so the free tier can't be farmed via fake accounts.
+      if (profile && !profile.phone_verified) {
+        Alert.alert(
+          'Verify your number first',
+          'To keep Fancy Pot fair for everyone, verify your phone once before using AI features.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Verify', onPress: () => router.push('/verify-phone') },
+          ],
+        );
+        return null;
+      }
       // Apple 5.1.2(i) / Google Prominent Disclosure: get consent before sending
       // the user's photos to third-party AI. No-op after the first grant.
       const consented = await ensureConsent();
@@ -48,7 +63,7 @@ export function useAIAction() {
         setRunning(false);
       }
     },
-    [router, ensureConsent],
+    [router, ensureConsent, profile],
   );
 
   return { run, running };

@@ -1,0 +1,28 @@
+# CodeRabbit — AI code review on every pull request.
+# Setup: install the CodeRabbit GitHub App on LexyBandzzV2/fancypot-mobile
+# (github.com/apps/coderabbitai — free for personal repos), then every PR
+# gets an automatic review. This file tunes what it looks at.
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "supabase/functions/**"
+      instructions: >-
+        These are Deno edge functions on a shared Supabase backend. Flag any
+        AI-model call that is not preceded by an auth check and a usage/spend
+        guard, any secret read outside Deno.env.get, and any response that
+        leaks internal error details to the client.
+    - path: "src/**"
+      instructions: >-
+        React Native (Expo) client. Flag any AI-provider SDK or secret key
+        appearing in client code (only EXPO_PUBLIC_* values are allowed here),
+        and any subscription/plan gating that trusts client state instead of
+        profiles.plan from the backend.
+chat:
+  auto_reply: true

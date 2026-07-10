@@ -27,7 +27,10 @@
     "production": {
       "autoIncrement": true,
       "channel": "production",
-      "env": {}
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://gizqpfbmqgwhbalywkqv.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpenFwZmJtcWd3aGJhbHl3a3F2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNTE2NjgsImV4cCI6MjA5MzgyNzY2OH0.uoJC2BW_WXTy6M3-oxjYdmXzP_Ky8GOUH0lBhhIp6tY"
+      }
     }
   },
   "submit": {

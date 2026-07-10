@@ -13,36 +13,120 @@ import { colors, radius, spacing, fillObject } from '@/theme';
 import { useWardrobe } from '@/hooks/useWardrobe';
 import { useOutfits } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
-import { generateOutfit } from '@/lib/api';
+import { generateOutfit, recommendPieces } from '@/lib/api';
+import { openProductUrl } from '@/lib/affiliate';
 
 const OCCASIONS = ['Everyday', 'Work', 'Date night', 'Party', 'Weekend', 'Formal'];
 const VIBES = ['Classic', 'Trendy', 'Cozy', 'Bold', 'Minimal', 'Romantic'];
+
+type Mode = 'mix' | 'pick' | 'mood' | 'cook';
+
+const MODES: { key: Mode; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'mix', label: 'Mix me up', icon: 'shuffle' },
+  { key: 'pick', label: 'Pick a piece', icon: 'pricetag-outline' },
+  { key: 'mood', label: 'Set the mood', icon: 'sparkles-outline' },
+  { key: 'cook', label: 'Let it cook', icon: 'flame-outline' },
+];
+
+type PieceSuggestion = Awaited<ReturnType<typeof recommendPieces>>[number];
+
+interface GenerateParams {
+  itemIds: string[];
+  occasion: string;
+  vibe: string;
+}
 
 export default function StylistScreen() {
   const { items } = useWardrobe();
   const { save } = useOutfits();
   const { run, running } = useAIAction();
+  const [mode, setMode] = useState<Mode>('mood');
   const [selected, setSelected] = useState<string[]>([]);
   const [occasion, setOccasion] = useState<string>('Everyday');
   const [vibe, setVibe] = useState<string>('Classic');
   const [result, setResult] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [lastParams, setLastParams] = useState<GenerateParams | null>(null);
+  const [suggestion, setSuggestion] = useState<PieceSuggestion | null>(null);
 
-  const toggle = (id: string) =>
+  const isEmpty = items.length === 0;
+
+  const changeMode = (m: Mode) => {
+    setMode(m);
+    setSelected([]);
+  };
+
+  // "Set the mood" keeps the classic multi-select toggle.
+  const toggleMulti = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  // "Pick a piece" is single-select — tapping again clears it.
+  const togglePick = (id: string) =>
+    setSelected((prev) => (prev[0] === id ? [] : [id]));
+
+  const onTogglePiece = mode === 'pick' ? togglePick : toggleMulti;
+
+  const buildParams = (): GenerateParams => {
+    if (mode === 'mix') {
+      return { itemIds: items.map((i) => i.id), occasion, vibe };
+    }
+    if (mode === 'pick') {
+      return { itemIds: selected.slice(0, 1), occasion, vibe };
+    }
+    if (mode === 'cook') {
+      const shuffled = [...items].sort(() => Math.random() - 0.5);
+      const count = Math.min(shuffled.length, 3 + Math.floor(Math.random() * 3)); // 3-5
+      const randomVibe = VIBES[Math.floor(Math.random() * VIBES.length)];
+      return { itemIds: shuffled.slice(0, count).map((i) => i.id), occasion, vibe: randomVibe };
+    }
+    // mood
+    return { itemIds: selected, occasion, vibe };
+  };
+
+  const canGenerate = (() => {
+    if (isEmpty) return false;
+    if (mode === 'pick') return selected.length === 1;
+    return true;
+  })();
+
+  const generateLabel = running
+    ? 'Styling your look…'
+    : mode === 'mix'
+      ? 'Mix me up'
+      : mode === 'pick'
+        ? 'Build around this piece'
+        : mode === 'cook'
+          ? 'Let it cook'
+          : 'Generate outfit';
+
+  const fetchSuggestion = async (imageUrl: string) => {
+    // Best-effort only: never surface an error here (over-limit, rate-limited,
+    // network failure, whatever) — the card just doesn't appear.
+    try {
+      const recs = await recommendPieces(imageUrl);
+      if (recs && recs.length > 0) setSuggestion(recs[0]);
+    } catch {
+      // swallow
+    }
+  };
 
   const onGenerate = async () => {
     setResult(null);
     setSaved(false);
-    const res = await run(() =>
-      generateOutfit({ itemIds: selected, occasion, vibe }),
-    );
-    if (res?.image_url) setResult(res.image_url);
+    setSuggestion(null);
+    const params = buildParams();
+    const res = await run(() => generateOutfit(params));
+    if (res?.image_url) {
+      setResult(res.image_url);
+      setLastParams(params);
+      fetchSuggestion(res.image_url);
+    }
   };
 
   const onSave = async () => {
     if (!result) return;
-    await save({ name: `${vibe} ${occasion}`, image_url: result, item_ids: selected, occasion });
+    const p = lastParams ?? { itemIds: selected, occasion, vibe };
+    await save({ name: `${p.vibe} ${p.occasion}`, image_url: result, item_ids: p.itemIds, occasion: p.occasion });
     setSaved(true);
   };
 
@@ -53,6 +137,11 @@ export default function StylistScreen() {
         {result ? (
           <View style={styles.resultWrap}>
             <Image source={{ uri: result }} style={styles.result} contentFit="cover" transition={250} />
+
+            {suggestion ? (
+              <SuggestionCard suggestion={suggestion} onDismiss={() => setSuggestion(null)} />
+            ) : null}
+
             <View style={styles.resultActions}>
               <Button
                 label={saved ? 'Saved to library' : 'Save to library'}
@@ -66,10 +155,9 @@ export default function StylistScreen() {
           </View>
         ) : (
           <>
-            <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
-              PICK PIECES
-            </ThemedText>
-            {items.length === 0 ? (
+            <ModeRow mode={mode} onChange={changeMode} />
+
+            {isEmpty ? (
               <View style={styles.empty}>
                 <EmptyState
                   icon="shirt-outline"
@@ -78,40 +166,77 @@ export default function StylistScreen() {
                 />
               </View>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pieces}>
-                {items.map((it) => {
-                  const on = selected.includes(it.id);
-                  return (
-                    <Pressable key={it.id} onPress={() => toggle(it.id)} style={styles.pieceWrap}>
-                      <View style={[styles.piece, on && styles.pieceOn]}>
-                        {it.signedUrl ? (
-                          <Image source={{ uri: it.signedUrl }} style={styles.pieceImg} contentFit="cover" />
-                        ) : (
-                          <View style={[styles.pieceImg, styles.piecePh]}>
-                            <Ionicons name="shirt-outline" size={22} color={colors.blushDeep} />
-                          </View>
-                        )}
-                        {on ? (
-                          <View style={styles.check}>
-                            <Ionicons name="checkmark" size={16} color={colors.cream} />
-                          </View>
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+              <>
+                {mode === 'mood' ? (
+                  <>
+                    <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
+                      OCCASION
+                    </ThemedText>
+                    <ChipRow options={OCCASIONS} value={occasion} onChange={setOccasion} />
+
+                    <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
+                      VIBE
+                    </ThemedText>
+                    <ChipRow options={VIBES} value={vibe} onChange={setVibe} />
+                  </>
+                ) : null}
+
+                {mode === 'mood' || mode === 'pick' ? (
+                  <>
+                    <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
+                      {mode === 'pick' ? 'CHOOSE ONE PIECE' : 'PICK PIECES (OPTIONAL)'}
+                    </ThemedText>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pieces}>
+                      {items.map((it) => {
+                        const on = selected.includes(it.id);
+                        return (
+                          <Pressable key={it.id} onPress={() => onTogglePiece(it.id)} style={styles.pieceWrap}>
+                            <View style={[styles.piece, on && styles.pieceOn]}>
+                              {it.signedUrl ? (
+                                <Image source={{ uri: it.signedUrl }} style={styles.pieceImg} contentFit="cover" />
+                              ) : (
+                                <View style={[styles.pieceImg, styles.piecePh]}>
+                                  <Ionicons name="shirt-outline" size={22} color={colors.blushDeep} />
+                                </View>
+                              )}
+                              {on ? (
+                                <View style={styles.check}>
+                                  <Ionicons name="checkmark" size={16} color={colors.cream} />
+                                </View>
+                              ) : null}
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </>
+                ) : null}
+
+                {mode === 'mix' ? (
+                  <>
+                    <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
+                      OCCASION
+                    </ThemedText>
+                    <ChipRow options={OCCASIONS} value={occasion} onChange={setOccasion} />
+
+                    <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
+                      VIBE
+                    </ThemedText>
+                    <ChipRow options={VIBES} value={vibe} onChange={setVibe} />
+
+                    <ThemedText variant="body" color={colors.inkMuted} style={styles.hint}>
+                      We'll style a look using your whole closet ({items.length} {items.length === 1 ? 'piece' : 'pieces'}).
+                    </ThemedText>
+                  </>
+                ) : null}
+
+                {mode === 'cook' ? (
+                  <ThemedText variant="body" color={colors.inkMuted} style={styles.hint}>
+                    Surprise me — a random handful of pieces and a random vibe, one tap.
+                  </ThemedText>
+                ) : null}
+              </>
             )}
-
-            <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
-              OCCASION
-            </ThemedText>
-            <ChipRow options={OCCASIONS} value={occasion} onChange={setOccasion} />
-
-            <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
-              VIBE
-            </ThemedText>
-            <ChipRow options={VIBES} value={vibe} onChange={setVibe} />
           </>
         )}
       </ScrollView>
@@ -119,10 +244,10 @@ export default function StylistScreen() {
       {!result ? (
         <View style={styles.footer}>
           <Button
-            label={running ? 'Styling your look…' : 'Generate outfit'}
+            label={generateLabel}
             onPress={onGenerate}
             loading={running}
-            disabled={selected.length === 0}
+            disabled={!canGenerate}
             icon={!running ? <Ionicons name="color-wand" size={18} color={colors.cream} /> : undefined}
           />
         </View>
@@ -134,6 +259,24 @@ export default function StylistScreen() {
         </View>
       ) : null}
     </View>
+  );
+}
+
+function ModeRow({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modes}>
+      {MODES.map((m) => {
+        const on = m.key === mode;
+        return (
+          <Pressable key={m.key} onPress={() => onChange(m.key)} style={[styles.modeChip, on && styles.modeChipOn]}>
+            <Ionicons name={m.icon} size={15} color={on ? colors.cream : colors.ink} style={styles.modeIcon} />
+            <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
+              {m.label}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
 }
 
@@ -162,11 +305,75 @@ function ChipRow({
   );
 }
 
+function SuggestionCard({
+  suggestion,
+  onDismiss,
+}: {
+  suggestion: PieceSuggestion;
+  onDismiss: () => void;
+}) {
+  return (
+    <View style={styles.suggestCard}>
+      <Pressable onPress={onDismiss} hitSlop={8} style={styles.suggestClose}>
+        <Ionicons name="close" size={14} color={colors.inkMuted} />
+      </Pressable>
+      <View style={styles.suggestRow}>
+        {suggestion.image_url ? (
+          <Image source={{ uri: suggestion.image_url }} style={styles.suggestThumb} contentFit="cover" />
+        ) : (
+          <View style={[styles.suggestThumb, styles.piecePh]}>
+            <Ionicons name="shirt-outline" size={18} color={colors.blushDeep} />
+          </View>
+        )}
+        <View style={styles.suggestInfo}>
+          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.suggestEyebrow}>
+            MISSING A PIECE?
+          </ThemedText>
+          <ThemedText variant="label" numberOfLines={1}>
+            {suggestion.name}
+          </ThemedText>
+          <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
+            {suggestion.store}
+            {typeof suggestion.price === 'number' ? `  ·  $${suggestion.price.toFixed(0)}` : ''}
+          </ThemedText>
+          <View style={styles.suggestActions}>
+            <Pressable onPress={() => openProductUrl(suggestion.url)} hitSlop={6}>
+              <ThemedText variant="labelSmall" color={colors.pinkWarm}>
+                View
+              </ThemedText>
+            </Pressable>
+            <Pressable onPress={onDismiss} hitSlop={6} style={styles.suggestNotNow}>
+              <ThemedText variant="labelSmall" color={colors.inkMuted}>
+                Not now
+              </ThemedText>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
   content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
   sectionLabel: { marginTop: spacing.lg, marginBottom: spacing.sm, letterSpacing: 1 },
+  hint: { marginTop: spacing.lg },
   empty: { height: 200 },
+  modes: { gap: spacing.sm, paddingVertical: spacing.xs },
+  modeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.white,
+    minHeight: 40,
+  },
+  modeChipOn: { backgroundColor: colors.pinkWarm, borderColor: colors.pinkWarm },
+  modeIcon: { marginRight: spacing.xs },
   pieces: { gap: spacing.sm, paddingVertical: spacing.xs },
   pieceWrap: {},
   piece: {
@@ -219,4 +426,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(250,243,231,0.5)',
   },
+  suggestCard: {
+    backgroundColor: colors.pearl,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  suggestClose: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.white,
+    zIndex: 1,
+  },
+  suggestRow: { flexDirection: 'row', gap: spacing.md },
+  suggestThumb: { width: 48, height: 60, borderRadius: radius.sm, backgroundColor: colors.white },
+  suggestInfo: { flex: 1, paddingRight: spacing.xl, gap: 2 },
+  suggestEyebrow: { letterSpacing: 1, marginBottom: 2 },
+  suggestActions: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.xs },
+  suggestNotNow: {},
 });

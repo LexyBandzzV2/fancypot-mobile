@@ -1,111 +1,267 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import React, { useRef, useState } from 'react';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+  Animated,
+  PanResponder,
+  Dimensions,
+  Alert,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { StackHeader, Button, ThemedText, EmptyState } from '@/components';
 import { colors, radius, spacing, fillObject } from '@/theme';
 import { useImagePicker } from '@/hooks/useImagePicker';
-import { useAIAction } from '@/hooks/useAIAction';
-import { analyzeOutfit, type AnalyzedPiece } from '@/lib/api';
+import { useAuth } from '@/providers/AuthProvider';
+import { getTheLookSearch, saveOutfit, UsageLimitError, type LookMatch } from '@/lib/api';
+import { uploadWardrobeImage, signWardrobeUrl, deleteWardrobeObject } from '@/lib/storage';
+import { openProductUrl } from '@/lib/affiliate';
+
+const SCREEN_W = Dimensions.get('window').width;
+const SWIPE_THRESHOLD = SCREEN_W * 0.25;
 
 export default function GetTheLookScreen() {
   const { fromLibrary, fromCamera } = useImagePicker();
-  const { run, running } = useAIAction();
-  const [pieces, setPieces] = useState<AnalyzedPiece[]>([]);
+  const { user } = useAuth();
+  const [results, setResults] = useState<LookMatch[]>([]);
   const [index, setIndex] = useState(0);
-  const [loved, setLoved] = useState<AnalyzedPiece[]>([]);
+  const [kept, setKept] = useState<LookMatch[]>([]);
+  const [searching, setSearching] = useState(false);
 
-  const analyze = async (source: 'camera' | 'library') => {
+  const position = useRef(new Animated.ValueXY()).current;
+
+  const search = async (source: 'camera' | 'library') => {
+    if (!user) return;
     const picked = source === 'camera' ? await fromCamera() : await fromLibrary();
     if (!picked) return;
-    const res = await run(() => analyzeOutfit(picked.base64));
-    if (res) {
-      setPieces(res);
+
+    setSearching(true);
+    let uploadedPath: string | null = null;
+    try {
+      // Upload the photo, sign it, and hand the signed URL to the search.
+      uploadedPath = await uploadWardrobeImage(user.id, picked.base64);
+      const signed = await signWardrobeUrl(uploadedPath);
+      if (!signed) throw new Error('Could not prepare the photo.');
+      const matches = await getTheLookSearch(signed);
+      setResults(matches);
       setIndex(0);
-      setLoved([]);
+      setKept([]);
+      position.setValue({ x: 0, y: 0 });
+    } catch (e) {
+      const message =
+        e instanceof UsageLimitError
+          ? e.message
+          : 'We could not search that photo. Please try again.';
+      Alert.alert('Get the look', message);
+    } finally {
+      // The uploaded photo is only needed for the SerpAPI call; clean it up.
+      if (uploadedPath) deleteWardrobeObject(uploadedPath).catch(() => {});
+      setSearching(false);
     }
   };
 
-  const decide = (love: boolean) => {
-    Haptics.impactAsync(
-      love ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light,
-    );
-    const current = pieces[index];
-    if (love && current) setLoved((prev) => [...prev, current]);
+  const advance = () => {
+    position.setValue({ x: 0, y: 0 });
     setIndex((i) => i + 1);
   };
 
-  const done = pieces.length > 0 && index >= pieces.length;
-  const current = pieces[index];
+  const decide = async (keep: boolean) => {
+    Haptics.impactAsync(
+      keep ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light,
+    );
+    const current = results[index];
+    if (keep && current && user) {
+      setKept((prev) => [...prev, current]);
+      try {
+        await saveOutfit(user.id, {
+          name: current.title ?? 'Saved look',
+          image_url: current.thumbnail,
+          category: 'get_the_look',
+        });
+      } catch {
+        // Non-blocking: keep the swipe flow moving even if the save fails.
+      }
+    }
+    advance();
+  };
+
+  // Animate the top card off-screen, then record the decision.
+  const swipeOff = (keep: boolean) => {
+    Animated.timing(position, {
+      toValue: { x: keep ? SCREEN_W * 1.4 : -SCREEN_W * 1.4, y: 0 },
+      duration: 220,
+      useNativeDriver: true,
+    }).start(() => decide(keep));
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 6,
+      onPanResponderMove: (_, g) => position.setValue({ x: g.dx, y: g.dy }),
+      onPanResponderRelease: (_, g) => {
+        if (g.dx > SWIPE_THRESHOLD) swipeOff(true);
+        else if (g.dx < -SWIPE_THRESHOLD) swipeOff(false);
+        else
+          Animated.spring(position, {
+            toValue: { x: 0, y: 0 },
+            useNativeDriver: true,
+          }).start();
+      },
+    }),
+  ).current;
+
+  const rotate = position.x.interpolate({
+    inputRange: [-SCREEN_W / 2, 0, SCREEN_W / 2],
+    outputRange: ['-10deg', '0deg', '10deg'],
+  });
+  const likeOpacity = position.x.interpolate({
+    inputRange: [0, SWIPE_THRESHOLD],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+  const nopeOpacity = position.x.interpolate({
+    inputRange: [-SWIPE_THRESHOLD, 0],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const done = results.length > 0 && index >= results.length;
+  const current = results[index];
 
   return (
     <View style={styles.root}>
       <StackHeader title="Get the look" />
       <View style={styles.content}>
-        {pieces.length === 0 ? (
+        {results.length === 0 ? (
           <View style={styles.start}>
             <EmptyState
               icon="camera-outline"
               title="Snap an outfit"
-              body="Upload any outfit photo and we'll break it into shoppable pieces you can swipe through."
+              body="Upload any outfit photo and we'll find shoppable look-alikes you can swipe through."
             />
             <View style={styles.startActions}>
-              <Button label="Take a photo" onPress={() => analyze('camera')} loading={running} />
+              <Button label="Take a photo" onPress={() => search('camera')} loading={searching} />
               <View style={{ height: spacing.sm }} />
-              <Button label="Choose from library" variant="outline" onPress={() => analyze('library')} />
+              <Button
+                label="Choose from library"
+                variant="outline"
+                onPress={() => search('library')}
+              />
             </View>
           </View>
         ) : done ? (
           <View style={styles.done}>
             <ThemedText variant="h2" center>
-              You loved {loved.length} {loved.length === 1 ? 'piece' : 'pieces'}
+              You kept {kept.length} {kept.length === 1 ? 'look' : 'looks'}
             </ThemedText>
-            <View style={styles.lovedGrid}>
-              {loved.map((p) => (
-                <View key={p.id} style={styles.lovedItem}>
-                  <Image source={{ uri: p.image_url }} style={styles.lovedImg} contentFit="cover" />
+            <View style={styles.keptGrid}>
+              {kept.map((p, i) => (
+                <View key={`${p.link ?? p.title ?? 'item'}-${i}`} style={styles.keptItem}>
+                  {p.thumbnail ? (
+                    <Image source={{ uri: p.thumbnail }} style={styles.keptImg} contentFit="cover" />
+                  ) : (
+                    <View style={styles.keptImg} />
+                  )}
                   <ThemedText variant="labelSmall" numberOfLines={1}>
-                    {p.name}
+                    {p.title ?? p.source ?? 'Saved look'}
                   </ThemedText>
                 </View>
               ))}
             </View>
-            <Button label="Start over" variant="outline" onPress={() => setPieces([])} />
+            <ThemedText variant="labelSmall" color={colors.inkMuted} center>
+              Saved to your library.
+            </ThemedText>
+            <Button label="Start over" variant="outline" onPress={() => setResults([])} />
           </View>
         ) : (
           <View style={styles.swipe}>
-            <View style={styles.card}>
-              <Image source={{ uri: current.image_url }} style={styles.cardImg} contentFit="cover" transition={200} />
+            <Animated.View
+              style={[
+                styles.card,
+                {
+                  transform: [
+                    { translateX: position.x },
+                    { translateY: position.y },
+                    { rotate },
+                  ],
+                },
+              ]}
+              {...panResponder.panHandlers}
+            >
+              {current.thumbnail ? (
+                <Image
+                  source={{ uri: current.thumbnail }}
+                  style={styles.cardImg}
+                  contentFit="cover"
+                  transition={200}
+                />
+              ) : (
+                <View style={[styles.cardImg, styles.cardImgFallback]}>
+                  <Ionicons name="image-outline" size={48} color={colors.inkMuted} />
+                </View>
+              )}
+
+              <Animated.View style={[styles.badge, styles.likeBadge, { opacity: likeOpacity }]}>
+                <ThemedText variant="labelSmall" color={colors.white}>
+                  KEEP
+                </ThemedText>
+              </Animated.View>
+              <Animated.View style={[styles.badge, styles.nopeBadge, { opacity: nopeOpacity }]}>
+                <ThemedText variant="labelSmall" color={colors.white}>
+                  SKIP
+                </ThemedText>
+              </Animated.View>
+
               <View style={styles.cardMeta}>
-                <ThemedText variant="labelSmall" color={colors.inkMuted}>
-                  {current.category}
+                {current.source ? (
+                  <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
+                    {current.source}
+                  </ThemedText>
+                ) : null}
+                <ThemedText variant="h3" numberOfLines={2}>
+                  {current.title ?? 'Shoppable match'}
                 </ThemedText>
-                <ThemedText variant="h3" numberOfLines={1}>
-                  {current.name}
-                </ThemedText>
+                {current.price != null ? (
+                  <ThemedText variant="body">${current.price}</ThemedText>
+                ) : null}
+                {current.link ? (
+                  <Pressable
+                    onPress={() => openProductUrl(current.link)}
+                    hitSlop={8}
+                    style={styles.productLink}
+                  >
+                    <Ionicons name="open-outline" size={16} color={colors.pinkWarm} />
+                    <ThemedText variant="labelSmall" color={colors.pinkWarm}>
+                      View product
+                    </ThemedText>
+                  </Pressable>
+                ) : null}
               </View>
-            </View>
+            </Animated.View>
+
             <ThemedText variant="labelSmall" color={colors.inkMuted} center style={styles.counter}>
-              {index + 1} of {pieces.length}
+              {index + 1} of {results.length}
             </ThemedText>
             <View style={styles.swipeActions}>
-              <Pressable style={[styles.circle, styles.skip]} onPress={() => decide(false)}>
+              <Pressable style={[styles.circle, styles.skip]} onPress={() => swipeOff(false)}>
                 <Ionicons name="close" size={30} color={colors.ink} />
               </Pressable>
-              <Pressable style={[styles.circle, styles.love]} onPress={() => decide(true)}>
-                <Ionicons name="heart" size={30} color={colors.cream} />
+              <Pressable style={[styles.circle, styles.love]} onPress={() => swipeOff(true)}>
+                <Ionicons name="heart" size={30} color={colors.white} />
               </Pressable>
             </View>
           </View>
         )}
       </View>
 
-      {running && pieces.length === 0 ? (
+      {searching ? (
         <View style={styles.overlay}>
           <ActivityIndicator size="large" color={colors.pinkWarm} />
           <ThemedText variant="body" color={colors.inkMuted} style={{ marginTop: spacing.md }}>
-            Analyzing the look…
+            Finding the look…
           </ThemedText>
         </View>
       ) : null}
@@ -132,9 +288,29 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardImg: { width: '100%', aspectRatio: 0.85 },
-  cardMeta: { padding: spacing.lg, gap: 2 },
+  cardImgFallback: {
+    backgroundColor: colors.pearl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardMeta: { padding: spacing.lg, gap: spacing.xs },
+  productLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
+  badge: {
+    position: 'absolute',
+    top: spacing.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+  },
+  likeBadge: { right: spacing.lg, backgroundColor: colors.pinkWarm },
+  nopeBadge: { left: spacing.lg, backgroundColor: colors.ink },
   counter: { marginTop: spacing.md },
-  swipeActions: { flexDirection: 'row', justifyContent: 'center', gap: spacing.xxl, marginTop: spacing.lg },
+  swipeActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.xxl,
+    marginTop: spacing.lg,
+  },
   circle: {
     width: 68,
     height: 68,
@@ -145,9 +321,9 @@ const styles = StyleSheet.create({
   skip: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderStrong },
   love: { backgroundColor: colors.pinkWarm },
   done: { flex: 1, justifyContent: 'center', gap: spacing.xl },
-  lovedGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, justifyContent: 'center' },
-  lovedItem: { width: 100, gap: spacing.xs },
-  lovedImg: { width: 100, height: 120, borderRadius: radius.md, backgroundColor: colors.pearl },
+  keptGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, justifyContent: 'center' },
+  keptItem: { width: 100, gap: spacing.xs },
+  keptImg: { width: 100, height: 120, borderRadius: radius.md, backgroundColor: colors.pearl },
   overlay: {
     ...fillObject,
     alignItems: 'center',

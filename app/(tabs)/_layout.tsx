@@ -4,6 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { colors, fonts } from '@/theme';
+import { Glass } from '@/components/Glass';
+
+/** Floating glass tab bar height (excludes safe-area bottom inset, which
+ * react-navigation adds on top of this on iOS). Also used to pad scene
+ * content so it doesn't sit underneath the now-absolutely-positioned bar. */
+const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
 
 /**
  * Bottom tab bar — the primary mobile navigation pattern (replaces the web's
@@ -22,13 +28,20 @@ export default function TabsLayout() {
         tabBarActiveTintColor: colors.ink,
         tabBarInactiveTintColor: colors.inkMuted,
         tabBarStyle: {
-          backgroundColor: colors.cream,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: Platform.OS === 'ios' ? 88 : 64,
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'transparent',
+          borderTopWidth: 0,
+          elevation: 0,
+          height: TAB_BAR_HEIGHT,
           paddingTop: 6,
         },
+        tabBarBackground: () => <Glass style={{ flex: 1 }} intensity={40} tint="light" />,
         tabBarLabelStyle: { fontFamily: fonts.sansMedium, fontSize: 11 },
+        // Keep scrollable screen content from being hidden under the floating bar.
+        sceneStyle: { paddingBottom: TAB_BAR_HEIGHT },
       }}
     >
       <Tabs.Screen

@@ -5,12 +5,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Screen, TextField, ThemedText, Wordmark } from '@/components';
+import { Button, Screen, SocialAuthButtons, TextField, ThemedText, Wordmark } from '@/components';
 import { useAuth } from '@/providers/AuthProvider';
+import { signInWithApple, signInWithGoogle } from '@/lib/socialAuth';
 import { colors, spacing } from '@/theme';
 
 export default function SignIn() {
@@ -21,6 +23,7 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
 
   const onSubmit = async () => {
     setError(null);
@@ -36,6 +39,32 @@ export default function SignIn() {
       setError(e?.message ?? 'Could not sign in. Check your details and try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const onAppleSignIn = async () => {
+    setError(null);
+    setSocialLoading('apple');
+    try {
+      // Existing users are already verified — a session here is enough,
+      // the root protected-route guard handles the rest.
+      await signInWithApple();
+    } catch (e: any) {
+      Alert.alert('Apple sign-in failed', e?.message ?? 'Please try again.');
+    } finally {
+      setSocialLoading(null);
+    }
+  };
+
+  const onGoogleSignIn = async () => {
+    setError(null);
+    setSocialLoading('google');
+    try {
+      await signInWithGoogle();
+    } catch (e: any) {
+      Alert.alert('Google sign-in failed', e?.message ?? 'Please try again.');
+    } finally {
+      setSocialLoading(null);
     }
   };
 
@@ -88,7 +117,20 @@ export default function SignIn() {
           </ThemedText>
         </Pressable>
 
-        <Button label="Sign in" onPress={onSubmit} loading={loading} />
+        <Button
+          label="Sign in"
+          onPress={onSubmit}
+          loading={loading}
+          disabled={socialLoading !== null}
+        />
+
+        <SocialAuthButtons
+          mode="sign-in"
+          onApple={onAppleSignIn}
+          onGoogle={onGoogleSignIn}
+          loading={loading || socialLoading !== null}
+          loadingProvider={socialLoading}
+        />
 
         <View style={styles.footer}>
           <ThemedText variant="body" color={colors.inkMuted}>

@@ -43,18 +43,33 @@ export default function SavedScreen() {
           <SkeletonGrid count={4} />
         </View>
       ) : outfits.length === 0 ? (
-        <EmptyState
-          icon="bookmark-outline"
-          title="No saved looks yet"
-          body="Outfits you create with your stylist will appear here."
-          actionLabel="Create an outfit"
-          onAction={() => router.push('/style/stylist')}
-        />
+        <View style={styles.emptyContainer}>
+          {/* Decorative faint pink grid background */}
+          <View style={styles.gridBackground} pointerEvents="none">
+            {[...Array(8)].map((_, rowIdx) => (
+              <View key={`row-${rowIdx}`} style={styles.gridRow}>
+                {[...Array(3)].map((_, colIdx) => (
+                  <View key={`cell-${rowIdx}-${colIdx}`} style={styles.gridCell} />
+                ))}
+              </View>
+            ))}
+          </View>
+          {/* EmptyState content centered on top */}
+          <View style={styles.emptyContent}>
+            <EmptyState
+              icon="bookmark-outline"
+              title="No looks yet"
+              body="Create your first look with the Stylist"
+              actionLabel="Create a look"
+              onAction={() => router.push('/style/stylist')}
+            />
+          </View>
+        </View>
       ) : (
         <FlatList
           data={outfits}
           keyExtractor={(o) => o.id}
-          numColumns={2}
+          numColumns={3}
           columnWrapperStyle={styles.column}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -110,6 +125,10 @@ export default function SavedScreen() {
 }
 
 const GAP = spacing.md;
+const GRID_CELL_SIZE = 45;
+const GRID_GAP = 12;
+const GRID_COLOR = colors.blush;
+const GRID_OPACITY = 0.15;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
@@ -125,7 +144,36 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
   },
-  img: { width: '100%', aspectRatio: 0.8 },
+  img: { width: '100%', aspectRatio: 1 },
   placeholder: { backgroundColor: colors.pearl, alignItems: 'center', justifyContent: 'center' },
   label: { padding: spacing.sm },
+  // Empty state styles
+  emptyContainer: { flex: 1, backgroundColor: colors.cream },
+  gridBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    gap: GRID_GAP,
+    marginBottom: GRID_GAP,
+  },
+  gridCell: {
+    flex: 1,
+    aspectRatio: 1,
+    borderWidth: 1,
+    borderColor: GRID_COLOR,
+    opacity: GRID_OPACITY,
+    borderRadius: radius.sm,
+  },
+  emptyContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 });

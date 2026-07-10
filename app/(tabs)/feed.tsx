@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
   FlatList,
   RefreshControl,
   Pressable,
-  Linking,
+  ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,12 +13,27 @@ import * as Haptics from 'expo-haptics';
 import { AppHeader, Card, EmptyState, SkeletonGrid, ThemedText } from '@/components';
 import { colors, radius, spacing } from '@/theme';
 import { getFeed, refreshFeed, reactToProduct, type FeedProduct } from '@/lib/api';
+import { openProductUrl } from '@/lib/affiliate';
+import { useAuth } from '@/providers/AuthProvider';
 
 export default function FeedScreen() {
+  const { profile } = useAuth();
   const [products, setProducts] = useState<FeedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [reactions, setReactions] = useState<Record<string, 'like' | 'dislike' | 'save'>>({});
+  const [activeStore, setActiveStore] = useState<string | null>(null);
+
+  const savedStores = useMemo(() => {
+    const prefs = (profile?.preferences ?? {}) as { stores?: string[] };
+    return Array.isArray(prefs.stores) ? prefs.stores.filter(Boolean) : [];
+  }, [profile]);
+
+  const visibleProducts = useMemo(() => {
+    if (!activeStore) return products;
+    const needle = activeStore.toLowerCase();
+    return products.filter((p) => (p.brand ?? '').toLowerCase() === needle);
+  }, [products, activeStore]);
 
   const load = useCallback(async () => {
     try {
@@ -66,6 +81,9 @@ export default function FeedScreen() {
   return (
     <View style={styles.root}>
       <AppHeader title="Style Feed" subtitle="Fresh finds from the places you love" />
+      {savedStores.length > 0 ? (
+        <StoreChipRow stores={savedStores} active={activeStore} onChange={setActiveStore} />
+      ) : null}
       {loading ? (
         <View style={styles.pad}>
           <SkeletonGrid count={4} />
@@ -80,7 +98,7 @@ export default function FeedScreen() {
         />
       ) : (
         <FlatList
-          data={products}
+          data={visibleProducts}
           keyExtractor={(p) => p.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -93,6 +111,47 @@ export default function FeedScreen() {
         />
       )}
     </View>
+  );
+}
+
+function StoreChipRow({
+  stores,
+  active,
+  onChange,
+}: {
+  stores: string[];
+  active: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.storeChips}
+    >
+      <Pressable
+        onPress={() => onChange(null)}
+        style={[styles.storeChip, active === null && styles.storeChipOn]}
+      >
+        <ThemedText variant="label" color={active === null ? colors.cream : colors.ink}>
+          All
+        </ThemedText>
+      </Pressable>
+      {stores.map((store) => {
+        const on = active === store;
+        return (
+          <Pressable
+            key={store}
+            onPress={() => onChange(on ? null : store)}
+            style={[styles.storeChip, on && styles.storeChipOn]}
+          >
+            <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
+              {store}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
 }
 
@@ -138,7 +197,7 @@ function ProductCard({
             />
             <ReactBtn icon="close" onPress={() => onReact(item, 'dislike')} />
             {item.product_url ? (
-              <ReactBtn icon="open-outline" onPress={() => Linking.openURL(item.product_url!)} />
+              <ReactBtn icon="open-outline" onPress={() => openProductUrl(item.product_url)} />
             ) : null}
           </View>
         </View>
@@ -166,6 +225,22 @@ function ReactBtn({
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
   pad: { paddingHorizontal: spacing.lg },
+  storeChips: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  storeChip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.white,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  storeChipOn: { backgroundColor: colors.pinkWarm, borderColor: colors.pinkWarm },
   list: { paddingHorizontal: spacing.lg, paddingBottom: 120, gap: spacing.lg },
   card: { marginBottom: 0 },
   cardImg: { width: '100%', aspectRatio: 1.1 },

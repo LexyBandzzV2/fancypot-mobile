@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing, fillObject } from '@/theme';
 import { ThemedText } from './Typography';
+import { Glass } from './Glass';
 
 /**
  * Native-feeling bottom sheet: slides up from the bottom over a dimmed backdrop,
@@ -53,19 +54,19 @@ export function BottomSheet({
         <Animated.View style={[styles.backdrop, { opacity: backdrop }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
-        <Animated.View
-          style={[
-            styles.sheet,
-            { paddingBottom: insets.bottom + spacing.lg, transform: [{ translateY }] },
-          ]}
-        >
-          <View style={styles.handle} />
-          {title ? (
-            <ThemedText variant="h3" style={styles.title}>
-              {title}
-            </ThemedText>
-          ) : null}
-          {children}
+        <Animated.View style={[styles.sheetWrap, { transform: [{ translateY }] }]}>
+          <Glass
+            style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}
+            intensity={45}
+          >
+            <View style={styles.handle} />
+            {title ? (
+              <ThemedText variant="h3" style={styles.title}>
+                {title}
+              </ThemedText>
+            ) : null}
+            {children}
+          </Glass>
         </Animated.View>
       </View>
     </Modal>
@@ -100,9 +101,11 @@ export function SheetAction({
 
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...fillObject, backgroundColor: colors.overlay },
+  // Slightly darker than the default `colors.overlay` — a glass sheet needs
+  // more backdrop contrast to read clearly against busy content behind it.
+  backdrop: { ...fillObject, backgroundColor: 'rgba(26, 22, 20, 0.55)' },
+  sheetWrap: { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
   sheet: {
-    backgroundColor: colors.cream,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     paddingHorizontal: spacing.lg,
