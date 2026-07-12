@@ -5,25 +5,7 @@ import { StackHeader, Button, ThemedText } from '@/components';
 import { colors, radius, spacing } from '@/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-
-const STYLES = ['Classic', 'Minimal', 'Trendy', 'Streetwear', 'Romantic', 'Edgy', 'Preppy', 'Boho'];
-const STORES = [
-  'H&M',
-  'Zara',
-  'Aritzia',
-  'Revolve',
-  'ASOS',
-  'Nike',
-  'Lululemon',
-  'Urban Outfitters',
-  'Mango',
-  'Uniqlo',
-  'Nordstrom',
-  'Reformation',
-  'SSENSE',
-  'Free People',
-];
-const BUDGETS = ['Budget', 'Mid-range', 'Premium', 'Luxury'];
+import { STYLES, STORES, BUDGETS } from '@/lib/brands';
 
 /** Style profile editor — writes profiles.preferences (jsonb), same shape as web. */
 export default function Preferences() {

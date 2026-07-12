@@ -16,6 +16,14 @@ function required(name: string, value: string | undefined): string {
   return value;
 }
 
+// Real RevenueCat public keys are prefixed "appl_" (iOS) / "goog_" (Android).
+// Anything else (empty, REPLACE_WITH_ placeholders, typos) is treated as unset
+// so SubscriptionProvider takes its graceful no-IAP path instead of crashing
+// the SDK at configure time.
+function revenueCatKey(prefix: string, value: string | undefined): string {
+  return value && value.startsWith(prefix) ? value : '';
+}
+
 export const config = {
   supabaseUrl: required(
     'EXPO_PUBLIC_SUPABASE_URL',
@@ -27,6 +35,6 @@ export const config = {
   ),
   // RevenueCat public SDK keys (platform specific). Optional at dev time so the
   // app still boots without IAP configured; the paywall degrades gracefully.
-  revenueCatIosKey: process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? '',
-  revenueCatAndroidKey: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY ?? '',
+  revenueCatIosKey: revenueCatKey('appl_', process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY),
+  revenueCatAndroidKey: revenueCatKey('goog_', process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY),
 } as const;
