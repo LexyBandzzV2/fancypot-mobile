@@ -10,14 +10,17 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { AppHeader, Card, EmptyState, SkeletonGrid, ThemedText } from '@/components';
+import { useRouter } from 'expo-router';
+import { AppHeader, Button, Card, EmptyState, SkeletonGrid, ThemedText } from '@/components';
 import { colors, radius, spacing } from '@/theme';
-import { getFeed, refreshFeed, reactToProduct, type FeedProduct } from '@/lib/api';
+import { getFeed, getFreshFeed, reactToProduct, type FeedProduct } from '@/lib/api';
 import { openProductUrl } from '@/lib/affiliate';
+import { brandsMatch } from '@/lib/brands';
 import { useAuth } from '@/providers/AuthProvider';
 
 export default function FeedScreen() {
   const { profile } = useAuth();
+  const router = useRouter();
   const [products, setProducts] = useState<FeedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,20 +34,22 @@ export default function FeedScreen() {
 
   const visibleProducts = useMemo(() => {
     if (!activeStore) return products;
-    const needle = activeStore.toLowerCase();
-    return products.filter((p) => (p.brand ?? '').toLowerCase() === needle);
+    return products.filter((p) => brandsMatch(p.brand, activeStore));
   }, [products, activeStore]);
 
+  // Curated (feed-page) and fresh (feed-fresh, non-AI SerpAPI) sources are
+  // fetched side by side — one failing must not blank out the other. When a
+  // store chip is active, the fresh source is asked for that store directly.
   const load = useCallback(async () => {
-    try {
-      const rows = await getFeed();
-      setProducts(rows);
-    } catch {
-      setProducts([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    const [freshResult, curatedResult] = await Promise.allSettled([
+      getFreshFeed(activeStore ?? undefined),
+      getFeed(),
+    ]);
+    const fresh = freshResult.status === 'fulfilled' ? freshResult.value : [];
+    const curated = curatedResult.status === 'fulfilled' ? curatedResult.value : [];
+    setProducts(mergeFeeds(fresh, curated));
+    setLoading(false);
+  }, [activeStore]);
 
   useEffect(() => {
     load();
@@ -52,14 +57,8 @@ export default function FeedScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    try {
-      await refreshFeed(); // scrape fresh products server-side
-      await load();
-    } catch {
-      // keep existing list on failure
-    } finally {
-      setRefreshing(false);
-    }
+    await load(); // re-pull both sources; the weekly pg_cron job owns AI scraping now
+    setRefreshing(false);
   }, [load]);
 
   const react = useCallback(
@@ -89,13 +88,24 @@ export default function FeedScreen() {
           <SkeletonGrid count={4} />
         </View>
       ) : products.length === 0 ? (
-        <EmptyState
-          icon="sparkles-outline"
-          title="No finds yet"
-          body="Pull to refresh and we'll pull fresh pieces matched to your style."
-          actionLabel="Refresh feed"
-          onAction={onRefresh}
-        />
+        <>
+          <EmptyState
+            icon="sparkles-outline"
+            title="No finds yet"
+            body="Pull to refresh and we'll pull fresh pieces matched to your style."
+            actionLabel="Refresh feed"
+            onAction={onRefresh}
+          />
+          {savedStores.length === 0 ? (
+            <View style={styles.pickStoresAction}>
+              <Button
+                label="Pick your favorite stores"
+                fullWidth={false}
+                onPress={() => router.push('/settings/preferences')}
+              />
+            </View>
+          ) : null}
+        </>
       ) : (
         <FlatList
           data={visibleProducts}
@@ -112,6 +122,25 @@ export default function FeedScreen() {
       )}
     </View>
   );
+}
+
+// Fresh items first, then curated, deduped by product_url (case-insensitive,
+// first occurrence wins). Items with no product_url are kept as-is — there's
+// nothing to dedupe them against.
+function mergeFeeds(fresh: FeedProduct[], curated: FeedProduct[]): FeedProduct[] {
+  const seen = new Set<string>();
+  const merged: FeedProduct[] = [];
+  for (const item of [...fresh, ...curated]) {
+    if (!item.product_url) {
+      merged.push(item);
+      continue;
+    }
+    const key = item.product_url.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(item);
+  }
+  return merged;
 }
 
 function StoreChipRow({
@@ -241,6 +270,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   storeChipOn: { backgroundColor: colors.pinkWarm, borderColor: colors.pinkWarm },
+  pickStoresAction: { alignItems: 'center', paddingHorizontal: spacing.xl, marginTop: spacing.lg },
   list: { paddingHorizontal: spacing.lg, paddingBottom: 120, gap: spacing.lg },
   card: { marginBottom: 0 },
   cardImg: { width: '100%', aspectRatio: 1.1 },

@@ -147,6 +147,20 @@ export async function getFeed(): Promise<FeedProduct[]> {
   return invokeAI<FeedProduct[]>('feed-page', {});
 }
 
+/**
+ * NON-AI SerpAPI fresh-products source (supabase/functions/feed-fresh). Live
+ * Google Shopping results for the user's favorite stores — no AI credits
+ * spent. Ids are prefixed 'fresh-' and are synthetic (no backing products
+ * row), so never write reactions against them.
+ */
+export async function getFreshFeed(store?: string): Promise<FeedProduct[]> {
+  const res = await invokeAI<{ products: FeedProduct[]; reason?: 'no_stores' }>(
+    'feed-fresh',
+    store ? { store } : {},
+  );
+  return res?.products ?? [];
+}
+
 export async function refreshFeed(): Promise<void> {
   await invokeAI('feed-refresh', {});
 }
@@ -155,6 +169,9 @@ export async function reactToProduct(
   productId: string,
   reaction: 'like' | 'dislike' | 'save',
 ): Promise<void> {
+  // Synthetic fresh-feed items ('fresh-' ids) have no backing products row;
+  // writing a reaction for one would violate the FK, so no-op instead.
+  if (productId.startsWith('fresh-')) return;
   const {
     data: { user },
   } = await supabase.auth.getUser();

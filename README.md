@@ -124,6 +124,15 @@ supabase secrets set SERPAPI_KEY=<key>
 supabase functions deploy get-the-look-search
 ```
 
+**Fresh Feed** reuses that same `SERPAPI_KEY` secret to pull live Google Shopping
+listings for the user's saved stores (also non-AI, flat-rate per query, cached
+server-side). Deploy the function and apply its cache-table migration:
+
+```bash
+supabase functions deploy feed-fresh
+supabase db push   # creates public.feed_fresh_cache (20260712090000_feed_fresh_cache.sql)
+```
+
 Then apply [`supabase/PATCH-wardrobe-process.md`](./supabase/PATCH-wardrobe-process.md)
 in the web/backend repo — it closes the **only** AI function that wasn't rate-limited.
 
