@@ -85,50 +85,56 @@ Deno.serve(async (req) => {
 
   const admin = createClient(url, serviceKey);
 
-  // --- Lightweight abuse guard: cap fresh-feed pulls per user per day. ---
+  // --- Daily abuse guard + preferences lookup, run concurrently: independent
+  // reads on a user-facing request, no reason to pay two sequential
+  // roundtrips. Their failure semantics stay distinct below. ---
   const startOfDay = new Date();
   startOfDay.setHours(0, 0, 0, 0);
-  try {
-    const { count } = await admin
+  const [guardResult, prefsResult] = await Promise.allSettled([
+    admin
       .from('ai_usage')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .eq('function_name', FN)
-      .gte('created_at', startOfDay.toISOString());
-    if ((count ?? 0) >= DAILY_LIMIT) {
+      .gte('created_at', startOfDay.toISOString()),
+    admin.from('profiles').select('preferences').eq('user_id', user.id).maybeSingle(),
+  ]);
+
+  // Guard: cap fresh-feed pulls per user per day. A schema mismatch on the
+  // guard must never block the feed pull itself.
+  if (guardResult.status === 'fulfilled') {
+    if ((guardResult.value.count ?? 0) >= DAILY_LIMIT) {
       return json(
         { error: "You've reached today's Fresh Feed limit. Try again tomorrow." },
         429,
       );
     }
-  } catch (e) {
-    // A schema mismatch on the guard must never block the feed pull itself.
-    console.error('feed-fresh: usage guard failed (continuing)', e);
+  } else {
+    console.error('feed-fresh: usage guard failed (continuing)', guardResult.reason);
   }
 
-  // --- Read the caller's saved stores/styles. This (unlike get-the-look-
-  // search's optional ranking step) is NOT best-effort: it's the input that
-  // decides which brands we're even allowed to query, so a lookup failure
-  // fails the request rather than silently falling back to "no stores"
-  // (which would otherwise let an arbitrary `store` body value through).
+  // Preferences: this (unlike get-the-look-search's optional ranking step) is
+  // NOT best-effort — it's the input that decides which brands we're even
+  // allowed to query, so a lookup failure fails the request rather than
+  // silently falling back to "no stores" (which would otherwise let an
+  // arbitrary `store` body value through).
   let savedStores: string[];
   let savedStyles: string[];
-  try {
-    const { data: profile, error: profileErr } = await admin
-      .from('profiles')
-      .select('preferences')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (profileErr) throw profileErr;
-    const prefs = (profile?.preferences ?? {}) as { stores?: unknown; styles?: unknown };
+  if (prefsResult.status === 'fulfilled' && !prefsResult.value.error) {
+    const prefs = (prefsResult.value.data?.preferences ?? {}) as {
+      stores?: unknown;
+      styles?: unknown;
+    };
     savedStores = Array.isArray(prefs.stores)
       ? prefs.stores.filter((s): s is string => typeof s === 'string')
       : [];
     savedStyles = Array.isArray(prefs.styles)
       ? prefs.styles.filter((s): s is string => typeof s === 'string')
       : [];
-  } catch (e) {
-    console.error('feed-fresh: preferences lookup failed', e);
+  } else {
+    const reason =
+      prefsResult.status === 'fulfilled' ? prefsResult.value.error : prefsResult.reason;
+    console.error('feed-fresh: preferences lookup failed', reason);
     return json({ error: 'Fresh feed is temporarily unavailable.' }, 500);
   }
 
@@ -168,11 +174,15 @@ Deno.serve(async (req) => {
   const style = savedStyles.length ? savedStyles[0].toLowerCase() : '';
 
   const cacheTtlMs = CACHE_TTL_HOURS * 60 * 60 * 1000;
-  const perBrandResults: FeedProduct[][] = [];
 
-  for (const brand of selectedBrands) {
+  // One brand's pipeline: cache lookup → live SerpAPI on miss → cache
+  // write-through. Any per-brand failure resolves to [] so a single flaky
+  // brand can't fail the whole request. The ONE exception is a missing
+  // SERPAPI_KEY on a cache miss — that's an operator config error affecting
+  // every miss, so it aborts the request (thrown sentinel caught below).
+  const KEY_MISSING = new Error('SERPAPI_KEY not configured');
+  const fetchBrand = async (brand: string): Promise<FeedProduct[]> => {
     const brandKey = normalizeBrandKey(brand);
-    let items: FeedProduct[] | null = null;
 
     // --- Cache lookup (best-effort; a lookup failure just means we re-fetch). ---
     try {
@@ -185,82 +195,89 @@ Deno.serve(async (req) => {
       if (cached?.fetched_at && Array.isArray(cached.items)) {
         const fetchedAt = new Date(cached.fetched_at).getTime();
         if (Date.now() - fetchedAt < cacheTtlMs) {
-          items = cached.items as FeedProduct[];
+          return cached.items as FeedProduct[];
         }
       }
     } catch (e) {
       console.error('feed-fresh: cache lookup failed for brand (continuing)', brandKey, e);
     }
 
-    if (!items) {
-      if (!serpKey) {
-        console.error('feed-fresh: SERPAPI_KEY not configured');
-        return json({ error: 'Fresh feed is temporarily unavailable.' }, 500);
-      }
+    if (!serpKey) throw KEY_MISSING;
 
-      // --- Live SerpAPI Google Shopping search. A single brand's failure
-      // here must not fail the whole request — log and move on. ---
-      let fetched: FeedProduct[];
-      try {
-        const q = `${brand} ${style} clothing`.trim().replace(/\s+/g, ' ');
-        const endpoint = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(
-          q,
-        )}&num=20&api_key=${serpKey}`;
-        const res = await fetch(endpoint);
-        if (!res.ok) {
-          console.error('feed-fresh: SerpAPI HTTP', res.status, 'for brand', brandKey);
-          continue;
-        }
-        const data = await res.json();
-        const raw: any[] = Array.isArray(data?.shopping_results) ? data.shopping_results : [];
-        fetched = raw
-          .slice(0, 12)
-          .map((r): FeedProduct | null => {
-            const productUrl =
-              (typeof r?.product_link === 'string' && r.product_link) ||
-              (typeof r?.link === 'string' && r.link) ||
-              null;
-            const imageUrl = typeof r?.thumbnail === 'string' ? r.thumbnail : null;
-            if (!productUrl || !imageUrl) return null;
-            return {
-              // 'fresh-' marks a synthetic, non-DB id: these products don't
-              // exist as rows anywhere, so the client must never try to
-              // write reactions (likes/saves) against them.
-              id: `fresh-${brandKey}-${fnv1aHash(productUrl)}`,
-              brand,
-              name: typeof r?.title === 'string' ? r.title : null,
-              price: typeof r?.extracted_price === 'number' ? r.extracted_price : null,
-              image_url: imageUrl,
-              product_url: productUrl,
-              category: null,
-              style_tags: style ? [style] : null,
-              budget_tier: null,
-            };
-          })
-          .filter((p): p is FeedProduct => p !== null);
-      } catch (e) {
-        console.error('feed-fresh: SerpAPI call failed for brand (skipping)', brandKey, e);
-        continue;
+    // --- Live SerpAPI Google Shopping search. ---
+    let items: FeedProduct[];
+    try {
+      const q = `${brand} ${style} clothing`.trim().replace(/\s+/g, ' ');
+      const endpoint = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(
+        q,
+      )}&num=20&api_key=${serpKey}`;
+      const res = await fetch(endpoint);
+      if (!res.ok) {
+        console.error('feed-fresh: SerpAPI HTTP', res.status, 'for brand', brandKey);
+        return [];
       }
-
-      items = fetched;
-
-      // --- Cache write-through (best-effort; a failed write just means the
-      // next call re-fetches — cache is a speed/cost optimization, not a
-      // correctness requirement). ---
-      try {
-        await admin
-          .from('feed_fresh_cache')
-          .upsert(
-            { brand: brandKey, style, items, fetched_at: new Date().toISOString() },
-            { onConflict: 'brand,style' },
-          );
-      } catch (e) {
-        console.error('feed-fresh: cache upsert failed for brand (ignored)', brandKey, e);
-      }
+      const data = await res.json();
+      const raw: any[] = Array.isArray(data?.shopping_results) ? data.shopping_results : [];
+      items = raw
+        .map((r): FeedProduct | null => {
+          const productUrl =
+            (typeof r?.product_link === 'string' && r.product_link) ||
+            (typeof r?.link === 'string' && r.link) ||
+            null;
+          const imageUrl = typeof r?.thumbnail === 'string' ? r.thumbnail : null;
+          if (!productUrl || !imageUrl) return null;
+          return {
+            // 'fresh-' marks a synthetic, non-DB id: these products don't
+            // exist as rows anywhere, so the client must never try to
+            // write reactions (likes/saves) against them.
+            id: `fresh-${brandKey}-${fnv1aHash(productUrl)}`,
+            brand,
+            name: typeof r?.title === 'string' ? r.title : null,
+            price: typeof r?.extracted_price === 'number' ? r.extracted_price : null,
+            image_url: imageUrl,
+            product_url: productUrl,
+            category: null,
+            style_tags: style ? [style] : null,
+            budget_tier: null,
+          };
+        })
+        .filter((p): p is FeedProduct => p !== null)
+        // Filter BEFORE capping: results missing a link/thumbnail shouldn't
+        // consume slots that usable later results could have filled.
+        .slice(0, 12);
+    } catch (e) {
+      console.error('feed-fresh: SerpAPI call failed for brand (skipping)', brandKey, e);
+      return [];
     }
 
-    perBrandResults.push(items ?? []);
+    // --- Cache write-through (best-effort; a failed write just means the
+    // next call re-fetches — cache is a speed/cost optimization, not a
+    // correctness requirement). ---
+    try {
+      await admin
+        .from('feed_fresh_cache')
+        .upsert(
+          { brand: brandKey, style, items, fetched_at: new Date().toISOString() },
+          { onConflict: 'brand,style' },
+        );
+    } catch (e) {
+      console.error('feed-fresh: cache upsert failed for brand (ignored)', brandKey, e);
+    }
+
+    return items;
+  };
+
+  // All selected brands fetch concurrently — this is a user-facing request,
+  // and sequential SerpAPI calls would stack their latencies.
+  let perBrandResults: FeedProduct[][];
+  try {
+    perBrandResults = await Promise.all(selectedBrands.map(fetchBrand));
+  } catch (e) {
+    if (e === KEY_MISSING) {
+      console.error('feed-fresh: SERPAPI_KEY not configured');
+      return json({ error: 'Fresh feed is temporarily unavailable.' }, 500);
+    }
+    throw e;
   }
 
   // --- Interleave round-robin across brands (A1, B1, C1, A2, B2, C2, ...) so
@@ -294,6 +311,9 @@ Deno.serve(async (req) => {
 // Lowercase, alphanumeric-only brand key — stable across "H&M" / "h & m" /
 // "H & M Official" style variations, used for both the cache key and the
 // synthetic product id prefix.
+// Keep in sync with normalizeBrand in src/lib/brands.ts (this Deno function
+// deploys standalone and can't import that module; a divergence would break
+// cache-key stability and client-side brand matching consistency).
 function normalizeBrandKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }

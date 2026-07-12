@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,7 +13,13 @@ import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { AppHeader, Button, Card, EmptyState, SkeletonGrid, ThemedText } from '@/components';
 import { colors, radius, spacing } from '@/theme';
-import { getFeed, getFreshFeed, reactToProduct, type FeedProduct } from '@/lib/api';
+import {
+  getFeed,
+  getFreshFeed,
+  isSyntheticProduct,
+  reactToProduct,
+  type FeedProduct,
+} from '@/lib/api';
 import { openProductUrl } from '@/lib/affiliate';
 import { brandsMatch } from '@/lib/brands';
 import { useAuth } from '@/providers/AuthProvider';
@@ -21,45 +27,83 @@ import { useAuth } from '@/providers/AuthProvider';
 export default function FeedScreen() {
   const { profile } = useAuth();
   const router = useRouter();
-  const [products, setProducts] = useState<FeedProduct[]>([]);
+  // The two sources are held separately: curated (feed-page) is
+  // store-independent and only refetched on mount / pull-to-refresh, while
+  // fresh (feed-fresh, non-AI SerpAPI) is store-scoped and refetched when the
+  // active chip changes. Each source keeps its last good value on failure so a
+  // flaky network can never blank an already-loaded feed.
+  const [freshProducts, setFreshProducts] = useState<FeedProduct[]>([]);
+  const [curatedProducts, setCuratedProducts] = useState<FeedProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [freshLoading, setFreshLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [reactions, setReactions] = useState<Record<string, 'like' | 'dislike' | 'save'>>({});
   const [activeStore, setActiveStore] = useState<string | null>(null);
+  // Monotonic sequence for fresh fetches: a slow older request that resolves
+  // after a newer one must not clobber the newer results.
+  const freshReq = useRef(0);
 
   const savedStores = useMemo(() => {
     const prefs = (profile?.preferences ?? {}) as { stores?: string[] };
     return Array.isArray(prefs.stores) ? prefs.stores.filter(Boolean) : [];
   }, [profile]);
 
+  const products = useMemo(
+    () => mergeFeeds(freshProducts, curatedProducts),
+    [freshProducts, curatedProducts],
+  );
+
   const visibleProducts = useMemo(() => {
     if (!activeStore) return products;
     return products.filter((p) => brandsMatch(p.brand, activeStore));
   }, [products, activeStore]);
 
-  // Curated (feed-page) and fresh (feed-fresh, non-AI SerpAPI) sources are
-  // fetched side by side — one failing must not blank out the other. When a
-  // store chip is active, the fresh source is asked for that store directly.
-  const load = useCallback(async () => {
-    const [freshResult, curatedResult] = await Promise.allSettled([
-      getFreshFeed(activeStore ?? undefined),
-      getFeed(),
-    ]);
-    const fresh = freshResult.status === 'fulfilled' ? freshResult.value : [];
-    const curated = curatedResult.status === 'fulfilled' ? curatedResult.value : [];
-    setProducts(mergeFeeds(fresh, curated));
-    setLoading(false);
-  }, [activeStore]);
+  const loadCurated = useCallback(async () => {
+    try {
+      setCuratedProducts(await getFeed());
+    } catch {
+      // keep the previous curated list
+    }
+  }, []);
+
+  const loadFresh = useCallback(async (store: string | null) => {
+    const seq = ++freshReq.current;
+    setFreshLoading(true);
+    try {
+      const rows = await getFreshFeed(store ?? undefined);
+      if (seq === freshReq.current) setFreshProducts(rows);
+    } catch {
+      // keep the previous fresh list
+    } finally {
+      if (seq === freshReq.current) setFreshLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    (async () => {
+      await Promise.all([loadCurated(), loadFresh(null)]);
+      setLoading(false);
+    })();
+  }, [loadCurated, loadFresh]);
+
+  // Chip change → re-scope only the fresh source (curated is store-independent;
+  // refetching it here would be wasted I/O). Skipped on mount — the effect
+  // above owns the initial load.
+  const didMount = useRef(false);
+  useEffect(() => {
+    if (!didMount.current) {
+      didMount.current = true;
+      return;
+    }
+    loadFresh(activeStore);
+  }, [activeStore, loadFresh]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await load(); // re-pull both sources; the weekly pg_cron job owns AI scraping now
+    // Re-pull both sources; the weekly pg_cron job owns AI scraping now.
+    await Promise.all([loadCurated(), loadFresh(activeStore)]);
     setRefreshing(false);
-  }, [load]);
+  }, [loadCurated, loadFresh, activeStore]);
 
   const react = useCallback(
     async (product: FeedProduct, reaction: 'like' | 'dislike' | 'save') => {
@@ -68,7 +112,8 @@ export default function FeedScreen() {
       try {
         await reactToProduct(product.id, reaction);
         if (reaction === 'dislike') {
-          setProducts((prev) => prev.filter((p) => p.id !== product.id));
+          setFreshProducts((prev) => prev.filter((p) => p.id !== product.id));
+          setCuratedProducts((prev) => prev.filter((p) => p.id !== product.id));
         }
       } catch {
         // ignore; optimistic
@@ -118,6 +163,19 @@ export default function FeedScreen() {
           renderItem={({ item }) => (
             <ProductCard item={item} reaction={reactions[item.id]} onReact={react} />
           )}
+          ListEmptyComponent={
+            // A chip can filter the current list to nothing while its fresh
+            // fetch is still in flight — show a skeleton, not a false empty.
+            freshLoading ? (
+              <SkeletonGrid count={2} />
+            ) : (
+              <EmptyState
+                icon="storefront-outline"
+                title="Nothing from this store yet"
+                body="Try another store, or pull to refresh."
+              />
+            )
+          }
         />
       )}
     </View>
@@ -193,6 +251,10 @@ function ProductCard({
   reaction?: 'like' | 'dislike' | 'save';
   onReact: (p: FeedProduct, r: 'like' | 'dislike' | 'save') => void;
 }) {
+  // Fresh-feed items are synthetic (no products row), so like/save can't
+  // persist — hide those buttons rather than show a heart that lies. Dislike
+  // stays: it's an honest session-local "hide this" either way.
+  const synthetic = isSyntheticProduct(item.id);
   return (
     <Card style={styles.card} padded={false}>
       {item.image_url ? (
@@ -214,16 +276,20 @@ function ProductCard({
             {item.price != null ? `$${item.price}` : ''}
           </ThemedText>
           <View style={styles.actions}>
-            <ReactBtn
-              icon={reaction === 'like' ? 'heart' : 'heart-outline'}
-              active={reaction === 'like'}
-              onPress={() => onReact(item, 'like')}
-            />
-            <ReactBtn
-              icon={reaction === 'save' ? 'bookmark' : 'bookmark-outline'}
-              active={reaction === 'save'}
-              onPress={() => onReact(item, 'save')}
-            />
+            {!synthetic ? (
+              <ReactBtn
+                icon={reaction === 'like' ? 'heart' : 'heart-outline'}
+                active={reaction === 'like'}
+                onPress={() => onReact(item, 'like')}
+              />
+            ) : null}
+            {!synthetic ? (
+              <ReactBtn
+                icon={reaction === 'save' ? 'bookmark' : 'bookmark-outline'}
+                active={reaction === 'save'}
+                onPress={() => onReact(item, 'save')}
+              />
+            ) : null}
             <ReactBtn icon="close" onPress={() => onReact(item, 'dislike')} />
             {item.product_url ? (
               <ReactBtn icon="open-outline" onPress={() => openProductUrl(item.product_url)} />

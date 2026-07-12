@@ -73,6 +73,10 @@ export const BUDGETS = ['Budget', 'Mid-range', 'Premium', 'Luxury'];
 /**
  * Normalize a brand name for comparison: lowercase, strip non-alphanumeric chars.
  * E.g., 'H&M' -> 'hm', "Levi's" -> 'levis', 'Pull&Bear' -> 'pullbear'
+ *
+ * Keep in sync with normalizeBrandKey in supabase/functions/feed-fresh/index.ts
+ * (Deno can't import this module; the edge function uses the same normalization
+ * for its cache keys, and a divergence would break cache hits).
  */
 export function normalizeBrand(s: string | null | undefined): string {
   if (!s) return '';
@@ -83,8 +87,12 @@ export function normalizeBrand(s: string | null | undefined): string {
 
 /**
  * Check if two brand strings match, accounting for common variations.
- * Returns false if either normalizes to empty; true if normalized forms are equal
- * or one contains the other (e.g., 'H & M Official' ~= 'H&M').
+ * Returns false if either normalizes to empty; true if the normalized forms are
+ * equal or one is a PREFIX of the other ('H & M Official' ~= 'H&M', 'Zara US'
+ * ~= 'Zara'). Deliberately NOT a contains-check: short store names normalize to
+ * tiny tokens ('COS' -> 'cos', 'H&M' -> 'hm') that appear inside unrelated
+ * brands ('Lacoste', 'Costco', 'Bohme'), and contains-matching would surface
+ * those under the wrong filter chip.
  */
 export function brandsMatch(
   a: string | null | undefined,
@@ -94,6 +102,5 @@ export function brandsMatch(
   const normB = normalizeBrand(b);
 
   if (!normA || !normB) return false;
-  if (normA === normB) return true;
-  return normA.includes(normB) || normB.includes(normA);
+  return normA.startsWith(normB) || normB.startsWith(normA);
 }

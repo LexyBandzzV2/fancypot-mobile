@@ -161,17 +161,23 @@ export async function getFreshFeed(store?: string): Promise<FeedProduct[]> {
   return res?.products ?? [];
 }
 
-export async function refreshFeed(): Promise<void> {
-  await invokeAI('feed-refresh', {});
+/**
+ * Fresh-feed items are synthetic — the edge function mints their ids with a
+ * 'fresh-' prefix and no products row backs them, so reactions can't be
+ * persisted for them. UI should hide persistent affordances (like/save) for
+ * these; reactToProduct also refuses them as a backstop.
+ */
+export function isSyntheticProduct(productId: string): boolean {
+  return productId.startsWith('fresh-');
 }
 
 export async function reactToProduct(
   productId: string,
   reaction: 'like' | 'dislike' | 'save',
 ): Promise<void> {
-  // Synthetic fresh-feed items ('fresh-' ids) have no backing products row;
-  // writing a reaction for one would violate the FK, so no-op instead.
-  if (productId.startsWith('fresh-')) return;
+  // Synthetic fresh-feed items have no backing products row; writing a
+  // reaction for one would violate the FK, so no-op instead.
+  if (isSyntheticProduct(productId)) return;
   const {
     data: { user },
   } = await supabase.auth.getUser();
