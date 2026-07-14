@@ -22,7 +22,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://gizqpfbmqgwhbalywkqv.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpenFwZmJtcWd3aGJhbHl3a3F2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNTE2NjgsImV4cCI6MjA5MzgyNzY2OH0.uoJC2BW_WXTy6M3-oxjYdmXzP_Ky8GOUH0lBhhIp6tY",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "REPLACE_WITH_REVENUECAT_IOS_PUBLIC_KEY",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_dJtYbRtQVjiYgkVVYyvvgWrZanP",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "REPLACE_WITH_REVENUECAT_ANDROID_PUBLIC_KEY"
       }
     },
@@ -32,7 +32,7 @@
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://gizqpfbmqgwhbalywkqv.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpenFwZmJtcWd3aGJhbHl3a3F2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNTE2NjgsImV4cCI6MjA5MzgyNzY2OH0.uoJC2BW_WXTy6M3-oxjYdmXzP_Ky8GOUH0lBhhIp6tY",
-        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "REPLACE_WITH_REVENUECAT_IOS_PUBLIC_KEY",
+        "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_dJtYbRtQVjiYgkVVYyvvgWrZanP",
         "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "REPLACE_WITH_REVENUECAT_ANDROID_PUBLIC_KEY"
       }
     }
@@ -41,8 +41,8 @@
     "production": {
       "ios": {
         "appleId": "REPLACE_WITH_APPLE_ID_EMAIL",
-        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+        "ascAppId": "6790611276",
+        "appleTeamId": "789XUXSG47"
       },
       "android": {
         "serviceAccountKeyPath": "./play-service-account.json",
