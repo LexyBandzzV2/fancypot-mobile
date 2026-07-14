@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "bundleIdentifier": "org.fancypot.app",
+      "bundleIdentifier": "com.gfly.fancypot",
       "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "Fancy Pot uses your camera to photograph clothing for your closet and virtual try-ons.",
