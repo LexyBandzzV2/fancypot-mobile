@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing, type } from '@/theme';
+import { spacing } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 import { ThemedText } from './Typography';
+import { Glass } from './Glass';
 
 /**
  * Lightweight in-page header used by the tab screens (the tab bar hides the
@@ -18,8 +20,9 @@ export function AppHeader({
   right?: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   return (
-    <View style={[styles.wrap, { paddingTop: insets.top + spacing.sm }]}>
+    <View style={[styles.wrap, { paddingTop: insets.top + spacing.sm, backgroundColor: colors.cream }]}>
       <View style={styles.row}>
         <View style={styles.titles}>
           <ThemedText variant="h1">{title}</ThemedText>
@@ -50,9 +53,10 @@ export function HeaderIconButton({
       hitSlop={12}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={styles.iconBtn}
     >
-      {children}
+      <Glass style={styles.iconBtn} intensity={35}>
+        {children}
+      </Glass>
     </Pressable>
   );
 }
@@ -61,7 +65,6 @@ const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
-    backgroundColor: colors.cream,
   },
   row: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
   titles: { flex: 1 },
@@ -71,8 +74,5 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
 });

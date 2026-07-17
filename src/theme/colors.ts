@@ -1,57 +1,159 @@
 /**
- * Fancy Pot brand palette.
+ * Fancy Pot brand palette — now theme-aware (light + dark).
  *
  * The web app (closet-conjurer-app) defines its palette in oklch inside
  * src/styles.css. React Native's StyleSheet does not understand oklch, so the
  * values below are faithful sRGB/hex conversions of those same tokens. Keep
  * these in sync with the web `@theme` block if the brand ever shifts.
+ *
+ * DARK MODE: the dark palette keeps the exact same brand DNA — the warm pink
+ * "mean girl" accents (`pinkWarm`, `blush`), the Cormorant/Pinyon type, the
+ * soft rounded surfaces — but swaps the cream paper for a deep warm plum-black
+ * so the pink pops instead of washing out. Every key exists in BOTH palettes
+ * with the SAME semantic ROLE (e.g. `cream` is always "the app background",
+ * `ink` is always "primary text/fill", `white` is always "a raised surface"),
+ * so components can keep referencing brand names and still flip correctly.
  */
-export const colors = {
+
+/** Shape of a full palette. Both light and dark palettes implement this with
+ * plain (widened) `string` types — using `typeof lightColors` here would lock
+ * every key to its light-mode literal value and make `darkColors` fail to
+ * typecheck, since e.g. `cream` would be typed as the literal `'#FAF3E7'`. */
+export interface Colors {
+  cream: string;
+  pearl: string;
+  beige: string;
+  tissue: string;
+  blush: string;
+  blushDeep: string;
+  pinkWarm: string;
+  pinkWarmSoft: string;
+  pinkWarmGlow: string;
+  ink: string;
+  onyx: string;
+  inkMuted: string;
+  white: string;
+  border: string;
+  borderStrong: string;
+  overlay: string;
+  success: string;
+  danger: string;
+  danger_soft: string;
+  glassTint: 'light' | 'dark';
+  glassScrim: string;
+  glassEdge: string;
+  glassFill: string;
+}
+
+// ---- LIGHT (the original brand palette) ----
+export const lightColors: Colors = {
   // Neutrals / surfaces
-  cream: '#FAF3E7', // --cream, also the native splash + status bar color
-  pearl: '#F7F3EC', // --pearl
-  beige: '#E7D9C3', // --beige
-  tissue: '#F8E4E1', // --tissue (AP wrapping pink)
+  cream: '#FAF3E7', // app background (also native splash + status bar)
+  pearl: '#F7F3EC', // muted surface
+  beige: '#E7D9C3',
+  tissue: '#F8E4E1', // AP wrapping pink
 
   // Blush accents
-  blush: '#F2C9C4', // --blush
-  blushDeep: '#D69B93', // --blush-deep (primary accent / active states)
+  blush: '#F2C9C4',
+  blushDeep: '#D69B93', // primary accent / active states
 
   // Warm pink ("Mean Girls" accent — hero CTAs, highlights)
-  pinkWarm: '#FF73B6', // --pink-warm (also PWA theme_color)
-  pinkWarmSoft: '#F7A9C4', // --pink-warm-soft
-  pinkWarmGlow: '#FBD3E0', // --pink-warm-glow
+  pinkWarm: '#FF73B6', // also PWA theme_color
+  pinkWarmSoft: '#F7A9C4',
+  pinkWarmGlow: '#FBD3E0',
 
   // Text / ink
-  ink: '#241E1C', // --ink (primary text + primary button fill)
-  onyx: '#1A1614', // --onyx (deepest)
+  ink: '#241E1C', // primary text + primary button fill
+  onyx: '#1A1614', // deepest
   inkMuted: '#6E625C', // muted body text
 
   // Utility
-  white: '#FFFFFF',
+  white: '#FFFFFF', // a raised surface
   border: '#E7DCCB', // hairline on cream
   borderStrong: '#D8C9B2',
   overlay: 'rgba(26, 22, 20, 0.45)',
   success: '#3F8A5B',
   danger: '#C4553F',
   danger_soft: '#F4D9D2',
-} as const;
+
+  // Glass tokens (frosted surfaces) — see components/Glass.tsx
+  glassTint: 'light',
+  glassScrim: 'rgba(250, 243, 231, 0.55)', // cream @ 55% — frosted fallback
+  glassEdge: 'rgba(255, 255, 255, 0.55)', // top highlight on a glass edge
+  glassFill: 'rgba(255, 255, 255, 0.60)', // translucent card body
+};
+
+// ---- DARK (same brand DNA on a deep warm plum-black) ----
+export const darkColors: Colors = {
+  // Neutrals / surfaces — warm, slightly plum-tinted blacks (never flat gray)
+  cream: '#161012', // app background
+  pearl: '#1E161A', // muted surface
+  beige: '#2A2026',
+  tissue: '#2E1F27', // deep wrapping-pink tint
+
+  // Blush accents (kept vivid so the aesthetic survives on dark)
+  blush: '#E7A9B7',
+  blushDeep: '#E29AA6', // active states read brighter on dark
+
+  // Warm pink — the hero accent, unchanged so branding is identical
+  pinkWarm: '#FF73B6',
+  pinkWarmSoft: '#F7A9C4',
+  pinkWarmGlow: '#3A2230', // on dark this becomes a soft pink-tinted glow surface
+
+  // Text / ink — warm off-whites, not pure white
+  ink: '#F7ECEF', // primary text / primary fill (inverts on dark)
+  onyx: '#FFFFFF',
+  inkMuted: '#B6A5AC', // muted body text
+
+  // Utility
+  white: '#241C21', // a raised surface (dark card)
+  border: 'rgba(255, 255, 255, 0.10)',
+  borderStrong: 'rgba(255, 255, 255, 0.18)',
+  overlay: 'rgba(0, 0, 0, 0.55)',
+  success: '#5CB37E',
+  danger: '#E27A66',
+  danger_soft: '#3A211D',
+
+  // Glass tokens
+  glassTint: 'dark',
+  glassScrim: 'rgba(22, 16, 18, 0.55)', // dark bg @ 55%
+  glassEdge: 'rgba(255, 255, 255, 0.16)',
+  glassFill: 'rgba(255, 255, 255, 0.06)',
+};
+
+export type ThemeScheme = 'light' | 'dark';
+
+export function getColors(scheme: ThemeScheme): Colors {
+  return scheme === 'dark' ? darkColors : lightColors;
+}
 
 /**
- * Semantic aliases so screens read intent, not raw swatches.
+ * Static light palette — kept as the default export for backward compatibility.
+ * Files that haven't migrated to `useTheme()` keep compiling and render in the
+ * light palette. Prefer `const colors = useThemeColors()` in new/updated code.
  */
-export const semantic = {
-  background: colors.cream,
-  surface: colors.white,
-  surfaceMuted: colors.pearl,
-  textPrimary: colors.ink,
-  textSecondary: colors.inkMuted,
-  primary: colors.ink, // primary buttons are ink-on-cream per web
-  primaryText: colors.cream,
-  accent: colors.pinkWarm,
-  accentSoft: colors.pinkWarmGlow,
-  border: colors.border,
-  ring: colors.blushDeep,
-} as const;
+export const colors = lightColors;
 
-export type ColorName = keyof typeof colors;
+/**
+ * Semantic aliases so screens read intent, not raw swatches. Theme-aware
+ * version is available via `useTheme().semantic`.
+ */
+export function getSemantic(c: Colors) {
+  return {
+    background: c.cream,
+    surface: c.white,
+    surfaceMuted: c.pearl,
+    textPrimary: c.ink,
+    textSecondary: c.inkMuted,
+    primary: c.ink,
+    primaryText: c.cream,
+    accent: c.pinkWarm,
+    accentSoft: c.pinkWarmGlow,
+    border: c.border,
+    ring: c.blushDeep,
+  };
+}
+
+export const semantic = getSemantic(lightColors);
+
+export type ColorName = keyof typeof lightColors;

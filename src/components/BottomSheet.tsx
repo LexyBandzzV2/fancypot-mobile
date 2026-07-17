@@ -8,7 +8,8 @@ import {
   Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, spacing, fillObject } from '@/theme';
+import { radius, spacing, fillObject } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 import { ThemedText } from './Typography';
 import { Glass } from './Glass';
 
@@ -59,7 +60,7 @@ export function BottomSheet({
             style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}
             intensity={45}
           >
-            <View style={styles.handle} />
+            <Handle />
             {title ? (
               <ThemedText variant="h3" style={styles.title}>
                 {title}
@@ -71,6 +72,11 @@ export function BottomSheet({
       </View>
     </Modal>
   );
+}
+
+function Handle() {
+  const { colors } = useTheme();
+  return <View style={[styles.handle, { backgroundColor: colors.borderStrong }]} />;
 }
 
 /** A single tappable row inside a bottom sheet. */
@@ -85,6 +91,7 @@ export function SheetAction({
   destructive?: boolean;
   icon?: React.ReactNode;
 }) {
+  const { colors } = useTheme();
   return (
     <Pressable
       onPress={onPress}
@@ -103,7 +110,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   // Slightly darker than the default `colors.overlay` — a glass sheet needs
   // more backdrop contrast to read clearly against busy content behind it.
-  backdrop: { ...fillObject, backgroundColor: 'rgba(26, 22, 20, 0.55)' },
+  backdrop: { ...fillObject, backgroundColor: 'rgba(0, 0, 0, 0.55)' },
   sheetWrap: { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
   sheet: {
     borderTopLeftRadius: radius.lg,
@@ -116,7 +123,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.borderStrong,
     marginBottom: spacing.md,
   },
   title: { marginBottom: spacing.md },

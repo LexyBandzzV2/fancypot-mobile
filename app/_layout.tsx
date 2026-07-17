@@ -21,9 +21,9 @@ import * as Sentry from '@sentry/react-native';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { SubscriptionProvider } from '@/providers/SubscriptionProvider';
 import { AIConsentProvider } from '@/providers/AIConsentProvider';
+import { ThemeProvider, useTheme } from '@/providers/ThemeProvider';
 import { useAuthDeepLinks } from '@/hooks/useAuthDeepLinks';
 import { ErrorScreen } from '@/components';
-import { colors } from '@/theme';
 import { initSentry } from '@/lib/sentry';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -58,6 +58,7 @@ function useProtectedRoute() {
 
 function RootNavigator() {
   const { initializing } = useAuth();
+  const { colors } = useTheme();
   useProtectedRoute();
   useAuthDeepLinks();
 
@@ -114,17 +115,25 @@ function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <SubscriptionProvider>
-            <AIConsentProvider>
-              <StatusBar style="dark" />
-              <RootNavigator />
-            </AIConsentProvider>
-          </SubscriptionProvider>
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <SubscriptionProvider>
+              <AIConsentProvider>
+                <ThemedStatusBar />
+                <RootNavigator />
+              </AIConsentProvider>
+            </SubscriptionProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
+}
+
+/** Status-bar icons flip to light glyphs in dark mode. */
+function ThemedStatusBar() {
+  const { isDark } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} />;
 }
 
 export default Sentry.wrap(RootLayout);

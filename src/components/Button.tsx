@@ -8,7 +8,9 @@ import {
   type ViewStyle,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { colors, radius, spacing, type, TAP_TARGET } from '@/theme';
+import { radius, spacing, type, TAP_TARGET } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
+import type { Colors } from '@/theme/colors';
 
 type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'accent';
 
@@ -39,6 +41,7 @@ export function Button({
   haptic = true,
   style,
 }: ButtonProps) {
+  const { colors } = useTheme();
   const isDisabled = disabled || loading;
 
   const handlePress = async () => {
@@ -47,7 +50,7 @@ export function Button({
     await onPress();
   };
 
-  const palette = VARIANTS[variant];
+  const palette = variants(colors)[variant];
 
   return (
     <Pressable
@@ -77,13 +80,13 @@ export function Button({
   );
 }
 
-const VARIANTS: Record<Variant, { bg: string; fg: string; border: string }> = {
-  primary: { bg: colors.ink, fg: colors.cream, border: colors.ink },
-  accent: { bg: colors.pinkWarm, fg: colors.white, border: colors.pinkWarm },
-  secondary: { bg: colors.blush, fg: colors.ink, border: colors.blush },
-  outline: { bg: 'transparent', fg: colors.ink, border: colors.blushDeep },
-  ghost: { bg: 'transparent', fg: colors.ink, border: 'transparent' },
-};
+const variants = (c: Colors): Record<Variant, { bg: string; fg: string; border: string }> => ({
+  primary: { bg: c.ink, fg: c.cream, border: c.ink },
+  accent: { bg: c.pinkWarm, fg: c.white, border: c.pinkWarm },
+  secondary: { bg: c.blush, fg: c.ink, border: c.blush },
+  outline: { bg: 'transparent', fg: c.ink, border: c.blushDeep },
+  ghost: { bg: 'transparent', fg: c.ink, border: 'transparent' },
+});
 
 const styles = StyleSheet.create({
   base: {
