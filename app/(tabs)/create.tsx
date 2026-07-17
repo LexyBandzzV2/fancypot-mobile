@@ -4,8 +4,9 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, ThemedText, Wordmark } from '@/components';
-import { colors, radius, spacing, type } from '@/theme';
+import { radius, spacing, type } from '@/theme';
 import { useSubscription } from '@/providers/SubscriptionProvider';
+import { useTheme } from '@/providers/ThemeProvider';
 
 const TOOLS = [
   {
@@ -35,10 +36,11 @@ export default function CreateScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { tier } = useSubscription();
+  const { colors } = useTheme();
 
   return (
     <ScrollView
-      style={styles.root}
+      style={[styles.root, { backgroundColor: colors.cream }]}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.xl }]}
       showsVerticalScrollIndicator={false}
     >
@@ -54,7 +56,7 @@ export default function CreateScreen() {
         {TOOLS.map((t) => (
           <Pressable key={t.key} onPress={() => router.push(t.href as any)}>
             <Card style={styles.tool}>
-              <View style={styles.toolIcon}>
+              <View style={[styles.toolIcon, { backgroundColor: colors.pinkWarmGlow }]}>
                 <Ionicons name={t.icon as any} size={26} color={colors.ink} />
               </View>
               <View style={styles.toolText}>
@@ -69,25 +71,29 @@ export default function CreateScreen() {
         ))}
       </View>
 
-      <Pressable style={styles.upsell} onPress={() => router.push('/paywall')}>
-        <Ionicons name="star" size={18} color={colors.pinkWarm} />
-        <ThemedText variant="label" color={colors.ink} style={styles.upsellText}>
-          {tier.entitlement === 'business'
-            ? "You're on our top plan — enjoy!"
-            : 'Unlock more outfits & try-ons'}
-        </ThemedText>
-        {tier.entitlement !== 'business' ? (
-          <ThemedText variant="label" color={colors.pinkWarm}>
-            Upgrade
-          </ThemedText>
-        ) : null}
+      <Pressable onPress={() => router.push('/paywall')}>
+        <Card glass style={styles.upsell} padded={false}>
+          <View style={styles.upsellRow}>
+            <Ionicons name="star" size={18} color={colors.pinkWarm} />
+            <ThemedText variant="label" color={colors.ink} style={styles.upsellText}>
+              {tier.entitlement === 'business'
+                ? "You're on our top plan — enjoy!"
+                : 'Unlock more outfits & try-ons'}
+            </ThemedText>
+            {tier.entitlement !== 'business' ? (
+              <ThemedText variant="label" color={colors.pinkWarm}>
+                Upgrade
+              </ThemedText>
+            ) : null}
+          </View>
+        </Card>
       </Pressable>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
+  root: { flex: 1 },
   content: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
   intro: { marginTop: spacing.sm, marginBottom: spacing.xl, maxWidth: 320 },
   tools: { gap: spacing.md },
@@ -96,21 +102,19 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: colors.pinkWarmGlow,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toolText: { flex: 1, gap: 2 },
   upsell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
     marginTop: spacing.xl,
     padding: spacing.lg,
     borderRadius: radius.md,
-    backgroundColor: colors.pinkWarmGlow,
-    borderWidth: 1,
-    borderColor: colors.pinkWarmSoft,
+  },
+  upsellRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   upsellText: { flex: 1 },
 });

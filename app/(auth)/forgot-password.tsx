@@ -4,10 +4,12 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, Screen, TextField, ThemedText } from '@/components';
 import { useAuth } from '@/providers/AuthProvider';
-import { colors, spacing } from '@/theme';
+import { spacing } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 
 export default function ForgotPassword() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
   const { sendPasswordReset } = useAuth();
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +47,12 @@ export default function ForgotPassword() {
       </ThemedText>
 
       {sent ? (
-        <View style={styles.success}>
+        <View
+          style={[
+            styles.success,
+            { backgroundColor: isDark ? 'rgba(92, 179, 126, 0.16)' : '#E7F2EA' },
+          ]}
+        >
           <Ionicons name="checkmark-circle" size={22} color={colors.success} />
           <ThemedText variant="body" color={colors.success} style={styles.successText}>
             Sent. Check your inbox for the reset link.
@@ -77,7 +84,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: '#E7F2EA',
     padding: spacing.lg,
     borderRadius: 16,
   },

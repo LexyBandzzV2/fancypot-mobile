@@ -13,11 +13,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Screen, SocialAuthButtons, TextField, ThemedText, Wordmark } from '@/components';
 import { useAuth } from '@/providers/AuthProvider';
 import { signInWithApple, signInWithGoogle } from '@/lib/socialAuth';
-import { colors, spacing } from '@/theme';
+import { spacing } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 
 export default function SignIn() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { signInWithPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

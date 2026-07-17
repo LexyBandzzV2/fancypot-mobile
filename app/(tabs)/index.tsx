@@ -22,12 +22,16 @@ import {
   UsageLimitBanner,
   ThemedText,
 } from '@/components';
-import { colors, radius, spacing, fillObject } from '@/theme';
+import type { Colors } from '@/theme/colors';
+import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 import { useWardrobe, type WardrobeDisplayItem } from '@/hooks/useWardrobe';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useSubscription } from '@/providers/SubscriptionProvider';
 
 export default function ClosetScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { items, loading, add, remove, reload } = useWardrobe();
   const { fromCamera, fromLibrary } = useImagePicker();
   const { tier } = useSubscription();
@@ -168,6 +172,8 @@ function ClosetTile({
   item: WardrobeDisplayItem;
   onLongPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const processing = item.processing_status === 'pending' || item.processing_status === 'processing';
   return (
     <Pressable
@@ -211,57 +217,58 @@ const GAP = spacing.sm;
 const TILE_W =
   (Dimensions.get('window').width - H_PADDING * 2 - GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  pad: { paddingHorizontal: spacing.lg },
-  metaRow: { paddingBottom: spacing.md },
-  banner: { paddingBottom: spacing.md },
-  list: { paddingHorizontal: H_PADDING, paddingBottom: 120 },
-  column: { gap: GAP, marginBottom: GAP },
-  tile: {
-    width: TILE_W,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  tileImg: { width: '100%', aspectRatio: 1 },
-  tilePlaceholder: {
-    backgroundColor: colors.pearl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  processing: {
-    ...fillObject,
-    backgroundColor: colors.overlay,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  processingText: { marginTop: spacing.xs },
-  tileLabel: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    backgroundColor: colors.overlay,
-  },
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.xl,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.ink,
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-  },
-});
+const makeStyles = (c: Colors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.cream },
+    pad: { paddingHorizontal: spacing.lg },
+    metaRow: { paddingBottom: spacing.md },
+    banner: { paddingBottom: spacing.md },
+    list: { paddingHorizontal: H_PADDING, paddingBottom: 120 },
+    column: { gap: GAP, marginBottom: GAP },
+    tile: {
+      width: TILE_W,
+      borderRadius: radius.md,
+      backgroundColor: c.white,
+      borderWidth: 1,
+      borderColor: c.border,
+      overflow: 'hidden',
+    },
+    tileImg: { width: '100%', aspectRatio: 1 },
+    tilePlaceholder: {
+      backgroundColor: c.pearl,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    processing: {
+      ...fillObject,
+      backgroundColor: c.overlay,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    processingText: { marginTop: spacing.xs },
+    tileLabel: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      backgroundColor: c.overlay,
+    },
+    fab: {
+      position: 'absolute',
+      right: spacing.lg,
+      bottom: spacing.xl,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: c.ink,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: c.ink,
+      shadowOpacity: 0.25,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 6,
+    },
+  });
