@@ -2,14 +2,19 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { StackHeader, Button, ThemedText, EmptyState } from '@/components';
-import { colors, radius, spacing, fillObject } from '@/theme';
+import { StackHeader, Button, ThemedText, EmptyState, Card } from '@/components';
+import { Glass } from '@/components/Glass';
+import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
+import type { Colors } from '@/theme/colors';
+import { useTheme } from '@/providers/ThemeProvider';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
 import { tryOn } from '@/lib/api';
 
 export default function TryOnScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { fromCamera, fromLibrary } = useImagePicker();
   const { outfits } = useOutfits();
   const { run, running } = useAIAction();
@@ -42,7 +47,9 @@ export default function TryOnScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {result ? (
           <View style={styles.resultWrap}>
-            <Image source={{ uri: result }} style={styles.result} contentFit="cover" transition={250} />
+            <Card style={styles.resultCard} padded={false}>
+              <Image source={{ uri: result }} style={styles.result} contentFit="cover" transition={250} />
+            </Card>
             <Button label="Try another" variant="outline" onPress={() => setResult(null)} />
           </View>
         ) : (
@@ -50,17 +57,19 @@ export default function TryOnScreen() {
             <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
               YOUR PHOTO
             </ThemedText>
-            <Pressable style={styles.personSlot} onPress={() => pickPerson('library')}>
-              {personImage ? (
-                <Image source={{ uri: personImage }} style={styles.personImg} contentFit="cover" />
-              ) : (
-                <View style={styles.personEmpty}>
-                  <Ionicons name="person-add-outline" size={30} color={colors.blushDeep} />
-                  <ThemedText variant="labelSmall" color={colors.inkMuted}>
-                    Tap to add a full-body photo
-                  </ThemedText>
-                </View>
-              )}
+            <Pressable onPress={() => pickPerson('library')}>
+              <Glass intensity={40} style={styles.personSlot}>
+                {personImage ? (
+                  <Image source={{ uri: personImage }} style={styles.personImg} contentFit="cover" />
+                ) : (
+                  <View style={styles.personEmpty}>
+                    <Ionicons name="person-add-outline" size={30} color={colors.blushDeep} />
+                    <ThemedText variant="labelSmall" color={colors.inkMuted}>
+                      Tap to add a full-body photo
+                    </ThemedText>
+                  </View>
+                )}
+              </Glass>
             </Pressable>
             <View style={styles.personActions}>
               <Button label="Camera" variant="outline" fullWidth={false} onPress={() => pickPerson('camera')} />
@@ -101,7 +110,7 @@ export default function TryOnScreen() {
       </ScrollView>
 
       {!result ? (
-        <View style={styles.footer}>
+        <Glass intensity={50} style={styles.footer}>
           <Button
             label={running ? 'Dressing you up…' : 'Try it on'}
             onPress={onTryOn}
@@ -109,7 +118,7 @@ export default function TryOnScreen() {
             disabled={!canRun}
             icon={!running ? <Ionicons name="sparkles" size={18} color={colors.cream} /> : undefined}
           />
-        </View>
+        </Glass>
       ) : null}
 
       {running ? (
@@ -121,47 +130,42 @@ export default function TryOnScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
-  sectionLabel: { marginTop: spacing.lg, marginBottom: spacing.sm, letterSpacing: 1 },
-  personSlot: {
-    height: 260,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  personImg: { width: '100%', height: '100%' },
-  personEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
-  personActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
-  noOutfits: { height: 180 },
-  outfitRow: { gap: spacing.sm, paddingVertical: spacing.xs },
-  outfit: {
-    width: 92,
-    height: 112,
-    borderRadius: radius.md,
-    borderWidth: 2,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    backgroundColor: colors.white,
-  },
-  outfitOn: { borderColor: colors.pinkWarm },
-  outfitImg: { width: '100%', height: '100%' },
-  outfitPh: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pearl },
-  footer: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.cream,
-  },
-  resultWrap: { gap: spacing.lg },
-  result: { width: '100%', aspectRatio: 0.7, borderRadius: radius.lg, backgroundColor: colors.pearl },
-  overlay: {
-    ...fillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(250,243,231,0.5)',
-  },
-});
+const makeStyles = (colors: Colors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.cream },
+    content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+    sectionLabel: { marginTop: spacing.lg, marginBottom: spacing.sm, letterSpacing: 1 },
+    personSlot: {
+      height: 260,
+      borderRadius: radius.lg,
+    },
+    personImg: { width: '100%', height: '100%' },
+    personEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+    personActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
+    noOutfits: { height: 180 },
+    outfitRow: { gap: spacing.sm, paddingVertical: spacing.xs },
+    outfit: {
+      width: 92,
+      height: 112,
+      borderRadius: radius.md,
+      borderWidth: 2,
+      borderColor: colors.border,
+      overflow: 'hidden',
+      backgroundColor: colors.white,
+    },
+    outfitOn: { borderColor: colors.pinkWarm },
+    outfitImg: { width: '100%', height: '100%' },
+    outfitPh: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pearl },
+    footer: {
+      padding: spacing.lg,
+    },
+    resultWrap: { gap: spacing.lg },
+    resultCard: { width: '100%' },
+    result: { width: '100%', aspectRatio: 0.7, backgroundColor: colors.pearl },
+    overlay: {
+      ...fillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.overlay,
+    },
+  });

@@ -2,11 +2,15 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, ThemedText, Wordmark } from '@/components';
-import { colors, spacing } from '@/theme';
+import { spacing, useThemedStyles } from '@/theme';
+import type { Colors } from '@/theme/colors';
+import { useTheme } from '@/providers/ThemeProvider';
 
 /** Shown for any unmatched route (expo-router convention). */
 export default function NotFound() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.root}>
       <Wordmark size={40} />
@@ -21,8 +25,9 @@ export default function NotFound() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
-  title: { marginTop: spacing.lg },
-  body: { marginTop: spacing.sm, marginBottom: spacing.xl },
-});
+const makeStyles = (c: Colors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.cream, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+    title: { marginTop: spacing.lg },
+    body: { marginTop: spacing.sm, marginBottom: spacing.xl },
+  });

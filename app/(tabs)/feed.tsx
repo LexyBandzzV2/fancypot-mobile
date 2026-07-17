@@ -12,7 +12,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { AppHeader, Button, Card, EmptyState, SkeletonGrid, ThemedText } from '@/components';
-import { colors, radius, spacing } from '@/theme';
+import { Glass } from '@/components/Glass';
+import type { Colors } from '@/theme/colors';
+import { radius, spacing, useThemedStyles } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 import {
   getFeed,
   getFreshFeed,
@@ -25,6 +28,8 @@ import { brandsMatch } from '@/lib/brands';
 import { useAuth } from '@/providers/AuthProvider';
 
 export default function FeedScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { profile } = useAuth();
   const router = useRouter();
   // The two sources are held separately: curated (feed-page) is
@@ -210,35 +215,47 @@ function StoreChipRow({
   active: string | null;
   onChange: (v: string | null) => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.storeChips}
     >
-      <Pressable
-        onPress={() => onChange(null)}
-        style={[styles.storeChip, active === null && styles.storeChipOn]}
-      >
-        <ThemedText variant="label" color={active === null ? colors.cream : colors.ink}>
-          All
-        </ThemedText>
-      </Pressable>
+      <StoreChip label="All" on={active === null} onPress={() => onChange(null)} />
       {stores.map((store) => {
         const on = active === store;
         return (
-          <Pressable
-            key={store}
-            onPress={() => onChange(on ? null : store)}
-            style={[styles.storeChip, on && styles.storeChipOn]}
-          >
-            <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
-              {store}
-            </ThemedText>
-          </Pressable>
+          <StoreChip key={store} label={store} on={on} onPress={() => onChange(on ? null : store)} />
         );
       })}
     </ScrollView>
+  );
+}
+
+function StoreChip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
+  if (on) {
+    return (
+      <Pressable onPress={onPress} style={[styles.storeChip, styles.storeChipOn]}>
+        <ThemedText variant="label" color={colors.cream}>
+          {label}
+        </ThemedText>
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable onPress={onPress}>
+      <Glass intensity={30} style={styles.storeChip}>
+        <ThemedText variant="label" color={colors.ink}>
+          {label}
+        </ThemedText>
+      </Glass>
+    </Pressable>
   );
 }
 
@@ -254,6 +271,8 @@ function ProductCard({
   // Fresh-feed items are synthetic (no products row), so like/save can't
   // persist — hide those buttons rather than show a heart that lies. Dislike
   // stays: it's an honest session-local "hide this" either way.
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const synthetic = isSyntheticProduct(item.id);
   return (
     <Card style={styles.card} padded={false}>
@@ -310,6 +329,8 @@ function ReactBtn({
   active?: boolean;
   onPress: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable onPress={onPress} hitSlop={10} style={styles.reactBtn} accessibilityRole="button">
       <Ionicons name={icon} size={22} color={active ? colors.pinkWarm : colors.ink} />
@@ -317,43 +338,41 @@ function ReactBtn({
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  pad: { paddingHorizontal: spacing.lg },
-  storeChips: {
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-  },
-  storeChip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.white,
-    minHeight: 40,
-    justifyContent: 'center',
-  },
-  storeChipOn: { backgroundColor: colors.pinkWarm, borderColor: colors.pinkWarm },
-  pickStoresAction: { alignItems: 'center', paddingHorizontal: spacing.xl, marginTop: spacing.lg },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: 120, gap: spacing.lg },
-  card: { marginBottom: 0 },
-  cardImg: { width: '100%', aspectRatio: 1.1 },
-  placeholder: { backgroundColor: colors.pearl, alignItems: 'center', justifyContent: 'center' },
-  cardBody: { padding: spacing.lg, gap: spacing.xs },
-  cardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
-  },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  reactBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+const makeStyles = (c: Colors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.cream },
+    pad: { paddingHorizontal: spacing.lg },
+    storeChips: {
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
+    storeChip: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.pill,
+      minHeight: 40,
+      justifyContent: 'center',
+    },
+    storeChipOn: { backgroundColor: c.pinkWarm, borderColor: c.pinkWarm, borderWidth: 1 },
+    pickStoresAction: { alignItems: 'center', paddingHorizontal: spacing.xl, marginTop: spacing.lg },
+    list: { paddingHorizontal: spacing.lg, paddingBottom: 120, gap: spacing.lg },
+    card: { marginBottom: 0 },
+    cardImg: { width: '100%', aspectRatio: 1.1 },
+    placeholder: { backgroundColor: c.pearl, alignItems: 'center', justifyContent: 'center' },
+    cardBody: { padding: spacing.lg, gap: spacing.xs },
+    cardFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: spacing.sm,
+    },
+    actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    reactBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });

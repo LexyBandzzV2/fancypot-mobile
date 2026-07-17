@@ -3,7 +3,9 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { StackHeader, Button, TextField, ThemedText, Card } from '@/components';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import { colors, spacing } from '@/theme';
+import { spacing, useThemedStyles } from '@/theme';
+import type { Colors } from '@/theme/colors';
+import { useTheme } from '@/providers/ThemeProvider';
 
 /**
  * In-app account deletion — required for App Store / Play Store approval.
@@ -11,6 +13,8 @@ import { colors, spacing } from '@/theme';
  * user's rows + storage and deletes the auth user, then signs out locally.
  */
 export default function DeleteAccount() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { signOut } = useAuth();
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,9 +73,10 @@ export default function DeleteAccount() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: spacing.lg },
-  body: { marginTop: spacing.sm },
-  confirm: { marginTop: spacing.xl },
-});
+const makeStyles = (c: Colors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.cream },
+    content: { padding: spacing.lg },
+    body: { marginTop: spacing.sm },
+    confirm: { marginTop: spacing.xl },
+  });

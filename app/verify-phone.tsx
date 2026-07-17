@@ -5,7 +5,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button, Screen, TextField, ThemedText } from '@/components';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import { colors, spacing } from '@/theme';
+import { spacing } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 
 /**
  * Phone verification. Mirrors the web flow: a secondary trust gate on top of an
@@ -14,6 +15,7 @@ import { colors, spacing } from '@/theme';
  */
 export default function VerifyPhone() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { refreshProfile } = useAuth();
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
