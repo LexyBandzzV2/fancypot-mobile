@@ -76,6 +76,12 @@
         "projectId": "fe2f2515-05cc-4066-8c93-0dc319893289"
       }
     },
+    "updates": {
+      "url": "https://u.expo.dev/fe2f2515-05cc-4066-8c93-0dc319893289"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "owner": "lexybandz"
   }
 }
