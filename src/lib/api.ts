@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { normalizeBrand } from './brands';
 
 /**
  * All AI features are invoked through Supabase Edge Functions. The mobile app
@@ -171,13 +172,37 @@ export async function getFreshFeed(store?: string): Promise<FeedProduct[]> {
 }
 
 /**
- * Fresh-feed items are synthetic — the edge function mints their ids with a
- * 'fresh-' prefix and no products row backs them, so reactions can't be
- * persisted for them. UI should hide persistent affordances (like/save) for
- * these; reactToProduct also refuses them as a backstop.
+ * Monthly-scraped products (supabase/functions/feed-scrape → the
+ * feed_scraped_products table, read directly with the user's own RLS-scoped
+ * client). Real currently-listed items with live buy links, refreshed on the
+ * 1st of each month. Pass the user's saved stores to scope server-side; no
+ * stores → the whole catalog.
+ */
+export async function getScrapedFeed(stores?: string[]): Promise<FeedProduct[]> {
+  let query = supabase
+    .from('feed_scraped_products')
+    .select('id, brand, name, price, image_url, product_url, category, style_tags, budget_tier')
+    .order('scraped_at', { ascending: false })
+    .limit(120);
+  if (stores && stores.length > 0) {
+    const keys = stores.map(normalizeBrand).filter(Boolean);
+    if (keys.length > 0) query = query.in('brand_key', keys);
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  // 'scraped-' prefix marks these ids as synthetic (no products row), same
+  // contract as 'fresh-' — reactions must never be written against them.
+  return (data ?? []).map((r) => ({ ...r, id: `scraped-${r.id}` })) as FeedProduct[];
+}
+
+/**
+ * Fresh-feed ('fresh-') and scraped-feed ('scraped-') items are synthetic —
+ * no products row backs them, so reactions can't be persisted for them. UI
+ * should hide persistent affordances (like/save) for these; reactToProduct
+ * also refuses them as a backstop.
  */
 export function isSyntheticProduct(productId: string): boolean {
-  return productId.startsWith('fresh-');
+  return productId.startsWith('fresh-') || productId.startsWith('scraped-');
 }
 
 export async function reactToProduct(

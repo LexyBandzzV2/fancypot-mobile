@@ -19,12 +19,13 @@ import { useTheme } from '@/providers/ThemeProvider';
 import {
   getFeed,
   getFreshFeed,
+  getScrapedFeed,
   isSyntheticProduct,
   reactToProduct,
   type FeedProduct,
 } from '@/lib/api';
 import { openProductUrl } from '@/lib/affiliate';
-import { brandsMatch } from '@/lib/brands';
+import { brandsMatch, budgetAllows } from '@/lib/brands';
 import { useAuth } from '@/providers/AuthProvider';
 
 export default function FeedScreen() {
@@ -32,12 +33,15 @@ export default function FeedScreen() {
   const styles = useThemedStyles(makeStyles);
   const { profile } = useAuth();
   const router = useRouter();
-  // The two sources are held separately: curated (feed-page) is
-  // store-independent and only refetched on mount / pull-to-refresh, while
-  // fresh (feed-fresh, non-AI SerpAPI) is store-scoped and refetched when the
-  // active chip changes. Each source keeps its last good value on failure so a
-  // flaky network can never blank an already-loaded feed.
+  // The three sources are held separately: curated (feed-page) is
+  // store-independent and only refetched on mount / pull-to-refresh; fresh
+  // (feed-fresh, non-AI SerpAPI) is store-scoped and refetched when the
+  // active chip changes; scraped (feed_scraped_products, refreshed monthly by
+  // the feed-scrape cron) is the full-catalog backbone, scoped server-side to
+  // the user's saved stores when they have any. Each source keeps its last
+  // good value on failure so a flaky network can never blank a loaded feed.
   const [freshProducts, setFreshProducts] = useState<FeedProduct[]>([]);
+  const [scrapedProducts, setScrapedProducts] = useState<FeedProduct[]>([]);
   const [curatedProducts, setCuratedProducts] = useState<FeedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [freshLoading, setFreshLoading] = useState(false);
@@ -53,15 +57,23 @@ export default function FeedScreen() {
     return Array.isArray(prefs.stores) ? prefs.stores.filter(Boolean) : [];
   }, [profile]);
 
+  const savedBudget = useMemo(() => {
+    const prefs = (profile?.preferences ?? {}) as { budget?: string };
+    return typeof prefs.budget === 'string' ? prefs.budget : null;
+  }, [profile]);
+
   const products = useMemo(
-    () => mergeFeeds(freshProducts, curatedProducts),
-    [freshProducts, curatedProducts],
+    () => mergeFeeds(freshProducts, scrapedProducts, curatedProducts),
+    [freshProducts, scrapedProducts, curatedProducts],
   );
 
   const visibleProducts = useMemo(() => {
-    if (!activeStore) return products;
-    return products.filter((p) => brandsMatch(p.brand, activeStore));
-  }, [products, activeStore]);
+    // Budget subdivision: hide items priced above the user's saved tier
+    // (cheaper tiers still show). Items with no tier metadata always pass.
+    let list = products.filter((p) => budgetAllows(savedBudget, p.budget_tier));
+    if (activeStore) list = list.filter((p) => brandsMatch(p.brand, activeStore));
+    return list;
+  }, [products, activeStore, savedBudget]);
 
   const loadCurated = useCallback(async () => {
     try {
@@ -84,12 +96,27 @@ export default function FeedScreen() {
     }
   }, []);
 
+  const loadScraped = useCallback(async () => {
+    try {
+      // No saved stores → whole catalog; saved stores → only those brands.
+      setScrapedProducts(await getScrapedFeed(savedStores.length ? savedStores : undefined));
+    } catch {
+      // keep the previous scraped list
+    }
+  }, [savedStores]);
+
   useEffect(() => {
     (async () => {
       await Promise.all([loadCurated(), loadFresh(null)]);
       setLoading(false);
     })();
   }, [loadCurated, loadFresh]);
+
+  // Separate effect: re-scopes on its own when the user's saved stores load
+  // or change, without re-pulling the other two sources.
+  useEffect(() => {
+    loadScraped();
+  }, [loadScraped]);
 
   // Chip change → re-scope only the fresh source (curated is store-independent;
   // refetching it here would be wasted I/O). Skipped on mount — the effect
@@ -105,10 +132,10 @@ export default function FeedScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    // Re-pull both sources; the weekly pg_cron job owns AI scraping now.
-    await Promise.all([loadCurated(), loadFresh(activeStore)]);
+    // Re-pull all sources; the monthly pg_cron job owns catalog scraping.
+    await Promise.all([loadCurated(), loadFresh(activeStore), loadScraped()]);
     setRefreshing(false);
-  }, [loadCurated, loadFresh, activeStore]);
+  }, [loadCurated, loadFresh, loadScraped, activeStore]);
 
   const react = useCallback(
     async (product: FeedProduct, reaction: 'like' | 'dislike' | 'save') => {
@@ -118,6 +145,7 @@ export default function FeedScreen() {
         await reactToProduct(product.id, reaction);
         if (reaction === 'dislike') {
           setFreshProducts((prev) => prev.filter((p) => p.id !== product.id));
+          setScrapedProducts((prev) => prev.filter((p) => p.id !== product.id));
           setCuratedProducts((prev) => prev.filter((p) => p.id !== product.id));
         }
       } catch {
@@ -187,13 +215,13 @@ export default function FeedScreen() {
   );
 }
 
-// Fresh items first, then curated, deduped by product_url (case-insensitive,
-// first occurrence wins). Items with no product_url are kept as-is — there's
-// nothing to dedupe them against.
-function mergeFeeds(fresh: FeedProduct[], curated: FeedProduct[]): FeedProduct[] {
+// Sources in priority order (fresh, scraped, curated), deduped by product_url
+// (case-insensitive, first occurrence wins). Items with no product_url are
+// kept as-is — there's nothing to dedupe them against.
+function mergeFeeds(...sources: FeedProduct[][]): FeedProduct[] {
   const seen = new Set<string>();
   const merged: FeedProduct[] = [];
-  for (const item of [...fresh, ...curated]) {
+  for (const item of sources.flat()) {
     if (!item.product_url) {
       merged.push(item);
       continue;
