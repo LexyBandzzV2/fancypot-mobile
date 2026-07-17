@@ -36,12 +36,23 @@ export function useImagePicker() {
       Alert.alert('Camera access needed', 'Enable camera access in Settings to snap pieces.');
       return null;
     }
-    const res = await ImagePicker.launchCameraAsync({
-      quality: 0.8,
-      base64: true,
-      allowsEditing: false,
-    });
-    return toPicked(res);
+    try {
+      const res = await ImagePicker.launchCameraAsync({
+        quality: 0.8,
+        base64: true,
+        allowsEditing: false,
+      });
+      return toPicked(res);
+    } catch {
+      // No usable camera (e.g. simulator, desktop web, or hardware missing) —
+      // launchCameraAsync throws rather than resolving. Tell the user plainly
+      // and let them fall back to the photo library instead of silently failing.
+      Alert.alert(
+        'No camera available',
+        "We couldn't open a camera on this device. Choose a photo from your library instead.",
+      );
+      return null;
+    }
   }, []);
 
   return { fromLibrary, fromCamera };

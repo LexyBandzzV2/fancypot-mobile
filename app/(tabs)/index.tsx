@@ -7,6 +7,7 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -107,7 +108,7 @@ export default function ClosetScreen() {
         <FlatList
           data={items}
           keyExtractor={(i) => i.id}
-          numColumns={2}
+          numColumns={NUM_COLUMNS}
           ListHeaderComponent={header}
           columnWrapperStyle={styles.column}
           contentContainerStyle={styles.list}
@@ -193,7 +194,7 @@ function ClosetTile({
       ) : null}
       {item.name ? (
         <View style={styles.tileLabel}>
-          <ThemedText variant="labelSmall" color={colors.ink} numberOfLines={1}>
+          <ThemedText variant="labelSmall" color={colors.cream} numberOfLines={1}>
             {item.name}
           </ThemedText>
         </View>
@@ -202,25 +203,30 @@ function ClosetTile({
   );
 }
 
-const GAP = spacing.md;
+// Instagram-style grid: fixed-width square tiles computed from the screen so a
+// single item stays small in its column instead of stretching full-width.
+const NUM_COLUMNS = 3;
+const H_PADDING = spacing.lg;
+const GAP = spacing.sm;
+const TILE_W =
+  (Dimensions.get('window').width - H_PADDING * 2 - GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
   pad: { paddingHorizontal: spacing.lg },
   metaRow: { paddingBottom: spacing.md },
   banner: { paddingBottom: spacing.md },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
-  column: { gap: GAP },
+  list: { paddingHorizontal: H_PADDING, paddingBottom: 120 },
+  column: { gap: GAP, marginBottom: GAP },
   tile: {
-    flex: 1,
-    marginBottom: GAP,
+    width: TILE_W,
     borderRadius: radius.md,
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
   },
-  tileImg: { width: '100%', aspectRatio: 0.82 },
+  tileImg: { width: '100%', aspectRatio: 1 },
   tilePlaceholder: {
     backgroundColor: colors.pearl,
     alignItems: 'center',
@@ -233,7 +239,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   processingText: { marginTop: spacing.xs },
-  tileLabel: { padding: spacing.sm },
+  tileLabel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.overlay,
+  },
   fab: {
     position: 'absolute',
     right: spacing.lg,
