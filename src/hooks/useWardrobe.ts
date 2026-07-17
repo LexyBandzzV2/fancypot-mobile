@@ -20,6 +20,14 @@ export interface WardrobeDisplayItem extends WardrobeItem {
   signedUrl: string | null;
 }
 
+// Channel topics must be unique per subscription: supabase.channel() returns
+// the EXISTING channel when the topic matches, and adding `postgres_changes`
+// listeners to an already-subscribed channel throws ("cannot add
+// `postgres_changes` callbacks ... after `subscribe()`"). Two screens mount
+// this hook at once (Closet tab stays mounted while the Stylist opens), so a
+// shared `wardrobe-items-${user.id}` topic crashed the second mount.
+let wardrobeChannelSeq = 0;
+
 /**
  * Loads the signed-in user's closet, keeps it live via Supabase realtime, and
  * exposes add/delete. The DB trigger enforce_wardrobe_limit rejects inserts past
@@ -61,7 +69,7 @@ export function useWardrobe() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`wardrobe-items-${user.id}`)
+      .channel(`wardrobe-items-${user.id}-${++wardrobeChannelSeq}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'wardrobe_items', filter: `user_id=eq.${user.id}` },

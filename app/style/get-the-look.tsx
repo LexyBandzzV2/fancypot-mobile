@@ -51,6 +51,15 @@ export default function GetTheLookScreen() {
       const signed = await signWardrobeUrl(uploadedPath);
       if (!signed) throw new Error('Could not prepare the photo.');
       const matches = await getTheLookSearch(signed);
+      if (matches.length === 0) {
+        // Without this, a zero-match search lands back on the start screen
+        // with no explanation and reads as "the button did nothing."
+        Alert.alert(
+          'No matches found',
+          'We could not find shoppable look-alikes for that photo. Try a clearer, full-outfit photo with good lighting.',
+        );
+        return;
+      }
       setResults(matches);
       setIndex(0);
       setKept([]);

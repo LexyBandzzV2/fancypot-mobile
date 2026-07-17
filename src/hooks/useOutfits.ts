@@ -8,6 +8,11 @@ export interface OutfitDisplay extends Outfit {
   signedUrl: string | null;
 }
 
+// Unique topic per subscription — supabase.channel() returns the existing
+// channel for a matching topic, and adding listeners after subscribe() throws.
+// The Saved tab and Try-on screen both mount this hook (see useWardrobe.ts).
+let outfitsChannelSeq = 0;
+
 export function useOutfits() {
   const { user } = useAuth();
   const [outfits, setOutfits] = useState<OutfitDisplay[]>([]);
@@ -34,7 +39,7 @@ export function useOutfits() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`outfits-${user.id}`)
+      .channel(`outfits-${user.id}-${++outfitsChannelSeq}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'outfits', filter: `user_id=eq.${user.id}` },

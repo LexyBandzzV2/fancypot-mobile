@@ -143,8 +143,20 @@ export async function deleteOutfit(id: string): Promise<void> {
 }
 
 // ---- Feed ----
+/**
+ * The feed-page function has returned both a bare array and a wrapped
+ * `{ products: [...] }` shape across versions; spreading a non-array crashes
+ * the feed screen ("iterator method is not callable" on Hermes), so coerce
+ * here and never let a payload-shape drift reach the UI.
+ */
+function coerceProducts(data: unknown): FeedProduct[] {
+  if (Array.isArray(data)) return data as FeedProduct[];
+  const products = (data as { products?: unknown } | null)?.products;
+  return Array.isArray(products) ? (products as FeedProduct[]) : [];
+}
+
 export async function getFeed(): Promise<FeedProduct[]> {
-  return invokeAI<FeedProduct[]>('feed-page', {});
+  return coerceProducts(await invokeAI<unknown>('feed-page', {}));
 }
 
 /**
@@ -154,11 +166,8 @@ export async function getFeed(): Promise<FeedProduct[]> {
  * row), so never write reactions against them.
  */
 export async function getFreshFeed(store?: string): Promise<FeedProduct[]> {
-  const res = await invokeAI<{ products: FeedProduct[]; reason?: 'no_stores' }>(
-    'feed-fresh',
-    store ? { store } : {},
-  );
-  return res?.products ?? [];
+  const res = await invokeAI<unknown>('feed-fresh', store ? { store } : {});
+  return coerceProducts(res);
 }
 
 /**
