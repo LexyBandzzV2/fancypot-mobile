@@ -27,8 +27,12 @@ export interface Outfit {
   image_url: string | null;
   item_ids: string[] | null;
   occasion: string | null;
-  // Retailer deep link for shoppable saved looks (Get the Look matches).
-  // Null for AI-composed stylist outfits — they have no single buyable product.
+  /**
+   * Shoppable origin (the product page a Get-the-Look match came from). The
+   * app uses `source_url`; it is persisted to / read from the `product_url`
+   * column on public.outfits (see saveOutfit/listOutfits) — that is the column
+   * the deployed backend added. Null for AI-composed stylist outfits.
+   */
   source_url: string | null;
   created_at: string;
 }
@@ -128,6 +132,15 @@ export async function processWardrobeItem(itemId: string): Promise<void> {
 }
 
 // ---- Outfits / library ----
+// The app-facing field is `source_url`, but the deployed `outfits` table stores
+// the buy link in the `product_url` column. Bridge the two at the DB boundary
+// so screens keep using `source_url` (Outfit interface) while persistence lands
+// in the real column.
+function rowToOutfit(row: Record<string, any>): Outfit {
+  const { product_url, ...rest } = row;
+  return { ...rest, source_url: product_url ?? null } as Outfit;
+}
+
 export async function listOutfits(userId: string): Promise<Outfit[]> {
   const { data, error } = await supabase
     .from('outfits')
@@ -135,20 +148,25 @@ export async function listOutfits(userId: string): Promise<Outfit[]> {
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data ?? []) as Outfit[];
+  return (data ?? []).map(rowToOutfit);
 }
 
 export async function saveOutfit(
   userId: string,
   outfit: Partial<Outfit>,
 ): Promise<Outfit> {
+  const { source_url, ...rest } = outfit;
   const { data, error } = await supabase
     .from('outfits')
-    .insert({ user_id: userId, ...outfit })
+    .insert({
+      user_id: userId,
+      ...rest,
+      ...(source_url !== undefined ? { product_url: source_url } : {}),
+    })
     .select('*')
     .single();
   if (error) throw error;
-  return data as Outfit;
+  return rowToOutfit(data);
 }
 
 export async function deleteOutfit(id: string): Promise<void> {
@@ -170,6 +188,8 @@ function coerceProducts(data: unknown): FeedProduct[] {
 }
 
 export async function getFeed(): Promise<FeedProduct[]> {
+  // The deployed feed-page accepts a body `limit`; ask for a fuller first page
+  // (24) so the feed has depth. coerceProducts tolerates array vs `{products}`.
   return coerceProducts(await invokeAI<unknown>('feed-page', { limit: 24 }));
 }
 
