@@ -23,6 +23,7 @@ import type { Colors } from '@/theme/colors';
 import { radius, spacing, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
+import { openProductUrl } from '@/lib/affiliate';
 
 export default function SavedScreen() {
   const { colors } = useTheme();
@@ -83,7 +84,7 @@ export default function SavedScreen() {
           renderItem={({ item }) => (
             <Pressable
               style={styles.tile}
-              onPress={() => router.push('/style/try-on')}
+              onPress={() => router.push({ pathname: '/style/try-on', params: { outfitId: item.id } })}
               onLongPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 setSelected(item);
@@ -113,10 +114,23 @@ export default function SavedScreen() {
           label="Try this on"
           icon={<Ionicons name="body-outline" size={22} color={colors.ink} />}
           onPress={() => {
+            const id = selected?.id;
             setSelected(null);
-            router.push('/style/try-on');
+            router.push({ pathname: '/style/try-on', params: id ? { outfitId: id } : {} });
           }}
         />
+        {/* Only shoppable looks (Get the Look matches) carry a product_url. */}
+        {selected?.product_url ? (
+          <SheetAction
+            label="Get the look"
+            icon={<Ionicons name="bag-handle-outline" size={22} color={colors.ink} />}
+            onPress={() => {
+              const url = selected.product_url;
+              setSelected(null);
+              openProductUrl(url);
+            }}
+          />
+        ) : null}
         <SheetAction
           label="Delete outfit"
           destructive

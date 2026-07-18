@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import { StackHeader, Button, ThemedText, EmptyState, Card } from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
@@ -11,6 +12,7 @@ import { useImagePicker } from '@/hooks/useImagePicker';
 import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
 import { tryOn } from '@/lib/api';
+import { openProductUrl } from '@/lib/affiliate';
 
 export default function TryOnScreen() {
   const { colors } = useTheme();
@@ -18,10 +20,19 @@ export default function TryOnScreen() {
   const { fromCamera, fromLibrary } = useImagePicker();
   const { outfits } = useOutfits();
   const { run, running } = useAIAction();
+  const { outfitId } = useLocalSearchParams<{ outfitId?: string }>();
   const [personImage, setPersonImage] = useState<string | null>(null);
   const [personBase64, setPersonBase64] = useState<string | null>(null);
   const [outfit, setOutfit] = useState<OutfitDisplay | null>(null);
   const [result, setResult] = useState<string | null>(null);
+
+  // Preselect the look the user tapped through from (Saved Looks passes its id).
+  // Only runs until something is selected, so a manual pick is never overridden.
+  useEffect(() => {
+    if (!outfitId || outfit) return;
+    const match = outfits.find((o) => o.id === outfitId);
+    if (match) setOutfit(match);
+  }, [outfitId, outfits, outfit]);
 
   const pickPerson = async (source: 'camera' | 'library') => {
     const picked = source === 'camera' ? await fromCamera() : await fromLibrary();
@@ -51,6 +62,14 @@ export default function TryOnScreen() {
               <Image source={{ uri: result }} style={styles.result} contentFit="cover" transition={250} />
             </Card>
             <Button label="Try another" variant="outline" onPress={() => setResult(null)} />
+            {outfit?.product_url ? (
+              <Pressable style={styles.shopLink} onPress={() => openProductUrl(outfit.product_url)}>
+                <Ionicons name="bag-handle-outline" size={18} color={colors.pinkWarm} />
+                <ThemedText variant="label" color={colors.pinkWarm}>
+                  Shop this look
+                </ThemedText>
+              </Pressable>
+            ) : null}
           </View>
         ) : (
           <>
@@ -105,6 +124,16 @@ export default function TryOnScreen() {
                 })}
               </ScrollView>
             )}
+
+            {/* Shoppable looks (Get the Look matches) carry a retailer link. */}
+            {outfit?.product_url ? (
+              <Pressable style={styles.shopLink} onPress={() => openProductUrl(outfit.product_url)}>
+                <Ionicons name="bag-handle-outline" size={18} color={colors.pinkWarm} />
+                <ThemedText variant="label" color={colors.pinkWarm}>
+                  Shop this look
+                </ThemedText>
+              </Pressable>
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -143,6 +172,14 @@ const makeStyles = (colors: Colors) =>
     personEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
     personActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
     noOutfits: { height: 180 },
+    shopLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      marginTop: spacing.lg,
+      paddingVertical: spacing.sm,
+    },
     outfitRow: { gap: spacing.sm, paddingVertical: spacing.xs },
     outfit: {
       width: 92,

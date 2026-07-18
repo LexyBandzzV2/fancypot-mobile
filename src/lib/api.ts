@@ -27,6 +27,9 @@ export interface Outfit {
   image_url: string | null;
   item_ids: string[] | null;
   occasion: string | null;
+  // Retailer deep link for shoppable saved looks (Get the Look matches).
+  // Null for AI-composed stylist outfits — they have no single buyable product.
+  product_url: string | null;
   created_at: string;
 }
 
