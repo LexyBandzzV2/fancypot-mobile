@@ -191,8 +191,8 @@ export async function getFreshFeed(store?: string): Promise<FeedProduct[]> {
 // `scraped_at` timestamp (stamped once per run, not per brand), so ordering
 // by it can't break ties meaningfully — a low cap here would silently drop
 // whichever brands Postgres happens to return last, with no relation to
-// data quality. Kept well above catalog-size * PER_BRAND (~140 * 24).
-const SCRAPED_FEED_CEILING = 5000;
+// data quality. Kept well above catalog-size * PER_BRAND (~140 * 100 = 14,000).
+const SCRAPED_FEED_CEILING = 20000;
 
 /**
  * Monthly-scraped products (supabase/functions/feed-scrape → the
