@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+
+// Every mounted consumer of useWardrobe (the Closet tab AND the Stylist screen
+// can be alive at once) needs its OWN realtime channel. Supabase dedupes
+// channels by topic name, so a shared name makes the second subscriber call
+// `.on()` on an already-subscribed channel → "cannot add postgres_changes
+// callbacks after subscribe()". A per-instance suffix keeps them distinct.
+let channelSeq = 0;
 import {
   listWardrobe,
   insertWardrobeItem,
@@ -31,6 +38,8 @@ export function useWardrobe() {
   const [items, setItems] = useState<WardrobeDisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Stable, unique per hook instance (lazy init runs once).
+  const [instanceId] = useState(() => ++channelSeq);
 
   const hydrate = useCallback(async (rows: WardrobeItem[]) => {
     const withUrls = await Promise.all(
@@ -61,7 +70,7 @@ export function useWardrobe() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`wardrobe-items-${user.id}`)
+      .channel(`wardrobe-items-${user.id}-${instanceId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'wardrobe_items', filter: `user_id=eq.${user.id}` },
@@ -73,7 +82,7 @@ export function useWardrobe() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, load]);
+  }, [user, load, instanceId]);
 
   const add = useCallback(
     async (base64: string) => {

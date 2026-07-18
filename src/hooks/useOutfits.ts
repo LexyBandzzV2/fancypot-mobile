@@ -8,10 +8,18 @@ export interface OutfitDisplay extends Outfit {
   signedUrl: string | null;
 }
 
+// Saved tab, Stylist, and Try-on can all mount this hook at the same time.
+// Supabase dedupes realtime channels by topic name, so a shared name makes the
+// second subscriber call `.on()` on an already-subscribed channel and crash
+// ("cannot add postgres_changes callbacks after subscribe()"). Unique suffix
+// per hook instance keeps every subscription independent.
+let channelSeq = 0;
+
 export function useOutfits() {
   const { user } = useAuth();
   const [outfits, setOutfits] = useState<OutfitDisplay[]>([]);
   const [loading, setLoading] = useState(true);
+  const [instanceId] = useState(() => ++channelSeq);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -34,7 +42,7 @@ export function useOutfits() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`outfits-${user.id}`)
+      .channel(`outfits-${user.id}-${instanceId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'outfits', filter: `user_id=eq.${user.id}` },
@@ -44,7 +52,7 @@ export function useOutfits() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, load]);
+  }, [user, load, instanceId]);
 
   const remove = useCallback(async (id: string) => {
     await apiDelete(id);

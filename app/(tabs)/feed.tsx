@@ -182,7 +182,7 @@ function ProductCard({
         </ThemedText>
         <View style={styles.cardFooter}>
           <ThemedText variant="label" color={colors.ink}>
-            {item.price != null ? `$${item.price}` : ''}
+            {typeof item.price === 'number' ? `$${item.price}` : item.price ?? ''}
           </ThemedText>
           <View style={styles.actions}>
             <ReactBtn

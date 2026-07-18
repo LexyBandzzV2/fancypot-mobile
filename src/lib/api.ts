@@ -33,7 +33,8 @@ export interface FeedProduct {
   id: string;
   brand: string | null;
   name: string | null;
-  price: number | null;
+  /** Scraped display string ("€2,310.00", "$59.99") or a bare number. */
+  price: string | number | null;
   image_url: string | null;
   product_url: string | null;
   category: string | null;
@@ -144,7 +145,12 @@ export async function deleteOutfit(id: string): Promise<void> {
 
 // ---- Feed ----
 export async function getFeed(): Promise<FeedProduct[]> {
-  return invokeAI<FeedProduct[]>('feed-page', {});
+  // feed-page responds with `{ products, stale }`, not a bare array. Unwrap it
+  // (tolerating either shape) so callers always get a real array — otherwise
+  // `products.length` / `products.filter` on the screen operate on an object.
+  const res = await invokeAI<{ products?: FeedProduct[] } | FeedProduct[]>('feed-page', {});
+  if (Array.isArray(res)) return res;
+  return res?.products ?? [];
 }
 
 export async function refreshFeed(): Promise<void> {

@@ -107,7 +107,7 @@ export default function ClosetScreen() {
         <FlatList
           data={items}
           keyExtractor={(i) => i.id}
-          numColumns={2}
+          numColumns={3}
           ListHeaderComponent={header}
           columnWrapperStyle={styles.column}
           contentContainerStyle={styles.list}
@@ -202,7 +202,8 @@ function ClosetTile({
   );
 }
 
-const GAP = spacing.md;
+// Tighter gap for the 3-up Instagram-style grid.
+const GAP = spacing.sm;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.cream },
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
   },
-  tileImg: { width: '100%', aspectRatio: 0.82 },
+  tileImg: { width: '100%', aspectRatio: 1 },
   tilePlaceholder: {
     backgroundColor: colors.pearl,
     alignItems: 'center',

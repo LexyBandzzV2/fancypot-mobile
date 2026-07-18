@@ -89,6 +89,12 @@ export default function ProfileScreen() {
         />
         <Divider />
         <LinkRow
+          icon="key-outline"
+          label="Change password"
+          onPress={() => router.push('/settings/change-password')}
+        />
+        <Divider />
+        <LinkRow
           icon={profile?.phone_verified ? 'checkmark-circle-outline' : 'call-outline'}
           label={profile?.phone_verified ? 'Phone verified' : 'Verify phone number'}
           onPress={() => router.push('/verify-phone')}

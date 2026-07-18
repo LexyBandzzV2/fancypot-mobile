@@ -4,25 +4,10 @@ import { useRouter } from 'expo-router';
 import { StackHeader, Button, ThemedText } from '@/components';
 import { colors, radius, spacing } from '@/theme';
 import { supabase } from '@/lib/supabase';
+import { BRAND_GROUPS } from '@/lib/brands';
 import { useAuth } from '@/providers/AuthProvider';
 
 const STYLES = ['Classic', 'Minimal', 'Trendy', 'Streetwear', 'Romantic', 'Edgy', 'Preppy', 'Boho'];
-const STORES = [
-  'H&M',
-  'Zara',
-  'Aritzia',
-  'Revolve',
-  'ASOS',
-  'Nike',
-  'Lululemon',
-  'Urban Outfitters',
-  'Mango',
-  'Uniqlo',
-  'Nordstrom',
-  'Reformation',
-  'SSENSE',
-  'Free People',
-];
 const BUDGETS = ['Budget', 'Mid-range', 'Premium', 'Luxury'];
 
 /** Style profile editor — writes profiles.preferences (jsonb), same shape as web. */
@@ -67,9 +52,15 @@ export default function Preferences() {
         <Section title="YOUR STYLES">
           <Chips options={STYLES} selected={styles_} onToggle={(v) => toggle(styles_, setStyles, v)} />
         </Section>
-        <Section title="FAVORITE STORES">
-          <Chips options={STORES} selected={stores} onToggle={(v) => toggle(stores, setStores, v)} />
-        </Section>
+        {BRAND_GROUPS.map((group) => (
+          <Section key={group.title} title={`STORES — ${group.title}`}>
+            <Chips
+              options={group.brands}
+              selected={stores}
+              onToggle={(v) => toggle(stores, setStores, v)}
+            />
+          </Section>
+        ))}
         <Section title="BUDGET">
           <Chips options={BUDGETS} selected={[budget]} onToggle={setBudget} single />
         </Section>
