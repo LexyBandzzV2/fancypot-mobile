@@ -215,6 +215,12 @@ export async function getFreshFeed(store?: string): Promise<FeedProduct[]> {
 // data quality. Kept well above catalog-size * PER_BRAND (~140 * 100 = 14,000).
 const SCRAPED_FEED_CEILING = 20000;
 
+// PostgREST silently caps every request at ~1,000 rows no matter what
+// .limit() asks for, so the catalog MUST be paged — a single big-limit query
+// "works" until the table outgrows one page, then arbitrary brands vanish
+// from the feed (rows past the cap are dropped among tied scraped_at values).
+const SCRAPED_PAGE = 1000;
+
 /**
  * Monthly-scraped products (supabase/functions/feed-scrape → the
  * feed_scraped_products table, read directly with the user's own RLS-scoped
@@ -223,20 +229,32 @@ const SCRAPED_FEED_CEILING = 20000;
  * stores → the whole catalog.
  */
 export async function getScrapedFeed(stores?: string[]): Promise<FeedProduct[]> {
-  let query = supabase
-    .from('feed_scraped_products')
-    .select('id, brand, name, price, image_url, product_url, category, style_tags, budget_tier')
-    .order('scraped_at', { ascending: false })
-    .limit(SCRAPED_FEED_CEILING);
-  if (stores && stores.length > 0) {
-    const keys = stores.map(normalizeBrand).filter(Boolean);
+  const keys = (stores ?? []).map(normalizeBrand).filter(Boolean);
+  const rows: Record<string, unknown>[] = [];
+  for (let page = 0; page * SCRAPED_PAGE < SCRAPED_FEED_CEILING; page++) {
+    let query = supabase
+      .from('feed_scraped_products')
+      .select('id, brand, name, price, image_url, product_url, category, style_tags, budget_tier')
+      // The id tiebreak makes the order total: scraped_at is stamped once per
+      // run, so ordering by it alone would let tied rows swap between pages
+      // (duplicating some rows and dropping others).
+      .order('scraped_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(page * SCRAPED_PAGE, (page + 1) * SCRAPED_PAGE - 1);
     if (keys.length > 0) query = query.in('brand_key', keys);
+    const { data, error } = await query;
+    if (error) {
+      // Keep whatever full pages already arrived — a partial catalog beats
+      // blanking the feed over a mid-pagination hiccup.
+      if (rows.length > 0) break;
+      throw error;
+    }
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < SCRAPED_PAGE) break; // last page
   }
-  const { data, error } = await query;
-  if (error) throw error;
   // 'scraped-' prefix marks these ids as synthetic (no products row), same
   // contract as 'fresh-' — reactions must never be written against them.
-  return (data ?? []).map((r) => ({ ...r, id: `scraped-${r.id}` })) as FeedProduct[];
+  return rows.map((r) => ({ ...r, id: `scraped-${r.id}` })) as FeedProduct[];
 }
 
 /**
