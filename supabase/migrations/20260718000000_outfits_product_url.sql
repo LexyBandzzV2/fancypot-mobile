@@ -5,6 +5,11 @@
 -- title but no way back to the store. This column stores the retailer deep
 -- link so Saved Looks and Virtual Try-on can offer a "Shop this look" action.
 --
+-- Naming note: the app-facing field is `source_url` (see src/lib/api.ts), and
+-- saveOutfit/listOutfits bridge it to THIS `product_url` column — the column
+-- the deployed backend uses. The live DB also briefly grew an unused
+-- `source_url` column during divergent development; it is safe to ignore/drop.
+--
 -- Nullable: AI-generated stylist outfits are composites with no single buyable
 -- product, so they legitimately have no product_url. Purely additive — safe to
 -- run on the live project.

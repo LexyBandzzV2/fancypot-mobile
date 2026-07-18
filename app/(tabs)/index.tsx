@@ -7,6 +7,7 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -111,7 +112,7 @@ export default function ClosetScreen() {
         <FlatList
           data={items}
           keyExtractor={(i) => i.id}
-          numColumns={3}
+          numColumns={NUM_COLUMNS}
           ListHeaderComponent={header}
           columnWrapperStyle={styles.column}
           contentContainerStyle={styles.list}
@@ -208,9 +209,13 @@ function ClosetTile({
   );
 }
 
-// Tighter gap for the 3-up Instagram-style grid.
+// Instagram-style grid: fixed-width square tiles computed from the screen so a
+// single item stays small in its column instead of stretching full-width.
+const NUM_COLUMNS = 3;
 const H_PADDING = spacing.lg;
 const GAP = spacing.sm;
+const TILE_W =
+  (Dimensions.get('window').width - H_PADDING * 2 - GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
@@ -219,13 +224,9 @@ const makeStyles = (c: Colors) =>
     metaRow: { paddingBottom: spacing.md },
     banner: { paddingBottom: spacing.md },
     list: { paddingHorizontal: H_PADDING, paddingBottom: 120 },
-    column: { gap: GAP },
+    column: { gap: GAP, marginBottom: GAP },
     tile: {
-      flex: 1,
-      // With 1–2 items, flex:1 would stretch a lone tile across the whole row —
-      // cap it so a single piece still renders as one small grid cell.
-      maxWidth: '33.33%',
-      marginBottom: GAP,
+      width: TILE_W,
       borderRadius: radius.md,
       backgroundColor: c.white,
       borderWidth: 1,

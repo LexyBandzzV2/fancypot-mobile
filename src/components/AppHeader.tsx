@@ -1,29 +1,46 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { spacing } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
+import { useNavDrawer } from '@/providers/NavDrawerProvider';
 import { ThemedText } from './Typography';
 import { Glass } from './Glass';
 
 /**
  * Lightweight in-page header used by the tab screens (the tab bar hides the
- * native stack header). Title uses the Cormorant display face.
+ * native stack header). Title uses the Cormorant display face. A leading menu
+ * button opens the app-wide navigation drawer; pass `menu={false}` to hide it.
  */
 export function AppHeader({
   title,
   subtitle,
   right,
+  menu = true,
 }: {
   title: string;
   subtitle?: string;
   right?: React.ReactNode;
+  menu?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { openDrawer } = useNavDrawer();
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + spacing.sm, backgroundColor: colors.cream }]}>
       <View style={styles.row}>
+        {menu ? (
+          <Pressable
+            onPress={openDrawer}
+            hitSlop={12}
+            style={styles.menuBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Open menu"
+          >
+            <Ionicons name="menu" size={26} color={colors.ink} />
+          </Pressable>
+        ) : null}
         <View style={styles.titles}>
           <ThemedText variant="h1">{title}</ThemedText>
           {subtitle ? (
@@ -66,7 +83,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
   },
-  row: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  row: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing.sm },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
   titles: { flex: 1 },
   iconBtn: {
     width: 44,

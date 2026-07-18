@@ -122,8 +122,8 @@ export default function SavedScreen() {
         {/* Only shoppable looks (Get the Look matches) carry a source_url. */}
         {selected?.source_url ? (
           <SheetAction
-            label="Shop this look"
-            icon={<Ionicons name="bag-outline" size={22} color={colors.ink} />}
+            label="Get the look"
+            icon={<Ionicons name="bag-handle-outline" size={22} color={colors.ink} />}
             onPress={() => {
               const url = selected.source_url;
               setSelected(null);

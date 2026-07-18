@@ -98,38 +98,43 @@ Local dev reads `.env`. **EAS cloud builds** read the `env` block in `eas.json`
 
 ## Backend (Supabase) setup
 
-The app points at your **existing** project — no new backend. `revenuecat-webhook`
-and `delete-account` are already deployed to `gizqpfbmqgwhbalywkqv` (JWT verification
-off for the webhook, on for account deletion — RevenueCat authenticates via its own
-shared-secret header, not a Supabase JWT).
+The app points at your **existing** project — no new backend. Two small, non-breaking
+additions make mobile subscriptions + store compliance work. Deploy from a machine with
+the Supabase CLI linked to `gizqpfbmqgwhbalywkqv`:
 
-One manual step remains: `revenuecat-webhook` needs `REVENUECAT_WEBHOOK_SECRET` set
-to the same value you configure in RevenueCat's dashboard (Integrations → Webhooks →
-Authorization header). Set it at Supabase → Project Settings → Secrets. Until that
-value matches on both sides, the webhook will reject every call with 401.
+```bash
+# 1. RevenueCat → profiles.plan webhook (unifies mobile IAP with web Stripe)
+supabase secrets set REVENUECAT_WEBHOOK_SECRET=<long-random-string>
+supabase functions deploy revenuecat-webhook --no-verify-jwt
+
+# 2. In-app account deletion (App Store 5.1.1(v) / Play requirement)
+supabase functions deploy delete-account
+
+# 3. (optional) additive ai_usage columns for the mobile analytics shape
+supabase db push
+```
 
 ### Get the Look (SerpAPI)
 
 "Get the Look" uses **non-AI** reverse image search (SerpAPI Google Lens, flat-rate
-per query — no per-token AI spend). The `get-the-look-search` edge function is
-already deployed on the shared Supabase project with `SERPAPI_KEY` configured —
-nothing to deploy here. The mobile client just calls it by name via
-`invokeAI('get-the-look-search', ...)` in `src/lib/api.ts`.
+per query — no per-token AI spend). Deploy the function and set its key:
 
-`wardrobe-process`, `revenuecat-webhook`, and `delete-account` are also already
-deployed on the shared project — see the compliance audit for current status.
+```bash
+supabase secrets set SERPAPI_KEY=<key>
+supabase functions deploy get-the-look-search
+```
 
-**Fresh Feed** and the **monthly brand scraper** are new in this build. `feed-fresh`
-reuses the same `SERPAPI_KEY` secret to pull live Google Shopping listings for the
-user's saved stores (non-AI, flat-rate per query, cached server-side); `feed-scrape`
-refreshes the full-catalog `feed_scraped_products` table on a monthly cron. Deploy
-the functions and apply their migrations:
+**Fresh Feed** reuses that same `SERPAPI_KEY` secret to pull live Google Shopping
+listings for the user's saved stores (also non-AI, flat-rate per query, cached
+server-side). Deploy the function and apply its cache-table migration:
 
 ```bash
 supabase functions deploy feed-fresh
-supabase functions deploy feed-scrape
-supabase db push   # feed_fresh_cache, feed_scraped_products, feed_monthly_scrape_cron, outfits_product_url
+supabase db push   # creates public.feed_fresh_cache (20260712090000_feed_fresh_cache.sql)
 ```
+
+Then apply [`supabase/PATCH-wardrobe-process.md`](./supabase/PATCH-wardrobe-process.md)
+in the web/backend repo — it closes the **only** AI function that wasn't rate-limited.
 
 Everything else (tables, RLS, auth, storage bucket `wardrobe`, the other 5 AI edge
 functions with their per-tier spend caps) already exists and is reused as-is.

@@ -94,7 +94,7 @@ export default function GetTheLookScreen() {
           name: current.title ?? 'Saved look',
           image_url: current.thumbnail,
           category: 'get_the_look',
-          // Keep the shoppable origin so Saved can offer "Shop this look".
+          // Keep the retailer link so Saved Looks / Try-on can shop the item.
           source_url: current.link,
         });
       } catch {

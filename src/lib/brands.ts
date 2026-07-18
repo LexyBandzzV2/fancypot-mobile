@@ -1,182 +1,165 @@
 /**
- * Brand catalog for Style preferences — mirrors the backend scraper's
- * BRAND_CATALOG (supabase/functions/feed-scrape/catalog.ts in the web repo).
- * Names must match `feed_products.brand` EXACTLY: the feed's brand filter and
- * feed-page's `.in("brand", prefs.stores)` both compare against these strings.
- * If the backend catalog gains a brand, add it here too.
+ * Single source of truth for style/store/budget preference options.
+ * This list is shared by the preferences editor, feed brand chips, and the feed-fresh
+ * edge function queries; brand strings are stored verbatim in profiles.preferences.stores,
+ * so never rename existing entries.
  */
 
-export interface BrandGroup {
-  title: string;
-  brands: string[];
-}
-
-export const BRAND_GROUPS: BrandGroup[] = [
-  {
-    title: 'BUDGET-FRIENDLY',
-    brands: [
-      'H&M',
-      'Shein',
-      'Fashion Nova',
-      'Forever 21',
-      'Boohoo',
-      'PrettyLittleThing',
-      'Missguided',
-      'Nasty Gal',
-      'Old Navy',
-      'Target',
-      'Cider',
-      'YesStyle',
-      'Uniqlo',
-      'Bershka',
-      'Stradivarius',
-      'Pull&Bear',
-      'Edikted',
-      'Hot Topic',
-      'Garage',
-    ],
-  },
-  {
-    title: 'MID-RANGE',
-    brands: [
-      'Zara',
-      'Mango',
-      'Abercrombie & Fitch',
-      'Aerie',
-      'American Eagle',
-      'Hollister',
-      'Gap',
-      'Banana Republic',
-      'J.Crew',
-      "Levi's",
-      'Madewell',
-      'Dynamite',
-      'Brandy Melville',
-      'PacSun',
-      'Urban Outfitters',
-      'Princess Polly',
-      'White Fox',
-      'Oh Polly',
-      'Meshki',
-      'Beginning Boutique',
-      'Tiger Mist',
-      'Motel Rocks',
-      'I.AM.GIA',
-      'Jaded London',
-      'Pretty Lavish',
-      'Dolls Kill',
-      'Killstar',
-      'Tripp NYC',
-      'Disturbia',
-      'BlackCraft Cult',
-      'RebelsMarket',
-      'The Ragged Priest',
-      'Punk Rave',
-      'Sourpuss Clothing',
-      'Gymshark',
-      'Nike',
-      'Adidas',
-      'New Balance',
-      'Fabletics',
-      'Outdoor Voices',
-      'Set Active',
-      'Columbia',
-      'Ann Taylor',
-      'LOFT',
-      'J.Jill',
-      'Talbots',
-      "Chico's",
-      'White House Black Market',
-      'Carhartt WIP',
-      'Stüssy',
-      'The Hundreds',
-      'Anti Social Social Club',
-      'Unif',
-      'Free Label',
-      'ASOS',
-      'Everlane',
-      'COS',
-      '& Other Stories',
-      'Massimo Dutti',
-    ],
-  },
-  {
-    title: 'PREMIUM',
-    brands: [
-      'Aritzia',
-      'Reformation',
-      'Free People',
-      'Free People Movement',
-      'Anthropologie',
-      'Revolve',
-      'Nordstrom',
-      'House of CB',
-      'Skims',
-      'Lululemon',
-      'Alo Yoga',
-      'Vuori',
-      'Patagonia',
-      'The North Face',
-      'AllSaints',
-      'Club Monaco',
-      'Theory',
-      'Vince',
-      'Sandro',
-      'Maje',
-      'Rag & Bone',
-      'Kate Spade',
-      'Tory Burch',
-      'Ted Baker',
-      'Reiss',
-      'Supreme',
-      'Kith',
-      'Palace',
-      'BAPE',
-      'Fear of God',
-      'Essentials',
-    ],
-  },
-  {
-    title: 'LUXURY',
-    brands: [
-      'Chanel',
-      'Dior',
-      'Prada',
-      'Gucci',
-      'Louis Vuitton',
-      'Saint Laurent',
-      'Balenciaga',
-      'Versace',
-      'Fendi',
-      'Givenchy',
-      'Valentino',
-      'Bottega Veneta',
-      'Celine',
-      'Roberto Cavalli',
-      'Pucci',
-      'Alexander McQueen',
-      'Tom Ford',
-      'Miu Miu',
-      'Loewe',
-      'Off-White',
-      'Maison Margiela',
-      'Vivienne Westwood',
-      'Rick Owens',
-      'Balmain',
-      'Acne Studios',
-      'Jacquemus',
-      'SSENSE',
-      'Moncler',
-      'Canada Goose',
-      'Mackage',
-      'Moose Knuckles',
-    ],
-  },
+export const STYLES = [
+  'Classic',
+  'Minimal',
+  'Trendy',
+  'Streetwear',
+  'Romantic',
+  'Edgy',
+  'Preppy',
+  'Boho',
 ];
 
-// Budget tiers, cheapest → priciest. Used by budgetAllows for feed filtering;
-// the preferences screen keeps its own copy for the chip UI.
-const BUDGETS = ['Budget', 'Mid-range', 'Premium', 'Luxury'];
+export const STORES = [
+  '& Other Stories',
+  'Abercrombie & Fitch',
+  'Acne Studios',
+  'Adidas',
+  'Aerie',
+  'Alexander McQueen',
+  'AllSaints',
+  'Alo Yoga',
+  'American Eagle',
+  'Ann Taylor',
+  'Anthropologie',
+  'Anti Social Social Club',
+  'ASOS',
+  'Aritzia',
+  'Balenciaga',
+  'Balmain',
+  'Banana Republic',
+  'BAPE',
+  'Beginning Boutique',
+  'Bershka',
+  'BlackCraft Cult',
+  'Boohoo',
+  'Bottega Veneta',
+  'Brandy Melville',
+  'Canada Goose',
+  'Carhartt WIP',
+  'Celine',
+  'Chanel',
+  "Chico's",
+  'Cider',
+  'Club Monaco',
+  'Columbia',
+  'COS',
+  'Dior',
+  'Disturbia',
+  'Dolls Kill',
+  'Dynamite',
+  'Edikted',
+  'Essentials',
+  'Everlane',
+  'Fabletics',
+  'Fashion Nova',
+  'Fear of God',
+  'Fendi',
+  'Forever 21',
+  'Free Label',
+  'Free People',
+  'Free People Movement',
+  'Gap',
+  'Garage',
+  'Givenchy',
+  'Gucci',
+  'Gymshark',
+  'H&M',
+  'Hollister',
+  'Hot Topic',
+  'House of CB',
+  'I.AM.GIA',
+  'J.Crew',
+  'J.Jill',
+  'Jacquemus',
+  'Jaded London',
+  'Kate Spade',
+  'Killstar',
+  'Kith',
+  "Levi's",
+  'Loewe',
+  'LOFT',
+  'Louis Vuitton',
+  'Lululemon',
+  'Mackage',
+  'Madewell',
+  'Maison Margiela',
+  'Maje',
+  'Mango',
+  'Massimo Dutti',
+  'Meshki',
+  'Missguided',
+  'Miu Miu',
+  'Moncler',
+  'Moose Knuckles',
+  'Motel Rocks',
+  'Nasty Gal',
+  'New Balance',
+  'Nike',
+  'Nordstrom',
+  'Off-White',
+  'Old Navy',
+  'Oh Polly',
+  'Outdoor Voices',
+  'Pacsun',
+  'Palace',
+  'Patagonia',
+  'Prada',
+  'Pretty Lavish',
+  'PrettyLittleThing',
+  'Princess Polly',
+  'Pucci',
+  'Pull&Bear',
+  'Punk Rave',
+  'Rag & Bone',
+  'RebelsMarket',
+  'Reformation',
+  'Reiss',
+  'Revolve',
+  'Rick Owens',
+  'Roberto Cavalli',
+  'Saint Laurent',
+  'Sandro',
+  'Set Active',
+  'Shein',
+  'Skims',
+  'Sourpuss Clothing',
+  'SSENSE',
+  'Stradivarius',
+  'Stüssy',
+  'Supreme',
+  'Talbots',
+  'Target',
+  'Ted Baker',
+  'The Hundreds',
+  'The North Face',
+  'The Ragged Priest',
+  'Theory',
+  'Tiger Mist',
+  'Tom Ford',
+  'Tory Burch',
+  'Tripp NYC',
+  'Unif',
+  'Uniqlo',
+  'Urban Outfitters',
+  'Valentino',
+  'Versace',
+  'Vince',
+  'Vivienne Westwood',
+  'Vuori',
+  'White Fox',
+  'White House Black Market',
+  'YesStyle',
+  'Zara',
+];
+
+export const BUDGETS = ['Budget', 'Mid-range', 'Premium', 'Luxury'];
 
 /**
  * Whether an item in `itemTier` should appear for a user whose budget
@@ -184,6 +167,10 @@ const BUDGETS = ['Budget', 'Mid-range', 'Premium', 'Luxury'];
  * still sees Mid-range pieces); pricier tiers are hidden. Unknown/missing
  * values on either side always pass — filtering must never blank the feed
  * over absent metadata.
+ *
+ * Legacy single-select ("ceiling") model. New code should prefer the explicit
+ * multi-tier `budgetTierAllowed` below; this is kept for the backward-compat
+ * read path in `resolveSavedBudgets`.
  */
 export function budgetAllows(
   userBudget: string | null | undefined,
@@ -197,6 +184,45 @@ export function budgetAllows(
 }
 
 /**
+ * Resolve a user's saved budget preference into an explicit list of tiers to
+ * show. Supports both the current multi-select shape
+ * (preferences.budgets: string[]) and the legacy single-select ceiling
+ * (preferences.budget: string → that tier and everything cheaper). Returns []
+ * to mean "no constraint — show all tiers", so a fresh profile never hides
+ * anything by default.
+ */
+export function resolveSavedBudgets(prefs: {
+  budgets?: unknown;
+  budget?: unknown;
+}): string[] {
+  if (Array.isArray(prefs.budgets)) {
+    return prefs.budgets.filter(
+      (b): b is string => typeof b === 'string' && BUDGETS.includes(b),
+    );
+  }
+  if (typeof prefs.budget === 'string' && BUDGETS.includes(prefs.budget)) {
+    return BUDGETS.slice(0, BUDGETS.indexOf(prefs.budget) + 1);
+  }
+  return [];
+}
+
+/**
+ * Whether an item in `itemTier` passes an explicit multi-tier budget
+ * selection. An empty/missing selection shows everything; items with no tier
+ * metadata always pass (never blank the feed over absent metadata). Unlike the
+ * ceiling model, tiers are matched exactly — selecting only Budget + Luxury
+ * shows exactly those two, skipping the middle.
+ */
+export function budgetTierAllowed(
+  allowedTiers: string[] | null | undefined,
+  itemTier: string | null | undefined,
+): boolean {
+  if (!allowedTiers || allowedTiers.length === 0) return true;
+  if (!itemTier) return true;
+  return allowedTiers.includes(itemTier);
+}
+
+/**
  * Normalize a brand name for comparison: lowercase, strip non-alphanumeric chars.
  * E.g., 'H&M' -> 'hm', "Levi's" -> 'levis', 'Pull&Bear' -> 'pullbear'
  *
@@ -206,7 +232,9 @@ export function budgetAllows(
  */
 export function normalizeBrand(s: string | null | undefined): string {
   if (!s) return '';
-  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
 }
 
 /**
@@ -220,10 +248,11 @@ export function normalizeBrand(s: string | null | undefined): string {
  */
 export function brandsMatch(
   a: string | null | undefined,
-  b: string | null | undefined,
+  b: string | null | undefined
 ): boolean {
   const normA = normalizeBrand(a);
   const normB = normalizeBrand(b);
+
   if (!normA || !normB) return false;
   return normA.startsWith(normB) || normB.startsWith(normA);
 }

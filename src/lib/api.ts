@@ -31,7 +31,7 @@ export interface Outfit {
    * Shoppable origin (the product page a Get-the-Look match came from). The
    * app uses `source_url`; it is persisted to / read from the `product_url`
    * column on public.outfits (see saveOutfit/listOutfits) — that is the column
-   * the deployed backend added.
+   * the deployed backend added. Null for AI-composed stylist outfits.
    */
   source_url: string | null;
   created_at: string;
@@ -105,7 +105,16 @@ export async function insertWardrobeItem(
 ): Promise<WardrobeItem> {
   const { data, error } = await supabase
     .from('wardrobe_items')
-    .insert({ user_id: userId, image_url: imagePath, processing_status: 'pending' })
+    // `category` is NOT NULL in the DB but is only known after the async
+    // classifier (wardrobe-process) runs, so seed a placeholder to satisfy the
+    // constraint at insert time — the classifier overwrites it moments later.
+    // Without this, every upload fails with a not-null violation on category.
+    .insert({
+      user_id: userId,
+      image_url: imagePath,
+      category: 'Uncategorized',
+      processing_status: 'pending',
+    })
     .select('*')
     .single();
   if (error) throw error;
@@ -195,17 +204,16 @@ export async function getFreshFeed(store?: string): Promise<FeedProduct[]> {
   return coerceProducts(res);
 }
 
-// The scraper caps every brand at 12 rows per run (see PER_BRAND in
+// The scraper caps every brand at PER_BRAND rows per run (see
 // supabase/functions/feed-scrape/index.ts), so the whole catalog tops out
-// around brand-count * 12 — comfortably under this ceiling even at full
+// around brand-count * PER_BRAND — comfortably under this ceiling even at full
 // catalog size. It exists only as a defensive backstop against an unbounded
 // table, never as an active limiter: every row in a run shares one
 // `scraped_at` timestamp (stamped once per run, not per brand), so ordering
 // by it can't break ties meaningfully — a low cap here would silently drop
 // whichever brands Postgres happens to return last, with no relation to
-// data quality. A store-scoped query is bounded further still (~12 *
-// selected-brand-count), so it will never come close to this ceiling.
-const SCRAPED_FEED_CEILING = 3000;
+// data quality. Kept well above catalog-size * PER_BRAND (~140 * 100 = 14,000).
+const SCRAPED_FEED_CEILING = 20000;
 
 /**
  * Monthly-scraped products (supabase/functions/feed-scrape → the

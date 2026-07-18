@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-
-// Every mounted consumer of useWardrobe (the Closet tab AND the Stylist screen
-// can be alive at once) needs its OWN realtime channel. Supabase dedupes
-// channels by topic name, so a shared name makes the second subscriber call
-// `.on()` on an already-subscribed channel → "cannot add postgres_changes
-// callbacks after subscribe()". A per-instance suffix keeps them distinct.
-let channelSeq = 0;
 import {
   listWardrobe,
   insertWardrobeItem,
@@ -27,6 +20,14 @@ export interface WardrobeDisplayItem extends WardrobeItem {
   signedUrl: string | null;
 }
 
+// Channel topics must be unique per subscription: supabase.channel() returns
+// the EXISTING channel when the topic matches, and adding `postgres_changes`
+// listeners to an already-subscribed channel throws ("cannot add
+// `postgres_changes` callbacks ... after `subscribe()`"). Two screens mount
+// this hook at once (Closet tab stays mounted while the Stylist opens), so a
+// shared `wardrobe-items-${user.id}` topic crashed the second mount.
+let wardrobeChannelSeq = 0;
+
 /**
  * Loads the signed-in user's closet, keeps it live via Supabase realtime, and
  * exposes add/delete. The DB trigger enforce_wardrobe_limit rejects inserts past
@@ -38,8 +39,6 @@ export function useWardrobe() {
   const [items, setItems] = useState<WardrobeDisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // Stable, unique per hook instance (lazy init runs once).
-  const [instanceId] = useState(() => ++channelSeq);
 
   const hydrate = useCallback(async (rows: WardrobeItem[]) => {
     const withUrls = await Promise.all(
@@ -70,7 +69,7 @@ export function useWardrobe() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`wardrobe-items-${user.id}-${instanceId}`)
+      .channel(`wardrobe-items-${user.id}-${++wardrobeChannelSeq}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'wardrobe_items', filter: `user_id=eq.${user.id}` },
@@ -82,7 +81,7 @@ export function useWardrobe() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, load, instanceId]);
+  }, [user, load]);
 
   const add = useCallback(
     async (base64: string) => {

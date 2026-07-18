@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, ThemedText, Wordmark } from '@/components';
 import { radius, spacing, type } from '@/theme';
 import { useSubscription } from '@/providers/SubscriptionProvider';
+import { useNavDrawer } from '@/providers/NavDrawerProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 
 const TOOLS = [
@@ -37,13 +38,23 @@ export default function CreateScreen() {
   const insets = useSafeAreaInsets();
   const { tier } = useSubscription();
   const { colors } = useTheme();
+  const { openDrawer } = useNavDrawer();
 
   return (
     <ScrollView
       style={[styles.root, { backgroundColor: colors.cream }]}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.xl }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}
       showsVerticalScrollIndicator={false}
     >
+      <Pressable
+        onPress={openDrawer}
+        hitSlop={12}
+        style={styles.menuBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Open menu"
+      >
+        <Ionicons name="menu" size={26} color={colors.ink} />
+      </Pressable>
       <ThemedText style={type.eyebrow} color={colors.blushDeep}>
         Create with
       </ThemedText>
@@ -95,6 +106,15 @@ export default function CreateScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   content: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
+  menuBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -spacing.sm,
+    marginBottom: spacing.md,
+  },
   intro: { marginTop: spacing.sm, marginBottom: spacing.xl, maxWidth: 320 },
   tools: { gap: spacing.md },
   tool: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
