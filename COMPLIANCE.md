@@ -25,7 +25,7 @@ dashboard/hosting step — code side is ready) · ⛔ blocker if skipped.
 | Permission usage strings | ✅ | Camera + Photos strings set in `app.json` (`NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, Android `CAMERA` / `READ_MEDIA_IMAGES`). |
 | Encrypted session storage | ✅ | `expo-secure-store` on device (localStorage only in the browser-preview build). |
 | Private user data (RLS) | ✅ | Closet/outfits owner-scoped; images served via short-lived signed URLs from a private bucket. |
-| Reviewer **demo account** | 🟡 ⛔ | Account already created and verified working: `fancypot.testreview@gmail.com` / `FancyPotReview2026!`. Still to do: seed its closet with a few pieces and grant it Pro in RevenueCat **sandbox**, then paste the credentials into App Review notes. Without this, gated AI features can't be reviewed → rejection. |
+| Reviewer **demo account** | ✅ 🟡 | `fancypot.testreview@gmail.com` / `FancyPotReview2026!`. Now granted **Pro** and marked **phone-verified** directly in the DB (so reviewers skip the phone gate), and its closet is **seeded with 7 items** across tops/bottoms/dresses/outerwear/shoes. Remaining: paste these credentials into App Review notes. |
 
 ## C. Subscriptions & payments — Apple 3.1.1 / 3.1.2 / Play Billing
 
@@ -93,7 +93,7 @@ dashboard/hosting step — code side is ready) · ⛔ blocker if skipped.
 | `https://fancypot.org/privacy` | Profile + Paywall | 🟡 confirm it's live |
 | `https://fancypot.org/terms` | Profile + Paywall | 🟡 confirm it's live |
 | `https://fancypot.org/support` | Profile → Contact support | 🟡 confirm it's live (or the app also offers `mailto:support@fancypot.org`) |
-| `https://fancypot.org/delete-account` | Play Data safety | 🟡 create |
+| `https://fancypot.org/delete-account` | Play Data safety | ✅ live (public route created + deployed; linked in site footer) |
 
 ---
 
