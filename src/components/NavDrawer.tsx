@@ -195,7 +195,7 @@ function DrawerLink({ item, onPress }: { item: NavItem; onPress: () => void }) {
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, flexDirection: 'row' },
-    backdrop: { ...fillObject, backgroundColor: 'rgba(0, 0, 0, 0.55)' },
+    backdrop: { ...fillObject, backgroundColor: c.scrim },
     panelWrap: { width: PANEL_WIDTH, height: '100%' },
     panel: {
       flex: 1,

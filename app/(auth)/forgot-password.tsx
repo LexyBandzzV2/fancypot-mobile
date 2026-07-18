@@ -48,10 +48,7 @@ export default function ForgotPassword() {
 
       {sent ? (
         <View
-          style={[
-            styles.success,
-            { backgroundColor: isDark ? 'rgba(92, 179, 126, 0.16)' : '#E7F2EA' },
-          ]}
+          style={[styles.success, { backgroundColor: colors.successSoft }]}
         >
           <Ionicons name="checkmark-circle" size={22} color={colors.success} />
           <ThemedText variant="body" color={colors.success} style={styles.successText}>

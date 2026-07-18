@@ -116,10 +116,7 @@ export default function SignUp() {
 
         {notice ? (
           <View
-            style={[
-              styles.notice,
-              { backgroundColor: isDark ? 'rgba(92, 179, 126, 0.16)' : '#E7F2EA' },
-            ]}
+            style={[styles.notice, { backgroundColor: colors.successSoft }]}
           >
             <Ionicons name="mail-outline" size={18} color={colors.success} />
             <ThemedText variant="labelSmall" color={colors.success} style={styles.noticeText}>

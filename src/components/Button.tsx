@@ -12,7 +12,7 @@ import { radius, spacing, type, TAP_TARGET } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import type { Colors } from '@/theme/colors';
 
-type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'accent';
+type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'accent' | 'danger';
 
 interface ButtonProps {
   label: string;
@@ -86,6 +86,9 @@ const variants = (c: Colors): Record<Variant, { bg: string; fg: string; border: 
   secondary: { bg: c.blush, fg: c.ink, border: c.blush },
   outline: { bg: 'transparent', fg: c.ink, border: c.blushDeep },
   ghost: { bg: 'transparent', fg: c.ink, border: 'transparent' },
+  // Destructive actions (delete account/outfit). White text in both themes —
+  // the danger reds are dark enough for contrast either way.
+  danger: { bg: c.danger, fg: '#FFFFFF', border: c.danger },
 });
 
 const styles = StyleSheet.create({
