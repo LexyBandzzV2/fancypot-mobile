@@ -11,6 +11,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { openProductUrl } from '@/lib/affiliate';
 import {
   AppHeader,
   BottomSheet,
@@ -23,7 +24,6 @@ import type { Colors } from '@/theme/colors';
 import { radius, spacing, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
-import { openProductUrl } from '@/lib/affiliate';
 
 export default function SavedScreen() {
   const { colors } = useTheme();
@@ -119,13 +119,13 @@ export default function SavedScreen() {
             router.push({ pathname: '/style/try-on', params: id ? { outfitId: id } : {} });
           }}
         />
-        {/* Only shoppable looks (Get the Look matches) carry a product_url. */}
-        {selected?.product_url ? (
+        {/* Only shoppable looks (Get the Look matches) carry a source_url. */}
+        {selected?.source_url ? (
           <SheetAction
             label="Get the look"
             icon={<Ionicons name="bag-handle-outline" size={22} color={colors.ink} />}
             onPress={() => {
-              const url = selected.product_url;
+              const url = selected.source_url;
               setSelected(null);
               openProductUrl(url);
             }}

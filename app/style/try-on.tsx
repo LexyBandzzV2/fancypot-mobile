@@ -62,8 +62,8 @@ export default function TryOnScreen() {
               <Image source={{ uri: result }} style={styles.result} contentFit="cover" transition={250} />
             </Card>
             <Button label="Try another" variant="outline" onPress={() => setResult(null)} />
-            {outfit?.product_url ? (
-              <Pressable style={styles.shopLink} onPress={() => openProductUrl(outfit.product_url)}>
+            {outfit?.source_url ? (
+              <Pressable style={styles.shopLink} onPress={() => openProductUrl(outfit.source_url)}>
                 <Ionicons name="bag-handle-outline" size={18} color={colors.pinkWarm} />
                 <ThemedText variant="label" color={colors.pinkWarm}>
                   Shop this look
@@ -126,8 +126,8 @@ export default function TryOnScreen() {
             )}
 
             {/* Shoppable looks (Get the Look matches) carry a retailer link. */}
-            {outfit?.product_url ? (
-              <Pressable style={styles.shopLink} onPress={() => openProductUrl(outfit.product_url)}>
+            {outfit?.source_url ? (
+              <Pressable style={styles.shopLink} onPress={() => openProductUrl(outfit.source_url)}>
                 <Ionicons name="bag-handle-outline" size={18} color={colors.pinkWarm} />
                 <ThemedText variant="label" color={colors.pinkWarm}>
                   Shop this look

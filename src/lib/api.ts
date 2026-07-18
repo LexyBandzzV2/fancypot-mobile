@@ -29,7 +29,7 @@ export interface Outfit {
   occasion: string | null;
   // Retailer deep link for shoppable saved looks (Get the Look matches).
   // Null for AI-composed stylist outfits — they have no single buyable product.
-  product_url: string | null;
+  source_url: string | null;
   created_at: string;
 }
 
@@ -37,7 +37,8 @@ export interface FeedProduct {
   id: string;
   brand: string | null;
   name: string | null;
-  price: number | null;
+  /** Scraped display string ("€2,310.00", "$59.99") or a bare number. */
+  price: string | number | null;
   image_url: string | null;
   product_url: string | null;
   category: string | null;
@@ -169,7 +170,7 @@ function coerceProducts(data: unknown): FeedProduct[] {
 }
 
 export async function getFeed(): Promise<FeedProduct[]> {
-  return coerceProducts(await invokeAI<unknown>('feed-page', {}));
+  return coerceProducts(await invokeAI<unknown>('feed-page', { limit: 24 }));
 }
 
 /**
