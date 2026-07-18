@@ -21,6 +21,7 @@ import * as Sentry from '@sentry/react-native';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { SubscriptionProvider } from '@/providers/SubscriptionProvider';
 import { AIConsentProvider } from '@/providers/AIConsentProvider';
+import { NavDrawerProvider } from '@/providers/NavDrawerProvider';
 import { ThemeProvider, useTheme } from '@/providers/ThemeProvider';
 import { useAuthDeepLinks } from '@/hooks/useAuthDeepLinks';
 import { ErrorScreen } from '@/components';
@@ -119,8 +120,10 @@ function RootLayout() {
           <AuthProvider>
             <SubscriptionProvider>
               <AIConsentProvider>
-                <ThemedStatusBar />
-                <RootNavigator />
+                <NavDrawerProvider>
+                  <ThemedStatusBar />
+                  <RootNavigator />
+                </NavDrawerProvider>
               </AIConsentProvider>
             </SubscriptionProvider>
           </AuthProvider>

@@ -9,6 +9,7 @@ import { radius, spacing, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSubscription } from '@/providers/SubscriptionProvider';
+import { useNavDrawer } from '@/providers/NavDrawerProvider';
 
 const SUPPORT_EMAIL = 'support@fancypot.org';
 
@@ -19,6 +20,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, profile, signOut } = useAuth();
   const { tier, restore } = useSubscription();
+  const { openDrawer } = useNavDrawer();
 
   const initials = (profile?.display_name ?? user?.email ?? 'F')
     .slice(0, 1)
@@ -30,6 +32,15 @@ export default function ProfileScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.xl }]}
       showsVerticalScrollIndicator={false}
     >
+      <Pressable
+        onPress={openDrawer}
+        hitSlop={12}
+        style={styles.menuBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Open menu"
+      >
+        <Ionicons name="menu" size={26} color={colors.ink} />
+      </Pressable>
       {/* Account card */}
       <Card style={styles.accountCard}>
         <View style={styles.avatar}>
@@ -173,6 +184,15 @@ const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.cream },
     content: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
+    menuBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginLeft: -spacing.sm,
+      marginBottom: spacing.md,
+    },
     accountCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
     avatar: {
       width: 56,
