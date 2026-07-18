@@ -214,6 +214,9 @@ const styles = StyleSheet.create({
   column: { gap: GAP },
   tile: {
     flex: 1,
+    // With 1–2 items, flex:1 would stretch a lone tile across the whole row —
+    // cap it so a single piece still renders as one small grid cell.
+    maxWidth: '33.33%',
     marginBottom: GAP,
     borderRadius: radius.md,
     backgroundColor: colors.white,

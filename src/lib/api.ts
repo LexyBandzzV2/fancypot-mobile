@@ -26,6 +26,8 @@ export interface Outfit {
   image_url: string | null;
   item_ids: string[] | null;
   occasion: string | null;
+  /** Shoppable origin (e.g. the product page a Get-the-Look match came from). */
+  source_url: string | null;
   created_at: string;
 }
 
@@ -148,7 +150,9 @@ export async function getFeed(): Promise<FeedProduct[]> {
   // feed-page responds with `{ products, stale }`, not a bare array. Unwrap it
   // (tolerating either shape) so callers always get a real array — otherwise
   // `products.length` / `products.filter` on the screen operate on an object.
-  const res = await invokeAI<{ products?: FeedProduct[] } | FeedProduct[]>('feed-page', {});
+  const res = await invokeAI<{ products?: FeedProduct[] } | FeedProduct[]>('feed-page', {
+    limit: 24,
+  });
   if (Array.isArray(res)) return res;
   return res?.products ?? [];
 }

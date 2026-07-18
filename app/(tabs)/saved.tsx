@@ -11,6 +11,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { openProductUrl } from '@/lib/affiliate';
 import {
   AppHeader,
   BottomSheet,
@@ -113,6 +114,17 @@ export default function SavedScreen() {
             router.push('/style/try-on');
           }}
         />
+        {selected?.source_url ? (
+          <SheetAction
+            label="Shop this look"
+            icon={<Ionicons name="bag-outline" size={22} color={colors.ink} />}
+            onPress={() => {
+              const url = selected.source_url;
+              setSelected(null);
+              openProductUrl(url);
+            }}
+          />
+        ) : null}
         <SheetAction
           label="Delete outfit"
           destructive

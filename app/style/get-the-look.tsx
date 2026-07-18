@@ -80,6 +80,8 @@ export default function GetTheLookScreen() {
           name: current.title ?? 'Saved look',
           image_url: current.thumbnail,
           category: 'get_the_look',
+          // Keep the shoppable origin so Saved can offer "Shop this look".
+          source_url: current.link,
         });
       } catch {
         // Non-blocking: keep the swipe flow moving even if the save fails.

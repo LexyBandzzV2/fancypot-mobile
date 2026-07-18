@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,6 +6,8 @@ import {
   RefreshControl,
   Pressable,
   ScrollView,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +25,17 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [reactions, setReactions] = useState<Record<string, 'like' | 'dislike' | 'save'>>({});
   const [activeStore, setActiveStore] = useState<string | null>(null);
+  const [showTopNudge, setShowTopNudge] = useState(false);
+  const listRef = useRef<FlatList<FeedProduct>>(null);
+
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setShowTopNudge(e.nativeEvent.contentOffset.y > 600);
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
 
   const savedStores = useMemo(() => {
     const prefs = (profile?.preferences ?? {}) as { stores?: string[] };
@@ -97,18 +110,33 @@ export default function FeedScreen() {
           onAction={onRefresh}
         />
       ) : (
-        <FlatList
-          data={visibleProducts}
-          keyExtractor={(p) => p.id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blushDeep} />
-          }
-          renderItem={({ item }) => (
-            <ProductCard item={item} reaction={reactions[item.id]} onReact={react} />
-          )}
-        />
+        <>
+          <FlatList
+            ref={listRef}
+            data={visibleProducts}
+            keyExtractor={(p) => p.id}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            onScroll={onScroll}
+            scrollEventThrottle={120}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blushDeep} />
+            }
+            renderItem={({ item }) => (
+              <ProductCard item={item} reaction={reactions[item.id]} onReact={react} />
+            )}
+          />
+          {showTopNudge ? (
+            <Pressable
+              onPress={scrollToTop}
+              style={styles.topNudge}
+              accessibilityRole="button"
+              accessibilityLabel="Back to top"
+            >
+              <Ionicons name="arrow-up" size={18} color={colors.cream} />
+            </Pressable>
+          ) : null}
+        </>
       )}
     </View>
   );
@@ -166,6 +194,15 @@ function ProductCard({
 }) {
   return (
     <Card style={styles.card} padded={false}>
+      <Pressable
+        onLongPress={() => {
+          if (item.product_url) {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            openProductUrl(item.product_url);
+          }
+        }}
+        delayLongPress={350}
+      >
       {item.image_url ? (
         <Image source={{ uri: item.image_url }} style={styles.cardImg} contentFit="cover" transition={200} />
       ) : (
@@ -173,6 +210,7 @@ function ProductCard({
           <Ionicons name="pricetag-outline" size={30} color={colors.blushDeep} />
         </View>
       )}
+      </Pressable>
       <View style={styles.cardBody}>
         <ThemedText variant="labelSmall" color={colors.inkMuted}>
           {item.brand ?? 'Brand'}
@@ -259,5 +297,21 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  topNudge: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: 130,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
 });

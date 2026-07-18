@@ -49,6 +49,9 @@ export default function Preferences() {
     <View style={s.root}>
       <StackHeader title="Style preferences" />
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <Section title="BUDGET">
+          <Chips options={BUDGETS} selected={[budget]} onToggle={setBudget} single />
+        </Section>
         <Section title="YOUR STYLES">
           <Chips options={STYLES} selected={styles_} onToggle={(v) => toggle(styles_, setStyles, v)} />
         </Section>
@@ -61,9 +64,6 @@ export default function Preferences() {
             />
           </Section>
         ))}
-        <Section title="BUDGET">
-          <Chips options={BUDGETS} selected={[budget]} onToggle={setBudget} single />
-        </Section>
       </ScrollView>
       <View style={s.footer}>
         <Button label="Save preferences" onPress={save} loading={saving} />
