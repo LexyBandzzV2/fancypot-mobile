@@ -542,7 +542,9 @@ function ProductCard({
         </ThemedText>
         <View style={styles.cardFooter}>
           <ThemedText variant="label" color={colors.ink}>
-            {item.price != null ? `$${item.price}` : ''}
+            {/* Scraped prices can be pre-formatted display strings ("€2,310.00");
+                only bare numbers need a currency symbol prepended. */}
+            {item.price == null ? '' : typeof item.price === 'number' ? `$${item.price}` : item.price}
           </ThemedText>
           <View style={styles.actions}>
             {!synthetic ? (

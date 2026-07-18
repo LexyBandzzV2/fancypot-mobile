@@ -27,6 +27,10 @@ export function useOutfits() {
         rows.map(async (r) => ({ ...r, signedUrl: await signWardrobeUrl(r.image_url) })),
       );
       setOutfits(withUrls);
+    } catch (e) {
+      // Keep the previous list on failure — an unhandled rejection here made a
+      // network blip render the false "No looks yet" empty state.
+      console.warn('useOutfits: load failed', e);
     } finally {
       setLoading(false);
     }
