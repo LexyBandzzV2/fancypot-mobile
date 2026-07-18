@@ -42,7 +42,7 @@ interface GenerateParams {
 export default function StylistScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { items } = useWardrobe();
+  const { items, loading: closetLoading } = useWardrobe();
   const { save } = useOutfits();
   const { run, running } = useAIAction();
   const [mode, setMode] = useState<Mode>('mood');
@@ -54,7 +54,10 @@ export default function StylistScreen() {
   const [lastParams, setLastParams] = useState<GenerateParams | null>(null);
   const [suggestion, setSuggestion] = useState<PieceSuggestion | null>(null);
 
-  const isEmpty = items.length === 0;
+  // Distinguish "closet still loading" from "closet genuinely empty" — showing
+  // the empty state during a slow load reads as pieces having vanished.
+  const isEmpty = items.length === 0 && !closetLoading;
+  const isLoadingCloset = items.length === 0 && closetLoading;
 
   const changeMode = (m: Mode) => {
     setMode(m);
@@ -164,7 +167,14 @@ export default function StylistScreen() {
           <>
             <ModeRow mode={mode} onChange={changeMode} styles={styles} colors={colors} />
 
-            {isEmpty ? (
+            {isLoadingCloset ? (
+              <View style={styles.empty}>
+                <ActivityIndicator color={colors.pinkWarm} style={styles.closetSpinner} />
+                <ThemedText variant="labelSmall" color={colors.inkMuted} center>
+                  Loading your closet…
+                </ThemedText>
+              </View>
+            ) : isEmpty ? (
               <View style={styles.empty}>
                 <EmptyState
                   icon="shirt-outline"
@@ -383,7 +393,8 @@ const makeStyles = (colors: Colors) =>
     content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
     sectionLabel: { marginTop: spacing.lg, marginBottom: spacing.sm, letterSpacing: 1 },
     hint: { marginTop: spacing.lg },
-    empty: { height: 200 },
+    empty: { height: 200, justifyContent: 'center' },
+    closetSpinner: { marginBottom: spacing.sm },
     modes: { gap: spacing.sm, paddingVertical: spacing.xs },
     modeChip: {
       flexDirection: 'row',

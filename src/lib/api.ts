@@ -126,9 +126,39 @@ export async function deleteWardrobeItem(id: string): Promise<void> {
   if (error) throw error;
 }
 
-/** Kick the async classify + background-removal edge function. */
+/**
+ * Kick the async classify + background-removal edge function. The deployed
+ * function is metered via chargeAiSpend, so it can REFUSE with 402/429 when
+ * the account is over its AI budget — surface that as UsageLimitError instead
+ * of letting the item sit at "Styling…" forever with no explanation.
+ */
 export async function processWardrobeItem(itemId: string): Promise<void> {
-  await supabase.functions.invoke('wardrobe-process', { body: { itemId } });
+  await invokeAI<unknown>('wardrobe-process', { itemId });
+}
+
+/**
+ * Category options for closet pieces. Mirrors the classifier's vocabulary so a
+ * manual pick and an AI pick land in the same buckets; 'Uncategorized' is the
+ * insert-time placeholder (see insertWardrobeItem).
+ */
+export const WARDROBE_CATEGORIES = [
+  'Tops',
+  'Bottoms',
+  'Dresses',
+  'Outerwear',
+  'Shoes',
+  'Bags',
+  'Accessories',
+  'Other',
+];
+
+/** User-editable fields on a closet piece (name it, re-bucket its category). */
+export async function updateWardrobeItem(
+  id: string,
+  fields: { name?: string | null; category?: string | null },
+): Promise<void> {
+  const { error } = await supabase.from('wardrobe_items').update(fields).eq('id', id);
+  if (error) throw error;
 }
 
 // ---- Outfits / library ----

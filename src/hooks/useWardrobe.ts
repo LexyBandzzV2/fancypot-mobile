@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import {
   listWardrobe,
   insertWardrobeItem,
   deleteWardrobeItem as apiDelete,
   processWardrobeItem,
+  updateWardrobeItem,
+  UsageLimitError,
   type WardrobeItem,
 } from '@/lib/api';
 import {
@@ -83,20 +86,58 @@ export function useWardrobe() {
     };
   }, [user, load]);
 
+  // Kick classify + background removal without blocking the UI, but never
+  // swallow a refusal: the metered backend can decline (plan budget / rate
+  // limit), and silently dropping that left items at "Styling…" forever.
+  const kickProcessing = useCallback(
+    (itemId: string) => {
+      processWardrobeItem(itemId)
+        .catch((e) => {
+          const msg =
+            e instanceof UsageLimitError
+              ? `${e.message}\n\nYour piece is saved — long-press it to retry styling later.`
+              : 'We could not style that piece right now. Long-press it in your closet to retry.';
+          Alert.alert('Styling paused', msg);
+        })
+        .finally(() => {
+          // Backup for missed realtime events: pull the row's final status.
+          load();
+        });
+    },
+    [load],
+  );
+
   const add = useCallback(
-    async (base64: string) => {
+    async (base64: string): Promise<WardrobeItem | null> => {
       if (!user) throw new Error('Not signed in');
       // Uploading a piece triggers AI classification + background removal, so the
       // same third-party-AI consent applies here as on the explicit AI screens.
       const consented = await ensureConsent();
-      if (!consented) return;
+      if (!consented) return null;
       const path = await uploadWardrobeImage(user.id, base64);
       const row = await insertWardrobeItem(user.id, path); // may throw on limit
-      // Fire-and-forget AI classify + background removal.
-      processWardrobeItem(row.id).catch(() => {});
+      kickProcessing(row.id);
+      await load();
+      return row;
+    },
+    [user, load, ensureConsent, kickProcessing],
+  );
+
+  /** Re-run styling for a piece whose processing failed or stalled. */
+  const retryProcessing = useCallback(
+    (item: WardrobeDisplayItem) => {
+      kickProcessing(item.id);
+    },
+    [kickProcessing],
+  );
+
+  /** Rename / re-categorize a piece and refresh the list. */
+  const update = useCallback(
+    async (id: string, fields: { name?: string | null; category?: string | null }) => {
+      await updateWardrobeItem(id, fields);
       await load();
     },
-    [user, load, ensureConsent],
+    [load],
   );
 
   const remove = useCallback(
@@ -108,5 +149,5 @@ export function useWardrobe() {
     [],
   );
 
-  return { items, loading, error, reload: load, add, remove };
+  return { items, loading, error, reload: load, add, remove, retryProcessing, update };
 }
