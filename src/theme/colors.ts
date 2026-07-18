@@ -36,7 +36,11 @@ export interface Colors {
   border: string;
   borderStrong: string;
   overlay: string;
+  /** Darker backdrop for sheets/drawers — needs more contrast than `overlay`. */
+  scrim: string;
   success: string;
+  /** Soft success surface (confirmation banners). */
+  successSoft: string;
   danger: string;
   danger_soft: string;
   glassTint: 'light' | 'dark';
@@ -72,7 +76,9 @@ export const lightColors: Colors = {
   border: '#E7DCCB', // hairline on cream
   borderStrong: '#D8C9B2',
   overlay: 'rgba(26, 22, 20, 0.45)',
+  scrim: 'rgba(0, 0, 0, 0.55)',
   success: '#3F8A5B',
+  successSoft: '#E7F2EA',
   danger: '#C4553F',
   danger_soft: '#F4D9D2',
 
@@ -110,7 +116,9 @@ export const darkColors: Colors = {
   border: 'rgba(255, 255, 255, 0.10)',
   borderStrong: 'rgba(255, 255, 255, 0.18)',
   overlay: 'rgba(0, 0, 0, 0.55)',
+  scrim: 'rgba(0, 0, 0, 0.65)',
   success: '#5CB37E',
+  successSoft: 'rgba(92, 179, 126, 0.16)',
   danger: '#E27A66',
   danger_soft: '#3A211D',
 

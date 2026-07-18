@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StackHeader, Button, TextField, ThemedText } from '@/components';
-import { colors, spacing } from '@/theme';
+import { spacing, useThemedStyles } from '@/theme';
+import type { Colors } from '@/theme/colors';
+import { useTheme } from '@/providers/ThemeProvider';
 import { supabase } from '@/lib/supabase';
 
 /**
@@ -14,6 +16,8 @@ import { supabase } from '@/lib/supabase';
  */
 export default function ChangePassword() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
@@ -76,9 +80,12 @@ export default function ChangePassword() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: spacing.lg, gap: spacing.lg },
-  intro: { marginBottom: spacing.sm },
-  footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
-});
+// Was a static StyleSheet bound to the light palette — the one screen that
+// didn't follow dark mode. Now themed like everything else.
+const makeStyles = (c: Colors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.cream },
+    content: { padding: spacing.lg, gap: spacing.lg },
+    intro: { marginBottom: spacing.sm },
+    footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: c.border },
+  });

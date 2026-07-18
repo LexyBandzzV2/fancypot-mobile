@@ -108,8 +108,9 @@ export function SheetAction({
 
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
-  // Slightly darker than the default `colors.overlay` — a glass sheet needs
-  // more backdrop contrast to read clearly against busy content behind it.
+  // Darker than `colors.overlay` — a glass sheet needs more backdrop contrast
+  // to read clearly against busy content behind it. Mirrors colors.scrim
+  // (static here because this StyleSheet is module-level, not themed).
   backdrop: { ...fillObject, backgroundColor: 'rgba(0, 0, 0, 0.55)' },
   sheetWrap: { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
   sheet: {
