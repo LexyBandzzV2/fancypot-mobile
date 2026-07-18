@@ -11,7 +11,7 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { AppHeader, Button, Card, EmptyState, SkeletonGrid, ThemedText } from '@/components';
+import { AppHeader, BottomSheet, Button, Card, EmptyState, SkeletonGrid, ThemedText } from '@/components';
 import { Glass } from '@/components/Glass';
 import type { Colors } from '@/theme/colors';
 import { radius, spacing, useThemedStyles } from '@/theme';
@@ -25,8 +25,16 @@ import {
   type FeedProduct,
 } from '@/lib/api';
 import { openProductUrl } from '@/lib/affiliate';
-import { brandsMatch, budgetAllows } from '@/lib/brands';
+import { brandsMatch, budgetTierAllowed, resolveSavedBudgets, STORES, BUDGETS } from '@/lib/brands';
 import { useAuth } from '@/providers/AuthProvider';
+
+// A session-only filter: explore price ranges / brands beyond the saved
+// profile for this browse, without touching persisted preferences. null when
+// the user hasn't opened the filter — the feed then follows their profile.
+interface FeedFilter {
+  budgets: string[]; // empty = all tiers
+  brands: string[]; // empty = all brands
+}
 
 export default function FeedScreen() {
   const { colors } = useTheme();
@@ -52,6 +60,11 @@ export default function FeedScreen() {
   // scrape rarely changes, so a fresh shuffle is what makes a pull-to-refresh
   // feel like new finds even when the underlying rows are the same.
   const [shuffleSeed, setShuffleSeed] = useState(1);
+  // Session-only explore filter (null = follow saved profile). `draft` is the
+  // sheet's working copy, committed to `filter` on Apply.
+  const [filter, setFilter] = useState<FeedFilter | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [draft, setDraft] = useState<FeedFilter>({ budgets: [], brands: [] });
   // Shown once the user has scrolled a few screens down: a compact "back to
   // top" nudge that also triggers a shuffle-refresh.
   const [showScrollTop, setShowScrollTop] = useState(false);
@@ -65,9 +78,9 @@ export default function FeedScreen() {
     return Array.isArray(prefs.stores) ? prefs.stores.filter(Boolean) : [];
   }, [profile]);
 
-  const savedBudget = useMemo(() => {
-    const prefs = (profile?.preferences ?? {}) as { budget?: string };
-    return typeof prefs.budget === 'string' ? prefs.budget : null;
+  const savedBudgets = useMemo(() => {
+    const prefs = (profile?.preferences ?? {}) as { budgets?: string[]; budget?: string };
+    return resolveSavedBudgets(prefs);
   }, [profile]);
 
   const products = useMemo(
@@ -76,15 +89,26 @@ export default function FeedScreen() {
   );
 
   const visibleProducts = useMemo(() => {
-    // Budget subdivision: hide items priced above the user's saved tier
-    // (cheaper tiers still show). Items with no tier metadata always pass.
-    let list = products.filter((p) => budgetAllows(savedBudget, p.budget_tier));
-    if (activeStore) list = list.filter((p) => brandsMatch(p.brand, activeStore));
+    // Effective criteria: the session filter overrides the profile when active.
+    // Budget/brand lists that are empty mean "no constraint — show all".
+    const budgets = filter ? filter.budgets : savedBudgets;
+    const brands: string[] | null = filter
+      ? filter.brands.length
+        ? filter.brands
+        : null
+      : activeStore
+        ? [activeStore]
+        : savedStores.length
+          ? savedStores
+          : null;
+
+    let list = products.filter((p) => budgetTierAllowed(budgets, p.budget_tier));
+    if (brands) list = list.filter((p) => brands.some((b) => brandsMatch(p.brand, b)));
     // Seeded shuffle: deterministic for a given seed, so it stays stable
     // across re-renders (and as async sources stream in) but reorders on every
     // refresh. Makes the feed feel fresh without re-scraping.
     return seededShuffle(list, shuffleSeed);
-  }, [products, activeStore, savedBudget, shuffleSeed]);
+  }, [products, activeStore, savedStores, savedBudgets, filter, shuffleSeed]);
 
   const loadCurated = useCallback(async () => {
     try {
@@ -109,12 +133,15 @@ export default function FeedScreen() {
 
   const loadScraped = useCallback(async () => {
     try {
-      // No saved stores → whole catalog; saved stores → only those brands.
-      setScrapedProducts(await getScrapedFeed(savedStores.length ? savedStores : undefined));
+      // Always pull the whole catalog so the in-feed filter can explore brands
+      // beyond the user's saved stores. Brand/budget scoping is applied
+      // client-side in visibleProducts (the catalog is a few thousand rows —
+      // one query, cached until refresh).
+      setScrapedProducts(await getScrapedFeed());
     } catch {
       // keep the previous scraped list
     }
-  }, [savedStores]);
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -123,8 +150,8 @@ export default function FeedScreen() {
     })();
   }, [loadCurated, loadFresh]);
 
-  // Separate effect: re-scopes on its own when the user's saved stores load
-  // or change, without re-pulling the other two sources.
+  // Load the scraped catalog once on mount (loadScraped no longer depends on
+  // saved stores — it always fetches the full catalog, scoped client-side).
   useEffect(() => {
     loadScraped();
   }, [loadScraped]);
@@ -167,6 +194,35 @@ export default function FeedScreen() {
     [],
   );
 
+  // Open the sheet seeded with whatever's currently applied (or the profile
+  // defaults on first open), so the user edits from the live state.
+  const openFilter = useCallback(() => {
+    setDraft(filter ?? { budgets: savedBudgets, brands: [] });
+    setFilterOpen(true);
+  }, [filter, savedBudgets]);
+
+  const applyFilter = useCallback(() => {
+    // An empty selection is the same as no filter — fall back to the profile
+    // rather than leaving an "active but matches everything" state.
+    setFilter(draft.budgets.length || draft.brands.length ? draft : null);
+    setFilterOpen(false);
+    setShuffleSeed((s) => s + 1); // reshuffle so the new selection reads as fresh
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [draft]);
+
+  const clearFilter = useCallback(() => {
+    setFilter(null);
+    setFilterOpen(false);
+  }, []);
+
+  const toggleDraft = useCallback((key: keyof FeedFilter, value: string) => {
+    setDraft((d) => {
+      const list = d[key];
+      const next = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+      return { ...d, [key]: next };
+    });
+  }, []);
+
   const react = useCallback(
     async (product: FeedProduct, reaction: 'like' | 'dislike' | 'save') => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -185,10 +241,39 @@ export default function FeedScreen() {
     [],
   );
 
+  const filterCount = filter ? filter.budgets.length + filter.brands.length : 0;
+
   return (
     <View style={styles.root}>
       <AppHeader title="Style Feed" subtitle="Fresh finds from the places you love" />
-      {savedStores.length > 0 ? (
+      <View style={styles.controlsRow}>
+        <Pressable
+          onPress={openFilter}
+          style={[styles.filterBtn, filter ? styles.filterBtnOn : null]}
+          accessibilityRole="button"
+          accessibilityLabel="Filter the feed"
+        >
+          <Ionicons
+            name="options-outline"
+            size={18}
+            color={filter ? colors.cream : colors.ink}
+          />
+          <ThemedText variant="label" color={filter ? colors.cream : colors.ink}>
+            {filterCount > 0 ? `Filters · ${filterCount}` : 'Filters'}
+          </ThemedText>
+        </Pressable>
+        {filter ? (
+          <Pressable onPress={clearFilter} hitSlop={8} style={styles.clearBtn} accessibilityRole="button">
+            <Ionicons name="close-circle" size={16} color={colors.inkMuted} />
+            <ThemedText variant="label" color={colors.inkMuted}>
+              Clear
+            </ThemedText>
+          </Pressable>
+        ) : null}
+      </View>
+      {/* The saved-store quick chips make sense only when the session filter
+          isn't overriding brand selection. */}
+      {!filter && savedStores.length > 0 ? (
         <StoreChipRow stores={savedStores} active={activeStore} onChange={setActiveStore} />
       ) : null}
       {loading ? (
@@ -230,10 +315,16 @@ export default function FeedScreen() {
             <ProductCard item={item} reaction={reactions[item.id]} onReact={react} />
           )}
           ListEmptyComponent={
-            // A chip can filter the current list to nothing while its fresh
-            // fetch is still in flight — show a skeleton, not a false empty.
+            // A chip/filter can narrow the current list to nothing while its
+            // fresh fetch is still in flight — show a skeleton, not a false empty.
             freshLoading ? (
               <SkeletonGrid count={2} />
+            ) : filter ? (
+              <EmptyState
+                icon="funnel-outline"
+                title="Nothing matches this filter"
+                body="Try widening the price ranges or brands — or clear the filter."
+              />
             ) : (
               <EmptyState
                 icon="storefront-outline"
@@ -255,6 +346,71 @@ export default function FeedScreen() {
           <Ionicons name="arrow-up" size={20} color={colors.cream} />
         </Pressable>
       ) : null}
+
+      <BottomSheet visible={filterOpen} onClose={() => setFilterOpen(false)} title="Filter the feed">
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.sheetScroll}>
+          <ThemedText variant="label" color={colors.inkMuted} style={styles.sheetLabel}>
+            PRICE RANGE
+          </ThemedText>
+          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.sheetHint}>
+            Mix any ranges — leave all off to see every price.
+          </ThemedText>
+          <FilterChips
+            options={BUDGETS}
+            selected={draft.budgets}
+            onToggle={(v) => toggleDraft('budgets', v)}
+          />
+          <ThemedText variant="label" color={colors.inkMuted} style={styles.sheetLabel}>
+            BRANDS
+          </ThemedText>
+          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.sheetHint}>
+            Explore any store — leave all off to see them all.
+          </ThemedText>
+          <FilterChips
+            options={STORES}
+            selected={draft.brands}
+            onToggle={(v) => toggleDraft('brands', v)}
+          />
+        </ScrollView>
+        <View style={styles.sheetActions}>
+          <Button label="Clear" variant="outline" fullWidth={false} onPress={clearFilter} />
+          <Button label="Show results" fullWidth={false} onPress={applyFilter} />
+        </View>
+      </BottomSheet>
+    </View>
+  );
+}
+
+// A compact multi-select chip grid used inside the filter sheet.
+function FilterChips({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: string[];
+  selected: string[];
+  onToggle: (v: string) => void;
+}) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <View style={styles.filterChips}>
+      {options.map((o) => {
+        const on = selected.includes(o);
+        return (
+          <Pressable
+            key={o}
+            onPress={() => onToggle(o)}
+            style={[styles.filterChip, on && styles.filterChipOn]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+          >
+            <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
+              {o}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -433,6 +589,48 @@ const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.cream },
     pad: { paddingHorizontal: spacing.lg },
+    controlsRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+    },
+    filterBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      backgroundColor: c.white,
+      minHeight: 40,
+    },
+    filterBtnOn: { backgroundColor: c.pinkWarm, borderColor: c.pinkWarm },
+    clearBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+    sheetScroll: { maxHeight: 420 },
+    sheetLabel: { letterSpacing: 1, marginTop: spacing.md },
+    sheetHint: { marginTop: spacing.xs, marginBottom: spacing.sm, lineHeight: 16 },
+    filterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    filterChip: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      backgroundColor: c.white,
+      minHeight: 40,
+      justifyContent: 'center',
+    },
+    filterChipOn: { backgroundColor: c.ink, borderColor: c.ink },
+    sheetActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: spacing.md,
+      marginTop: spacing.lg,
+    },
     storeChips: {
       gap: spacing.sm,
       paddingHorizontal: spacing.lg,

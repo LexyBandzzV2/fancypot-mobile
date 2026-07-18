@@ -7,7 +7,7 @@ import type { Colors } from '@/theme/colors';
 import { useTheme, type ThemePreference } from '@/providers/ThemeProvider';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
-import { STYLES, STORES, BUDGETS } from '@/lib/brands';
+import { STYLES, STORES, BUDGETS, resolveSavedBudgets } from '@/lib/brands';
 
 const APPEARANCE_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -24,10 +24,13 @@ export default function Preferences() {
     styles?: string[];
     stores?: string[];
     budget?: string;
+    budgets?: string[];
   };
   const [styles_, setStyles] = useState<string[]>(prefs.styles ?? []);
   const [stores, setStores] = useState<string[]>(prefs.stores ?? []);
-  const [budget, setBudget] = useState<string>(prefs.budget ?? 'Mid-range');
+  // Multi-select price ranges. Reads both the new `budgets` array and the
+  // legacy single `budget` (ceiling → that tier and cheaper). Empty = show all.
+  const [budgets, setBudgets] = useState<string[]>(resolveSavedBudgets(prefs));
   const [saving, setSaving] = useState(false);
 
   const toggle = (list: string[], set: (v: string[]) => void, value: string) =>
@@ -37,9 +40,17 @@ export default function Preferences() {
     if (!user) return;
     setSaving(true);
     try {
+      // Mirror the multi-select into the legacy single `budget` for the shared
+      // web backend: use the highest selected tier (or Luxury when nothing is
+      // selected, i.e. show-all) so the web app's ceiling model never hides
+      // more than the mobile selection does.
+      const legacyBudget =
+        budgets.length === 0 ? 'Luxury' : (BUDGETS.filter((b) => budgets.includes(b)).pop() ?? 'Luxury');
       const { error } = await supabase
         .from('profiles')
-        .update({ preferences: { ...prefs, styles: styles_, stores, budget, completed: true } })
+        .update({
+          preferences: { ...prefs, styles: styles_, stores, budgets, budget: legacyBudget, completed: true },
+        })
         .eq('user_id', user.id);
       if (error) throw error;
       await refreshProfile();
@@ -55,8 +66,15 @@ export default function Preferences() {
     <View style={styles.root}>
       <StackHeader title="Style preferences" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Section title="APPEARANCE">
-          <AppearanceSelector />
+        <Section
+          title="BUDGET"
+          hint="Pick every price range you want to see — mix cheap and luxury freely. Leave all off to see everything."
+        >
+          <Chips
+            options={BUDGETS}
+            selected={budgets}
+            onToggle={(v) => toggle(budgets, setBudgets, v)}
+          />
         </Section>
         <Section title="YOUR STYLES">
           <Chips options={STYLES} selected={styles_} onToggle={(v) => toggle(styles_, setStyles, v)} />
@@ -64,8 +82,8 @@ export default function Preferences() {
         <Section title="FAVORITE STORES">
           <Chips options={STORES} selected={stores} onToggle={(v) => toggle(stores, setStores, v)} />
         </Section>
-        <Section title="BUDGET">
-          <Chips options={BUDGETS} selected={[budget]} onToggle={setBudget} single />
+        <Section title="APPEARANCE">
+          <AppearanceSelector />
         </Section>
       </ScrollView>
       <View style={styles.footer}>
@@ -103,7 +121,15 @@ function AppearanceSelector() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
@@ -111,6 +137,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionTitle}>
         {title}
       </ThemedText>
+      {hint ? (
+        <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.sectionHint}>
+          {hint}
+        </ThemedText>
+      ) : null}
       {children}
     </View>
   );
@@ -151,6 +182,7 @@ const makeStyles = (c: Colors) =>
     content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
     section: { marginBottom: spacing.xl },
     sectionTitle: { marginBottom: spacing.md, letterSpacing: 1 },
+    sectionHint: { marginTop: -spacing.sm, marginBottom: spacing.md, lineHeight: 18 },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
     chip: {
       paddingHorizontal: spacing.lg,

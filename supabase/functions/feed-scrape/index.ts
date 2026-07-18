@@ -43,8 +43,16 @@ const cors = {
 // without hammering SerpAPI's per-second limits.
 const CONCURRENCY = 6;
 
-// Products kept per brand per run.
-const PER_BRAND = 12;
+// Results requested per brand. One SerpAPI search is billed once regardless of
+// how many results it returns, so asking for more here gives richer per-brand
+// coverage at NO additional search cost — the monthly total stays one search
+// per brand.
+const RESULTS_PER_QUERY = 60;
+
+// Products kept per brand per run. Bounded by RESULTS_PER_QUERY above (and by
+// how many of those carry a usable product_url + image). Raised from 12 so each
+// brand shows a fuller shelf; costs no extra searches.
+const PER_BRAND = 24;
 
 // Rows for a brand older than this are deleted after a successful refresh of
 // that brand, so dead listings age out but a failed month never wipes data.
@@ -124,7 +132,7 @@ Deno.serve(async (req) => {
       const q = `${entry.name} women's clothing new arrivals`;
       const endpoint = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(
         q,
-      )}&num=30&api_key=${serpKey}`;
+      )}&num=${RESULTS_PER_QUERY}&api_key=${serpKey}`;
       const res = await fetch(endpoint);
       if (!res.ok) {
         console.error('feed-scrape: SerpAPI HTTP', res.status, 'for', brandKey);

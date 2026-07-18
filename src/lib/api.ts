@@ -174,17 +174,16 @@ export async function getFreshFeed(store?: string): Promise<FeedProduct[]> {
   return coerceProducts(res);
 }
 
-// The scraper caps every brand at 12 rows per run (see PER_BRAND in
+// The scraper caps every brand at PER_BRAND rows per run (see
 // supabase/functions/feed-scrape/index.ts), so the whole catalog tops out
-// around brand-count * 12 — comfortably under this ceiling even at full
+// around brand-count * PER_BRAND — comfortably under this ceiling even at full
 // catalog size. It exists only as a defensive backstop against an unbounded
 // table, never as an active limiter: every row in a run shares one
 // `scraped_at` timestamp (stamped once per run, not per brand), so ordering
 // by it can't break ties meaningfully — a low cap here would silently drop
 // whichever brands Postgres happens to return last, with no relation to
-// data quality. A store-scoped query is bounded further still (~12 *
-// selected-brand-count), so it will never come close to this ceiling.
-const SCRAPED_FEED_CEILING = 3000;
+// data quality. Kept well above catalog-size * PER_BRAND (~140 * 24).
+const SCRAPED_FEED_CEILING = 5000;
 
 /**
  * Monthly-scraped products (supabase/functions/feed-scrape → the

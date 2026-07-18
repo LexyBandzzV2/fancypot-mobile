@@ -167,6 +167,10 @@ export const BUDGETS = ['Budget', 'Mid-range', 'Premium', 'Luxury'];
  * still sees Mid-range pieces); pricier tiers are hidden. Unknown/missing
  * values on either side always pass — filtering must never blank the feed
  * over absent metadata.
+ *
+ * Legacy single-select ("ceiling") model. New code should prefer the explicit
+ * multi-tier `budgetTierAllowed` below; this is kept for the backward-compat
+ * read path in `resolveSavedBudgets`.
  */
 export function budgetAllows(
   userBudget: string | null | undefined,
@@ -177,6 +181,45 @@ export function budgetAllows(
   const itemIdx = BUDGETS.indexOf(itemTier);
   if (userIdx === -1 || itemIdx === -1) return true;
   return itemIdx <= userIdx;
+}
+
+/**
+ * Resolve a user's saved budget preference into an explicit list of tiers to
+ * show. Supports both the current multi-select shape
+ * (preferences.budgets: string[]) and the legacy single-select ceiling
+ * (preferences.budget: string → that tier and everything cheaper). Returns []
+ * to mean "no constraint — show all tiers", so a fresh profile never hides
+ * anything by default.
+ */
+export function resolveSavedBudgets(prefs: {
+  budgets?: unknown;
+  budget?: unknown;
+}): string[] {
+  if (Array.isArray(prefs.budgets)) {
+    return prefs.budgets.filter(
+      (b): b is string => typeof b === 'string' && BUDGETS.includes(b),
+    );
+  }
+  if (typeof prefs.budget === 'string' && BUDGETS.includes(prefs.budget)) {
+    return BUDGETS.slice(0, BUDGETS.indexOf(prefs.budget) + 1);
+  }
+  return [];
+}
+
+/**
+ * Whether an item in `itemTier` passes an explicit multi-tier budget
+ * selection. An empty/missing selection shows everything; items with no tier
+ * metadata always pass (never blank the feed over absent metadata). Unlike the
+ * ceiling model, tiers are matched exactly — selecting only Budget + Luxury
+ * shows exactly those two, skipping the middle.
+ */
+export function budgetTierAllowed(
+  allowedTiers: string[] | null | undefined,
+  itemTier: string | null | undefined,
+): boolean {
+  if (!allowedTiers || allowedTiers.length === 0) return true;
+  if (!itemTier) return true;
+  return allowedTiers.includes(itemTier);
 }
 
 /**
