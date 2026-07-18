@@ -136,9 +136,14 @@ export async function processWardrobeItem(itemId: string): Promise<void> {
 // the buy link in the `product_url` column. Bridge the two at the DB boundary
 // so screens keep using `source_url` (Outfit interface) while persistence lands
 // in the real column.
+//
+// The live table carries BOTH columns: divergent builds briefly wrote the link
+// straight to a `source_url` column, so reads take whichever is set (and
+// writes fill both) — otherwise looks saved by those builds lose their
+// "Get the look" button even though the link is right there in the row.
 function rowToOutfit(row: Record<string, any>): Outfit {
-  const { product_url, ...rest } = row;
-  return { ...rest, source_url: product_url ?? null } as Outfit;
+  const { product_url, source_url, ...rest } = row;
+  return { ...rest, source_url: product_url ?? source_url ?? null } as Outfit;
 }
 
 export async function listOutfits(userId: string): Promise<Outfit[]> {
@@ -161,7 +166,8 @@ export async function saveOutfit(
     .insert({
       user_id: userId,
       ...rest,
-      ...(source_url !== undefined ? { product_url: source_url } : {}),
+      // Write both columns (see rowToOutfit) so every reader finds the link.
+      ...(source_url !== undefined ? { product_url: source_url, source_url } : {}),
     })
     .select('*')
     .single();

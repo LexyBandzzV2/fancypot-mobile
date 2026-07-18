@@ -92,13 +92,19 @@ export default function GetTheLookScreen() {
       try {
         await saveOutfit(user.id, {
           name: current.title ?? 'Saved look',
-          image_url: current.thumbnail,
+          // image_url and item_ids are NOT NULL in the outfits table; a null
+          // thumbnail or omitted item_ids makes the insert fail — and the
+          // catch below swallows it, so the look would silently never save.
+          image_url: current.thumbnail ?? '',
+          item_ids: [],
           category: 'get_the_look',
           // Keep the retailer link so Saved Looks / Try-on can shop the item.
           source_url: current.link,
         });
-      } catch {
-        // Non-blocking: keep the swipe flow moving even if the save fails.
+      } catch (e) {
+        // Non-blocking for the swipe flow, but never fully silent — a save
+        // that always fails looks identical to one that works otherwise.
+        console.warn('get-the-look: saveOutfit failed', e);
       }
     }
     advance();
