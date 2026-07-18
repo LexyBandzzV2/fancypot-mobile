@@ -48,6 +48,14 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [reactions, setReactions] = useState<Record<string, 'like' | 'dislike' | 'save'>>({});
   const [activeStore, setActiveStore] = useState<string | null>(null);
+  // Bumped on every refresh to reshuffle the visible order — the monthly
+  // scrape rarely changes, so a fresh shuffle is what makes a pull-to-refresh
+  // feel like new finds even when the underlying rows are the same.
+  const [shuffleSeed, setShuffleSeed] = useState(1);
+  // Shown once the user has scrolled a few screens down: a compact "back to
+  // top" nudge that also triggers a shuffle-refresh.
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const listRef = useRef<FlatList<FeedProduct>>(null);
   // Monotonic sequence for fresh fetches: a slow older request that resolves
   // after a newer one must not clobber the newer results.
   const freshReq = useRef(0);
@@ -72,8 +80,11 @@ export default function FeedScreen() {
     // (cheaper tiers still show). Items with no tier metadata always pass.
     let list = products.filter((p) => budgetAllows(savedBudget, p.budget_tier));
     if (activeStore) list = list.filter((p) => brandsMatch(p.brand, activeStore));
-    return list;
-  }, [products, activeStore, savedBudget]);
+    // Seeded shuffle: deterministic for a given seed, so it stays stable
+    // across re-renders (and as async sources stream in) but reorders on every
+    // refresh. Makes the feed feel fresh without re-scraping.
+    return seededShuffle(list, shuffleSeed);
+  }, [products, activeStore, savedBudget, shuffleSeed]);
 
   const loadCurated = useCallback(async () => {
     try {
@@ -132,10 +143,29 @@ export default function FeedScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
+    // Reshuffle first so the reorder is visible immediately, even before the
+    // (usually unchanged) network refetch resolves.
+    setShuffleSeed((s) => s + 1);
     // Re-pull all sources; the monthly pg_cron job owns catalog scraping.
     await Promise.all([loadCurated(), loadFresh(activeStore), loadScraped()]);
     setRefreshing(false);
   }, [loadCurated, loadFresh, loadScraped, activeStore]);
+
+  // "Back to top" nudge: jump to the top, then run the same shuffle-refresh.
+  const scrollToTopAndRefresh = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    onRefresh();
+  }, [onRefresh]);
+
+  // Reveal the nudge past ~2.5 screens. setState with an unchanged boolean is a
+  // no-op in React, so this is cheap to call on every scroll frame.
+  const onScroll = useCallback(
+    (e: { nativeEvent: { contentOffset: { y: number } } }) => {
+      setShowScrollTop(e.nativeEvent.contentOffset.y > 1600);
+    },
+    [],
+  );
 
   const react = useCallback(
     async (product: FeedProduct, reaction: 'like' | 'dislike' | 'save') => {
@@ -186,10 +216,13 @@ export default function FeedScreen() {
         </>
       ) : (
         <FlatList
+          ref={listRef}
           data={visibleProducts}
           keyExtractor={(p) => p.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={64}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blushDeep} />
           }
@@ -211,8 +244,38 @@ export default function FeedScreen() {
           }
         />
       )}
+      {showScrollTop && !loading && products.length > 0 ? (
+        <Pressable
+          style={styles.scrollTopBtn}
+          onPress={scrollToTopAndRefresh}
+          accessibilityRole="button"
+          accessibilityLabel="Back to top and refresh"
+          hitSlop={8}
+        >
+          <Ionicons name="arrow-up" size={20} color={colors.cream} />
+        </Pressable>
+      ) : null}
     </View>
   );
+}
+
+// Deterministic Fisher–Yates driven by a mulberry32 PRNG. Same seed → same
+// order, so the shuffle is stable across re-renders and only changes when the
+// caller bumps the seed. Does not mutate the input.
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  let s = seed >>> 0;
+  const rand = () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const out = arr.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 }
 
 // Sources in priority order (fresh, scraped, curated), deduped by product_url
@@ -384,6 +447,24 @@ const makeStyles = (c: Colors) =>
     },
     storeChipOn: { backgroundColor: c.pinkWarm, borderColor: c.pinkWarm, borderWidth: 1 },
     pickStoresAction: { alignItems: 'center', paddingHorizontal: spacing.xl, marginTop: spacing.lg },
+    // Compact "back to top" nudge — small enough to sit out of the way, above
+    // the tab bar in the bottom-right corner.
+    scrollTopBtn: {
+      position: 'absolute',
+      right: spacing.lg,
+      bottom: 96,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: c.pinkWarm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: c.ink,
+      shadowOpacity: 0.2,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 4,
+    },
     list: { paddingHorizontal: spacing.lg, paddingBottom: 120, gap: spacing.lg },
     card: { marginBottom: 0 },
     cardImg: { width: '100%', aspectRatio: 1.1 },
