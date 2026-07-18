@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "fancypot",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "bundleIdentifier": "org.fancypot.app",
+      "bundleIdentifier": "com.gfly.fancypot",
       "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "Fancy Pot uses your camera to photograph clothing for your closet and virtual try-ons.",
@@ -33,9 +33,6 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.RECORD_AUDIO",
         "android.permission.CAMERA",
         "android.permission.READ_MEDIA_IMAGES",
         "android.permission.RECORD_AUDIO"
@@ -74,17 +71,17 @@
       "typedRoutes": true
     },
     "extra": {
+      "router": {},
       "eas": {
         "projectId": "fe2f2515-05cc-4066-8c93-0dc319893289"
-      },
-      "router": {}
-    },
-    "owner": "lexybandz",
-    "runtimeVersion": {
-      "policy": "appVersion"
+      }
     },
     "updates": {
       "url": "https://u.expo.dev/fe2f2515-05cc-4066-8c93-0dc319893289"
-    }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "owner": "lexybandz"
   }
 }

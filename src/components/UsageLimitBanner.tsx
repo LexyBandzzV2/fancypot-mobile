@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { colors, radius, spacing } from '@/theme';
+import { radius, spacing } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 import { ThemedText } from './Typography';
 
 /**
@@ -17,10 +18,14 @@ export function UsageLimitBanner({
   cta?: string;
 }) {
   const router = useRouter();
+  const { colors } = useTheme();
   return (
     <Pressable
       onPress={() => router.push('/paywall')}
-      style={styles.wrap}
+      style={[
+        styles.wrap,
+        { backgroundColor: colors.pinkWarmGlow, borderColor: colors.pinkWarmSoft },
+      ]}
       accessibilityRole="button"
     >
       <Ionicons name="lock-closed" size={18} color={colors.pinkWarm} />
@@ -39,11 +44,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.pinkWarmGlow,
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.pinkWarmSoft,
   },
   text: { flex: 1 },
 });

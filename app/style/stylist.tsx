@@ -8,8 +8,11 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { StackHeader, Button, ThemedText, EmptyState } from '@/components';
-import { colors, radius, spacing, fillObject } from '@/theme';
+import { StackHeader, Button, ThemedText, EmptyState, Card } from '@/components';
+import { Glass } from '@/components/Glass';
+import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
+import type { Colors } from '@/theme/colors';
+import { useTheme } from '@/providers/ThemeProvider';
 import { useWardrobe } from '@/hooks/useWardrobe';
 import { useOutfits } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
@@ -37,6 +40,8 @@ interface GenerateParams {
 }
 
 export default function StylistScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { items } = useWardrobe();
   const { save } = useOutfits();
   const { run, running } = useAIAction();
@@ -136,13 +141,15 @@ export default function StylistScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {result ? (
           <View style={styles.resultWrap}>
-            <Image source={{ uri: result }} style={styles.result} contentFit="cover" transition={250} />
+            <View style={styles.resultImageWrap}>
+              <Image source={{ uri: result }} style={styles.result} contentFit="cover" transition={250} />
+            </View>
 
             {suggestion ? (
               <SuggestionCard suggestion={suggestion} onDismiss={() => setSuggestion(null)} />
             ) : null}
 
-            <View style={styles.resultActions}>
+            <Card glass={false} style={styles.resultActions}>
               <Button
                 label={saved ? 'Saved to library' : 'Save to library'}
                 onPress={onSave}
@@ -151,11 +158,11 @@ export default function StylistScreen() {
               />
               <View style={{ height: spacing.sm }} />
               <Button label="Start over" variant="ghost" onPress={() => setResult(null)} />
-            </View>
+            </Card>
           </View>
         ) : (
           <>
-            <ModeRow mode={mode} onChange={changeMode} />
+            <ModeRow mode={mode} onChange={changeMode} styles={styles} colors={colors} />
 
             {isEmpty ? (
               <View style={styles.empty}>
@@ -172,12 +179,12 @@ export default function StylistScreen() {
                     <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
                       OCCASION
                     </ThemedText>
-                    <ChipRow options={OCCASIONS} value={occasion} onChange={setOccasion} />
+                    <ChipRow options={OCCASIONS} value={occasion} onChange={setOccasion} styles={styles} colors={colors} />
 
                     <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
                       VIBE
                     </ThemedText>
-                    <ChipRow options={VIBES} value={vibe} onChange={setVibe} />
+                    <ChipRow options={VIBES} value={vibe} onChange={setVibe} styles={styles} colors={colors} />
                   </>
                 ) : null}
 
@@ -217,12 +224,12 @@ export default function StylistScreen() {
                     <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
                       OCCASION
                     </ThemedText>
-                    <ChipRow options={OCCASIONS} value={occasion} onChange={setOccasion} />
+                    <ChipRow options={OCCASIONS} value={occasion} onChange={setOccasion} styles={styles} colors={colors} />
 
                     <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
                       VIBE
                     </ThemedText>
-                    <ChipRow options={VIBES} value={vibe} onChange={setVibe} />
+                    <ChipRow options={VIBES} value={vibe} onChange={setVibe} styles={styles} colors={colors} />
 
                     <ThemedText variant="body" color={colors.inkMuted} style={styles.hint}>
                       We'll style a look using your whole closet ({items.length} {items.length === 1 ? 'piece' : 'pieces'}).
@@ -242,7 +249,7 @@ export default function StylistScreen() {
       </ScrollView>
 
       {!result ? (
-        <View style={styles.footer}>
+        <Glass intensity={50} style={styles.footer}>
           <Button
             label={generateLabel}
             onPress={onGenerate}
@@ -250,7 +257,7 @@ export default function StylistScreen() {
             disabled={!canGenerate}
             icon={!running ? <Ionicons name="color-wand" size={18} color={colors.cream} /> : undefined}
           />
-        </View>
+        </Glass>
       ) : null}
 
       {running ? (
@@ -262,7 +269,17 @@ export default function StylistScreen() {
   );
 }
 
-function ModeRow({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
+function ModeRow({
+  mode,
+  onChange,
+  styles,
+  colors,
+}: {
+  mode: Mode;
+  onChange: (m: Mode) => void;
+  styles: Styles;
+  colors: Colors;
+}) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modes}>
       {MODES.map((m) => {
@@ -284,10 +301,14 @@ function ChipRow({
   options,
   value,
   onChange,
+  styles,
+  colors,
 }: {
   options: string[];
   value: string;
   onChange: (v: string) => void;
+  styles: Styles;
+  colors: Colors;
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
@@ -312,8 +333,10 @@ function SuggestionCard({
   suggestion: PieceSuggestion;
   onDismiss: () => void;
 }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
-    <View style={styles.suggestCard}>
+    <Card style={styles.suggestCard}>
       <Pressable onPress={onDismiss} hitSlop={8} style={styles.suggestClose}>
         <Ionicons name="close" size={14} color={colors.inkMuted} />
       </Pressable>
@@ -350,105 +373,105 @@ function SuggestionCard({
           </View>
         </View>
       </View>
-    </View>
+    </Card>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
-  sectionLabel: { marginTop: spacing.lg, marginBottom: spacing.sm, letterSpacing: 1 },
-  hint: { marginTop: spacing.lg },
-  empty: { height: 200 },
-  modes: { gap: spacing.sm, paddingVertical: spacing.xs },
-  modeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.white,
-    minHeight: 40,
-  },
-  modeChipOn: { backgroundColor: colors.pinkWarm, borderColor: colors.pinkWarm },
-  modeIcon: { marginRight: spacing.xs },
-  pieces: { gap: spacing.sm, paddingVertical: spacing.xs },
-  pieceWrap: {},
-  piece: {
-    width: 92,
-    height: 112,
-    borderRadius: radius.md,
-    borderWidth: 2,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    backgroundColor: colors.white,
-  },
-  pieceOn: { borderColor: colors.pinkWarm },
-  pieceImg: { width: '100%', height: '100%' },
-  piecePh: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pearl },
-  check: {
-    position: 'absolute',
-    top: 6,
-    right: 6,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.pinkWarm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chips: { gap: spacing.sm, paddingVertical: spacing.xs },
-  chip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.white,
-    minHeight: 40,
-    justifyContent: 'center',
-  },
-  chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  footer: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.cream,
-  },
-  resultWrap: { gap: spacing.lg },
-  result: { width: '100%', aspectRatio: 0.8, borderRadius: radius.lg, backgroundColor: colors.pearl },
-  resultActions: {},
-  overlay: {
-    ...fillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(250,243,231,0.5)',
-  },
-  suggestCard: {
-    backgroundColor: colors.pearl,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-  },
-  suggestClose: {
-    position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.white,
-    zIndex: 1,
-  },
-  suggestRow: { flexDirection: 'row', gap: spacing.md },
-  suggestThumb: { width: 48, height: 60, borderRadius: radius.sm, backgroundColor: colors.white },
-  suggestInfo: { flex: 1, paddingRight: spacing.xl, gap: 2 },
-  suggestEyebrow: { letterSpacing: 1, marginBottom: 2 },
-  suggestActions: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.xs },
-  suggestNotNow: {},
-});
+const makeStyles = (colors: Colors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.cream },
+    content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
+    sectionLabel: { marginTop: spacing.lg, marginBottom: spacing.sm, letterSpacing: 1 },
+    hint: { marginTop: spacing.lg },
+    empty: { height: 200 },
+    modes: { gap: spacing.sm, paddingVertical: spacing.xs },
+    modeChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.borderStrong,
+      backgroundColor: colors.white,
+      minHeight: 40,
+    },
+    modeChipOn: { backgroundColor: colors.pinkWarm, borderColor: colors.pinkWarm },
+    modeIcon: { marginRight: spacing.xs },
+    pieces: { gap: spacing.sm, paddingVertical: spacing.xs },
+    pieceWrap: {},
+    piece: {
+      width: 92,
+      height: 112,
+      borderRadius: radius.md,
+      borderWidth: 2,
+      borderColor: colors.border,
+      overflow: 'hidden',
+      backgroundColor: colors.white,
+    },
+    pieceOn: { borderColor: colors.pinkWarm },
+    pieceImg: { width: '100%', height: '100%' },
+    piecePh: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pearl },
+    check: {
+      position: 'absolute',
+      top: 6,
+      right: 6,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: colors.pinkWarm,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    chips: { gap: spacing.sm, paddingVertical: spacing.xs },
+    chip: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: colors.borderStrong,
+      backgroundColor: colors.white,
+      minHeight: 40,
+      justifyContent: 'center',
+    },
+    chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+    footer: {
+      padding: spacing.lg,
+      borderTopWidth: 1,
+      borderTopColor: colors.glassEdge,
+    },
+    resultWrap: { gap: spacing.lg },
+    resultImageWrap: {
+      borderRadius: radius.lg,
+      overflow: 'hidden',
+    },
+    result: { width: '100%', aspectRatio: 0.8, backgroundColor: colors.pearl },
+    resultActions: {},
+    overlay: {
+      ...fillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.glassScrim,
+    },
+    suggestCard: {},
+    suggestClose: {
+      position: 'absolute',
+      top: spacing.sm,
+      right: spacing.sm,
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.white,
+      zIndex: 1,
+    },
+    suggestRow: { flexDirection: 'row', gap: spacing.md },
+    suggestThumb: { width: 48, height: 60, borderRadius: radius.sm, backgroundColor: colors.white },
+    suggestInfo: { flex: 1, paddingRight: spacing.xl, gap: 2 },
+    suggestEyebrow: { letterSpacing: 1, marginBottom: 2 },
+    suggestActions: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.xs },
+    suggestNotNow: {},
+  });
+
+type Styles = ReturnType<typeof makeStyles>;

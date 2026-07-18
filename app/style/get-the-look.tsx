@@ -12,8 +12,11 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { StackHeader, Button, ThemedText, EmptyState } from '@/components';
-import { colors, radius, spacing, fillObject } from '@/theme';
+import { StackHeader, Button, ThemedText, EmptyState, Card } from '@/components';
+import { Glass } from '@/components/Glass';
+import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
+import type { Colors } from '@/theme/colors';
+import { useTheme } from '@/providers/ThemeProvider';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useAuth } from '@/providers/AuthProvider';
 import { getTheLookSearch, saveOutfit, UsageLimitError, type LookMatch } from '@/lib/api';
@@ -24,6 +27,8 @@ const SCREEN_W = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = SCREEN_W * 0.25;
 
 export default function GetTheLookScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const { fromLibrary, fromCamera } = useImagePicker();
   const { user } = useAuth();
   const [results, setResults] = useState<LookMatch[]>([]);
@@ -46,6 +51,15 @@ export default function GetTheLookScreen() {
       const signed = await signWardrobeUrl(uploadedPath);
       if (!signed) throw new Error('Could not prepare the photo.');
       const matches = await getTheLookSearch(signed);
+      if (matches.length === 0) {
+        // Without this, a zero-match search lands back on the start screen
+        // with no explanation and reads as "the button did nothing."
+        Alert.alert(
+          'No matches found',
+          'We could not find shoppable look-alikes for that photo. Try a clearer, full-outfit photo with good lighting.',
+        );
+        return;
+      }
       setResults(matches);
       setIndex(0);
       setKept([]);
@@ -161,16 +175,20 @@ export default function GetTheLookScreen() {
             </ThemedText>
             <View style={styles.keptGrid}>
               {kept.map((p, i) => (
-                <View key={`${p.link ?? p.title ?? 'item'}-${i}`} style={styles.keptItem}>
+                <Card
+                  key={`${p.link ?? p.title ?? 'item'}-${i}`}
+                  style={styles.keptItem}
+                  padded={false}
+                >
                   {p.thumbnail ? (
                     <Image source={{ uri: p.thumbnail }} style={styles.keptImg} contentFit="cover" />
                   ) : (
                     <View style={styles.keptImg} />
                   )}
-                  <ThemedText variant="labelSmall" numberOfLines={1}>
+                  <ThemedText variant="labelSmall" numberOfLines={1} style={styles.keptLabel}>
                     {p.title ?? p.source ?? 'Saved look'}
                   </ThemedText>
-                </View>
+                </Card>
               ))}
             </View>
             <ThemedText variant="labelSmall" color={colors.inkMuted} center>
@@ -182,7 +200,7 @@ export default function GetTheLookScreen() {
           <View style={styles.swipe}>
             <Animated.View
               style={[
-                styles.card,
+                styles.cardWrap,
                 {
                   transform: [
                     { translateX: position.x },
@@ -193,55 +211,57 @@ export default function GetTheLookScreen() {
               ]}
               {...panResponder.panHandlers}
             >
-              {current.thumbnail ? (
-                <Image
-                  source={{ uri: current.thumbnail }}
-                  style={styles.cardImg}
-                  contentFit="cover"
-                  transition={200}
-                />
-              ) : (
-                <View style={[styles.cardImg, styles.cardImgFallback]}>
-                  <Ionicons name="image-outline" size={48} color={colors.inkMuted} />
-                </View>
-              )}
+              <Glass intensity={40} style={styles.card}>
+                {current.thumbnail ? (
+                  <Image
+                    source={{ uri: current.thumbnail }}
+                    style={styles.cardImg}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                ) : (
+                  <View style={[styles.cardImg, styles.cardImgFallback]}>
+                    <Ionicons name="image-outline" size={48} color={colors.inkMuted} />
+                  </View>
+                )}
 
-              <Animated.View style={[styles.badge, styles.likeBadge, { opacity: likeOpacity }]}>
-                <ThemedText variant="labelSmall" color={colors.white}>
-                  KEEP
-                </ThemedText>
-              </Animated.View>
-              <Animated.View style={[styles.badge, styles.nopeBadge, { opacity: nopeOpacity }]}>
-                <ThemedText variant="labelSmall" color={colors.white}>
-                  SKIP
-                </ThemedText>
-              </Animated.View>
-
-              <View style={styles.cardMeta}>
-                {current.source ? (
-                  <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
-                    {current.source}
+                <Animated.View style={[styles.badge, styles.likeBadge, { opacity: likeOpacity }]}>
+                  <ThemedText variant="labelSmall" color={colors.white}>
+                    KEEP
                   </ThemedText>
-                ) : null}
-                <ThemedText variant="h3" numberOfLines={2}>
-                  {current.title ?? 'Shoppable match'}
-                </ThemedText>
-                {current.price != null ? (
-                  <ThemedText variant="body">${current.price}</ThemedText>
-                ) : null}
-                {current.link ? (
-                  <Pressable
-                    onPress={() => openProductUrl(current.link)}
-                    hitSlop={8}
-                    style={styles.productLink}
-                  >
-                    <Ionicons name="open-outline" size={16} color={colors.pinkWarm} />
-                    <ThemedText variant="labelSmall" color={colors.pinkWarm}>
-                      View product
+                </Animated.View>
+                <Animated.View style={[styles.badge, styles.nopeBadge, { opacity: nopeOpacity }]}>
+                  <ThemedText variant="labelSmall" color={colors.white}>
+                    SKIP
+                  </ThemedText>
+                </Animated.View>
+
+                <View style={styles.cardMeta}>
+                  {current.source ? (
+                    <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
+                      {current.source}
                     </ThemedText>
-                  </Pressable>
-                ) : null}
-              </View>
+                  ) : null}
+                  <ThemedText variant="h3" numberOfLines={2}>
+                    {current.title ?? 'Shoppable match'}
+                  </ThemedText>
+                  {current.price != null ? (
+                    <ThemedText variant="body">${current.price}</ThemedText>
+                  ) : null}
+                  {current.link ? (
+                    <Pressable
+                      onPress={() => openProductUrl(current.link)}
+                      hitSlop={8}
+                      style={styles.productLink}
+                    >
+                      <Ionicons name="open-outline" size={16} color={colors.pinkWarm} />
+                      <ThemedText variant="labelSmall" color={colors.pinkWarm}>
+                        View product
+                      </ThemedText>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </Glass>
             </Animated.View>
 
             <ThemedText variant="labelSmall" color={colors.inkMuted} center style={styles.counter}>
@@ -271,65 +291,67 @@ export default function GetTheLookScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  content: { flex: 1, padding: spacing.lg },
-  start: { flex: 1, justifyContent: 'center' },
-  startActions: { marginTop: spacing.lg },
-  swipe: { flex: 1, justifyContent: 'center' },
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    shadowColor: colors.ink,
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
-  },
-  cardImg: { width: '100%', aspectRatio: 0.85 },
-  cardImgFallback: {
-    backgroundColor: colors.pearl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardMeta: { padding: spacing.lg, gap: spacing.xs },
-  productLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
-  badge: {
-    position: 'absolute',
-    top: spacing.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-  },
-  likeBadge: { right: spacing.lg, backgroundColor: colors.pinkWarm },
-  nopeBadge: { left: spacing.lg, backgroundColor: colors.ink },
-  counter: { marginTop: spacing.md },
-  swipeActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.xxl,
-    marginTop: spacing.lg,
-  },
-  circle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  skip: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderStrong },
-  love: { backgroundColor: colors.pinkWarm },
-  done: { flex: 1, justifyContent: 'center', gap: spacing.xl },
-  keptGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, justifyContent: 'center' },
-  keptItem: { width: 100, gap: spacing.xs },
-  keptImg: { width: 100, height: 120, borderRadius: radius.md, backgroundColor: colors.pearl },
-  overlay: {
-    ...fillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(250,243,231,0.8)',
-  },
-});
+const makeStyles = (colors: Colors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.cream },
+    content: { flex: 1, padding: spacing.lg },
+    start: { flex: 1, justifyContent: 'center' },
+    startActions: { marginTop: spacing.lg },
+    swipe: { flex: 1, justifyContent: 'center' },
+    cardWrap: {
+      borderRadius: radius.lg,
+      shadowColor: colors.ink,
+      shadowOpacity: 0.08,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 3,
+    },
+    card: {
+      borderRadius: radius.lg,
+      overflow: 'hidden',
+    },
+    cardImg: { width: '100%', aspectRatio: 0.85 },
+    cardImgFallback: {
+      backgroundColor: colors.pearl,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cardMeta: { padding: spacing.lg, gap: spacing.xs },
+    productLink: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
+    badge: {
+      position: 'absolute',
+      top: spacing.lg,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.pill,
+    },
+    likeBadge: { right: spacing.lg, backgroundColor: colors.pinkWarm },
+    nopeBadge: { left: spacing.lg, backgroundColor: colors.ink },
+    counter: { marginTop: spacing.md },
+    swipeActions: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: spacing.xxl,
+      marginTop: spacing.lg,
+    },
+    circle: {
+      width: 68,
+      height: 68,
+      borderRadius: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    skip: { backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderStrong },
+    love: { backgroundColor: colors.pinkWarm },
+    done: { flex: 1, justifyContent: 'center', gap: spacing.xl },
+    keptGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, justifyContent: 'center' },
+    keptItem: { width: 100 },
+    keptImg: { width: 100, height: 120, backgroundColor: colors.pearl },
+    keptLabel: { padding: spacing.xs },
+    overlay: {
+      ...fillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.overlay,
+    },
+  });

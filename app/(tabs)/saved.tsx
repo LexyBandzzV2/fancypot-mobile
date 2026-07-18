@@ -20,10 +20,14 @@ import {
   SkeletonGrid,
 } from '@/components';
 import { ThemedText } from '@/components';
-import { colors, radius, spacing } from '@/theme';
+import type { Colors } from '@/theme/colors';
+import { radius, spacing, useThemedStyles } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
 
 export default function SavedScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const { outfits, loading, reload, remove } = useOutfits();
   const [selected, setSelected] = useState<OutfitDisplay | null>(null);
@@ -80,7 +84,7 @@ export default function SavedScreen() {
           renderItem={({ item }) => (
             <Pressable
               style={styles.tile}
-              onPress={() => router.push('/style/try-on')}
+              onPress={() => router.push({ pathname: '/style/try-on', params: { outfitId: item.id } })}
               onLongPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                 setSelected(item);
@@ -110,10 +114,12 @@ export default function SavedScreen() {
           label="Try this on"
           icon={<Ionicons name="body-outline" size={22} color={colors.ink} />}
           onPress={() => {
+            const id = selected?.id;
             setSelected(null);
-            router.push('/style/try-on');
+            router.push({ pathname: '/style/try-on', params: id ? { outfitId: id } : {} });
           }}
         />
+        {/* Only shoppable looks (Get the Look matches) carry a source_url. */}
         {selected?.source_url ? (
           <SheetAction
             label="Shop this look"
@@ -139,53 +145,53 @@ export default function SavedScreen() {
 const GAP = spacing.md;
 const GRID_CELL_SIZE = 45;
 const GRID_GAP = 12;
-const GRID_COLOR = colors.blush;
 const GRID_OPACITY = 0.15;
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  pad: { paddingHorizontal: spacing.lg },
-  list: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
-  column: { gap: GAP },
-  tile: {
-    flex: 1,
-    marginBottom: GAP,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-  },
-  img: { width: '100%', aspectRatio: 1 },
-  placeholder: { backgroundColor: colors.pearl, alignItems: 'center', justifyContent: 'center' },
-  label: { padding: spacing.sm },
-  // Empty state styles
-  emptyContainer: { flex: 1, backgroundColor: colors.cream },
-  gridBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    gap: GRID_GAP,
-    marginBottom: GRID_GAP,
-  },
-  gridCell: {
-    flex: 1,
-    aspectRatio: 1,
-    borderWidth: 1,
-    borderColor: GRID_COLOR,
-    opacity: GRID_OPACITY,
-    borderRadius: radius.sm,
-  },
-  emptyContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-});
+const makeStyles = (c: Colors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.cream },
+    pad: { paddingHorizontal: spacing.lg },
+    list: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
+    column: { gap: GAP },
+    tile: {
+      flex: 1,
+      marginBottom: GAP,
+      borderRadius: radius.md,
+      backgroundColor: c.white,
+      borderWidth: 1,
+      borderColor: c.border,
+      overflow: 'hidden',
+    },
+    img: { width: '100%', aspectRatio: 1 },
+    placeholder: { backgroundColor: c.pearl, alignItems: 'center', justifyContent: 'center' },
+    label: { padding: spacing.sm },
+    // Empty state styles
+    emptyContainer: { flex: 1, backgroundColor: c.cream },
+    gridBackground: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
+    },
+    gridRow: {
+      flexDirection: 'row',
+      gap: GRID_GAP,
+      marginBottom: GRID_GAP,
+    },
+    gridCell: {
+      flex: 1,
+      aspectRatio: 1,
+      borderWidth: 1,
+      borderColor: c.blush,
+      opacity: GRID_OPACITY,
+      borderRadius: radius.sm,
+    },
+    emptyContent: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+  });

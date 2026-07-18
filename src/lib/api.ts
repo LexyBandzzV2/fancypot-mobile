@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { normalizeBrand } from './brands';
 
 /**
  * All AI features are invoked through Supabase Edge Functions. The mobile app
@@ -26,7 +27,12 @@ export interface Outfit {
   image_url: string | null;
   item_ids: string[] | null;
   occasion: string | null;
-  /** Shoppable origin (e.g. the product page a Get-the-Look match came from). */
+  /**
+   * Shoppable origin (the product page a Get-the-Look match came from). The
+   * app uses `source_url`; it is persisted to / read from the `product_url`
+   * column on public.outfits (see saveOutfit/listOutfits) — that is the column
+   * the deployed backend added.
+   */
   source_url: string | null;
   created_at: string;
 }
@@ -117,6 +123,15 @@ export async function processWardrobeItem(itemId: string): Promise<void> {
 }
 
 // ---- Outfits / library ----
+// The app-facing field is `source_url`, but the deployed `outfits` table stores
+// the buy link in the `product_url` column. Bridge the two at the DB boundary
+// so screens keep using `source_url` (Outfit interface) while persistence lands
+// in the real column.
+function rowToOutfit(row: Record<string, any>): Outfit {
+  const { product_url, ...rest } = row;
+  return { ...rest, source_url: product_url ?? null } as Outfit;
+}
+
 export async function listOutfits(userId: string): Promise<Outfit[]> {
   const { data, error } = await supabase
     .from('outfits')
@@ -124,20 +139,25 @@ export async function listOutfits(userId: string): Promise<Outfit[]> {
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
   if (error) throw error;
-  return (data ?? []) as Outfit[];
+  return (data ?? []).map(rowToOutfit);
 }
 
 export async function saveOutfit(
   userId: string,
   outfit: Partial<Outfit>,
 ): Promise<Outfit> {
+  const { source_url, ...rest } = outfit;
   const { data, error } = await supabase
     .from('outfits')
-    .insert({ user_id: userId, ...outfit })
+    .insert({
+      user_id: userId,
+      ...rest,
+      ...(source_url !== undefined ? { product_url: source_url } : {}),
+    })
     .select('*')
     .single();
   if (error) throw error;
-  return data as Outfit;
+  return rowToOutfit(data);
 }
 
 export async function deleteOutfit(id: string): Promise<void> {
@@ -146,25 +166,88 @@ export async function deleteOutfit(id: string): Promise<void> {
 }
 
 // ---- Feed ----
-export async function getFeed(): Promise<FeedProduct[]> {
-  // feed-page responds with `{ products, stale }`, not a bare array. Unwrap it
-  // (tolerating either shape) so callers always get a real array — otherwise
-  // `products.length` / `products.filter` on the screen operate on an object.
-  const res = await invokeAI<{ products?: FeedProduct[] } | FeedProduct[]>('feed-page', {
-    limit: 24,
-  });
-  if (Array.isArray(res)) return res;
-  return res?.products ?? [];
+/**
+ * The feed-page function has returned both a bare array and a wrapped
+ * `{ products: [...] }` shape across versions; spreading a non-array crashes
+ * the feed screen ("iterator method is not callable" on Hermes), so coerce
+ * here and never let a payload-shape drift reach the UI.
+ */
+function coerceProducts(data: unknown): FeedProduct[] {
+  if (Array.isArray(data)) return data as FeedProduct[];
+  const products = (data as { products?: unknown } | null)?.products;
+  return Array.isArray(products) ? (products as FeedProduct[]) : [];
 }
 
-export async function refreshFeed(): Promise<void> {
-  await invokeAI('feed-refresh', {});
+export async function getFeed(): Promise<FeedProduct[]> {
+  // The deployed feed-page accepts a body `limit`; ask for a fuller first page
+  // (24) so the feed has depth. coerceProducts tolerates array vs `{products}`.
+  return coerceProducts(await invokeAI<unknown>('feed-page', { limit: 24 }));
+}
+
+/**
+ * NON-AI SerpAPI fresh-products source (supabase/functions/feed-fresh). Live
+ * Google Shopping results for the user's favorite stores — no AI credits
+ * spent. Ids are prefixed 'fresh-' and are synthetic (no backing products
+ * row), so never write reactions against them.
+ */
+export async function getFreshFeed(store?: string): Promise<FeedProduct[]> {
+  const res = await invokeAI<unknown>('feed-fresh', store ? { store } : {});
+  return coerceProducts(res);
+}
+
+// The scraper caps every brand at 12 rows per run (see PER_BRAND in
+// supabase/functions/feed-scrape/index.ts), so the whole catalog tops out
+// around brand-count * 12 — comfortably under this ceiling even at full
+// catalog size. It exists only as a defensive backstop against an unbounded
+// table, never as an active limiter: every row in a run shares one
+// `scraped_at` timestamp (stamped once per run, not per brand), so ordering
+// by it can't break ties meaningfully — a low cap here would silently drop
+// whichever brands Postgres happens to return last, with no relation to
+// data quality. A store-scoped query is bounded further still (~12 *
+// selected-brand-count), so it will never come close to this ceiling.
+const SCRAPED_FEED_CEILING = 3000;
+
+/**
+ * Monthly-scraped products (supabase/functions/feed-scrape → the
+ * feed_scraped_products table, read directly with the user's own RLS-scoped
+ * client). Real currently-listed items with live buy links, refreshed on the
+ * 1st of each month. Pass the user's saved stores to scope server-side; no
+ * stores → the whole catalog.
+ */
+export async function getScrapedFeed(stores?: string[]): Promise<FeedProduct[]> {
+  let query = supabase
+    .from('feed_scraped_products')
+    .select('id, brand, name, price, image_url, product_url, category, style_tags, budget_tier')
+    .order('scraped_at', { ascending: false })
+    .limit(SCRAPED_FEED_CEILING);
+  if (stores && stores.length > 0) {
+    const keys = stores.map(normalizeBrand).filter(Boolean);
+    if (keys.length > 0) query = query.in('brand_key', keys);
+  }
+  const { data, error } = await query;
+  if (error) throw error;
+  // 'scraped-' prefix marks these ids as synthetic (no products row), same
+  // contract as 'fresh-' — reactions must never be written against them.
+  return (data ?? []).map((r) => ({ ...r, id: `scraped-${r.id}` })) as FeedProduct[];
+}
+
+/**
+ * Fresh-feed ('fresh-') and scraped-feed ('scraped-') items are synthetic —
+ * no products row backs them, so reactions can't be persisted for them. UI
+ * should hide persistent affordances (like/save) for these; reactToProduct
+ * also refuses them as a backstop.
+ */
+export function isSyntheticProduct(productId: string): boolean {
+  return productId.startsWith('fresh-') || productId.startsWith('scraped-');
 }
 
 export async function reactToProduct(
   productId: string,
   reaction: 'like' | 'dislike' | 'save',
 ): Promise<void> {
+  // Synthetic fresh-feed items have no backing products row; writing a
+  // reaction for one would violate the FK, so no-op instead.
+  if (isSyntheticProduct(productId)) return;
   const {
     data: { user },
   } = await supabase.auth.getUser();

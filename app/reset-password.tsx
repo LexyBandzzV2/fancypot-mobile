@@ -3,7 +3,8 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Button, Screen, TextField, ThemedText, Wordmark } from '@/components';
 import { supabase } from '@/lib/supabase';
-import { colors, spacing } from '@/theme';
+import { spacing } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 
 /**
  * Reached via the password-reset deep link (see useAuthDeepLinks). A recovery
@@ -11,6 +12,7 @@ import { colors, spacing } from '@/theme';
  */
 export default function ResetPassword() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);

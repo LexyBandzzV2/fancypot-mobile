@@ -4,13 +4,17 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, ThemedText, Button } from '@/components';
-import { colors, radius, spacing } from '@/theme';
+import type { Colors } from '@/theme/colors';
+import { radius, spacing, useThemedStyles } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSubscription } from '@/providers/SubscriptionProvider';
 
 const SUPPORT_EMAIL = 'support@fancypot.org';
 
 export default function ProfileScreen() {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, profile, signOut } = useAuth();
@@ -131,6 +135,8 @@ export default function ProfileScreen() {
 }
 
 function Row({ icon, label, value }: { icon: any; label: string; value?: string }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.row}>
       <Ionicons name={icon} size={20} color={colors.ink} />
@@ -147,6 +153,8 @@ function Row({ icon, label, value }: { icon: any; label: string; value?: string 
 }
 
 function LinkRow({ icon, label, onPress }: { icon: any; label: string; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
@@ -163,40 +171,42 @@ function LinkRow({ icon, label, onPress }: { icon: any; label: string; onPress: 
 }
 
 function Divider() {
+  const styles = useThemedStyles(makeStyles);
   return <View style={styles.divider} />;
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.cream },
-  content: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
-  accountCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  accountInfo: { flex: 1 },
-  planBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    backgroundColor: colors.pinkWarmGlow,
-  },
-  sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.sm, letterSpacing: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
-  rowLabel: { flex: 1 },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    minHeight: 52,
-    paddingHorizontal: spacing.lg,
-  },
-  divider: { height: 1, backgroundColor: colors.border, marginLeft: spacing.lg },
-  restore: { alignItems: 'center', marginTop: spacing.md },
-  danger: { marginTop: spacing.xxl, gap: spacing.md, alignItems: 'center' },
-  deleteLink: { padding: spacing.sm },
-});
+const makeStyles = (c: Colors) =>
+  StyleSheet.create({
+    root: { flex: 1, backgroundColor: c.cream },
+    content: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
+    accountCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    avatar: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: c.ink,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    accountInfo: { flex: 1 },
+    planBadge: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs,
+      borderRadius: radius.pill,
+      backgroundColor: c.pinkWarmGlow,
+    },
+    sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.sm, letterSpacing: 1 },
+    row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+    rowLabel: { flex: 1 },
+    linkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      minHeight: 52,
+      paddingHorizontal: spacing.lg,
+    },
+    divider: { height: 1, backgroundColor: c.border, marginLeft: spacing.lg },
+    restore: { alignItems: 'center', marginTop: spacing.md },
+    danger: { marginTop: spacing.xxl, gap: spacing.md, alignItems: 'center' },
+    deleteLink: { padding: spacing.sm },
+  });

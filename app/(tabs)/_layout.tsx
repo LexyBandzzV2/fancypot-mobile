@@ -3,8 +3,9 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { colors, fonts } from '@/theme';
+import { fonts } from '@/theme';
 import { Glass } from '@/components/Glass';
+import { useTheme } from '@/providers/ThemeProvider';
 
 /** Floating glass tab bar height (excludes safe-area bottom inset, which
  * react-navigation adds on top of this on iOS). Also used to pad scene
@@ -16,6 +17,7 @@ const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 64;
  * top nav + sidebar drawer). Five thumb-reachable destinations.
  */
 export default function TabsLayout() {
+  const { colors } = useTheme();
   return (
     <Tabs
       screenListeners={{
@@ -38,7 +40,7 @@ export default function TabsLayout() {
           height: TAB_BAR_HEIGHT,
           paddingTop: 6,
         },
-        tabBarBackground: () => <Glass style={{ flex: 1 }} intensity={40} tint="light" />,
+        tabBarBackground: () => <Glass style={{ flex: 1 }} intensity={40} />,
         tabBarLabelStyle: { fontFamily: fonts.sansMedium, fontSize: 11 },
         // Keep scrollable screen content from being hidden under the floating bar.
         sceneStyle: { paddingBottom: TAB_BAR_HEIGHT },

@@ -7,7 +7,9 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, type, TAP_TARGET } from '@/theme';
+import { radius, spacing, type, TAP_TARGET, useThemedStyles } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
+import type { Colors } from '@/theme/colors';
 import { ThemedText } from './Typography';
 
 interface TextFieldProps extends TextInputProps {
@@ -19,6 +21,8 @@ interface TextFieldProps extends TextInputProps {
 export function TextField({ label, error, secure, style, ...rest }: TextFieldProps) {
   const [hidden, setHidden] = useState(!!secure);
   const [focused, setFocused] = useState(false);
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
 
   return (
     <View style={styles.wrap}>
@@ -66,19 +70,20 @@ export function TextField({ label, error, secure, style, ...rest }: TextFieldPro
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { gap: spacing.xs, marginBottom: spacing.md },
-  field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: TAP_TARGET,
-    backgroundColor: colors.white,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.lg,
-  },
-  focused: { borderColor: colors.blushDeep },
-  errored: { borderColor: colors.danger },
-  input: { flex: 1, ...type.body, color: colors.ink, paddingVertical: spacing.md },
-});
+const makeStyles = (c: Colors) =>
+  StyleSheet.create({
+    wrap: { gap: spacing.xs, marginBottom: spacing.md },
+    field: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      minHeight: TAP_TARGET,
+      backgroundColor: c.white,
+      borderRadius: radius.md,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: spacing.lg,
+    },
+    focused: { borderColor: c.blushDeep },
+    errored: { borderColor: c.danger },
+    input: { flex: 1, ...type.body, color: c.ink, paddingVertical: spacing.md },
+  });

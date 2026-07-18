@@ -11,3 +11,4 @@ export { BottomSheet, SheetAction } from './BottomSheet';
 export { StackHeader } from './StackHeader';
 export { ErrorScreen } from './ErrorScreen';
 export { SocialAuthButtons } from './SocialAuthButtons';
+export { Glass } from './Glass';

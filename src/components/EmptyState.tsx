@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing } from '@/theme';
+import { spacing } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 import { ThemedText } from './Typography';
 import { Button } from './Button';
 
@@ -18,9 +19,10 @@ export function EmptyState({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  const { colors } = useTheme();
   return (
     <View style={styles.wrap}>
-      <View style={styles.badge}>
+      <View style={[styles.badge, { backgroundColor: colors.pinkWarmGlow }]}>
         <Ionicons name={icon} size={30} color={colors.blushDeep} />
       </View>
       <ThemedText variant="h2" center>
@@ -46,7 +48,6 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 34,
-    backgroundColor: colors.pinkWarmGlow,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,

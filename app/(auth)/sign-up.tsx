@@ -12,10 +12,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Button, Screen, SocialAuthButtons, TextField, ThemedText, Wordmark } from '@/components';
 import { useAuth } from '@/providers/AuthProvider';
 import { signInWithApple, signInWithGoogle } from '@/lib/socialAuth';
-import { colors, spacing } from '@/theme';
+import { spacing } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 
 export default function SignUp() {
   const router = useRouter();
+  const { colors, isDark } = useTheme();
   const { signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -113,7 +115,12 @@ export default function SignUp() {
         />
 
         {notice ? (
-          <View style={styles.notice}>
+          <View
+            style={[
+              styles.notice,
+              { backgroundColor: isDark ? 'rgba(92, 179, 126, 0.16)' : '#E7F2EA' },
+            ]}
+          >
             <Ionicons name="mail-outline" size={18} color={colors.success} />
             <ThemedText variant="labelSmall" color={colors.success} style={styles.noticeText}>
               {notice}
@@ -168,7 +175,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: '#E7F2EA',
     padding: spacing.md,
     borderRadius: 12,
     marginBottom: spacing.md,

@@ -173,3 +173,57 @@ export const BRAND_GROUPS: BrandGroup[] = [
     ],
   },
 ];
+
+// Budget tiers, cheapest → priciest. Used by budgetAllows for feed filtering;
+// the preferences screen keeps its own copy for the chip UI.
+const BUDGETS = ['Budget', 'Mid-range', 'Premium', 'Luxury'];
+
+/**
+ * Whether an item in `itemTier` should appear for a user whose budget
+ * preference is `userBudget`. Cheaper-or-equal tiers pass (a Premium shopper
+ * still sees Mid-range pieces); pricier tiers are hidden. Unknown/missing
+ * values on either side always pass — filtering must never blank the feed
+ * over absent metadata.
+ */
+export function budgetAllows(
+  userBudget: string | null | undefined,
+  itemTier: string | null | undefined,
+): boolean {
+  if (!userBudget || !itemTier) return true;
+  const userIdx = BUDGETS.indexOf(userBudget);
+  const itemIdx = BUDGETS.indexOf(itemTier);
+  if (userIdx === -1 || itemIdx === -1) return true;
+  return itemIdx <= userIdx;
+}
+
+/**
+ * Normalize a brand name for comparison: lowercase, strip non-alphanumeric chars.
+ * E.g., 'H&M' -> 'hm', "Levi's" -> 'levis', 'Pull&Bear' -> 'pullbear'
+ *
+ * Keep in sync with normalizeBrandKey in supabase/functions/feed-fresh/index.ts
+ * (Deno can't import this module; the edge function uses the same normalization
+ * for its cache keys, and a divergence would break cache hits).
+ */
+export function normalizeBrand(s: string | null | undefined): string {
+  if (!s) return '';
+  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Check if two brand strings match, accounting for common variations.
+ * Returns false if either normalizes to empty; true if the normalized forms are
+ * equal or one is a PREFIX of the other ('H & M Official' ~= 'H&M', 'Zara US'
+ * ~= 'Zara'). Deliberately NOT a contains-check: short store names normalize to
+ * tiny tokens ('COS' -> 'cos', 'H&M' -> 'hm') that appear inside unrelated
+ * brands ('Lacoste', 'Costco', 'Bohme'), and contains-matching would surface
+ * those under the wrong filter chip.
+ */
+export function brandsMatch(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const normA = normalizeBrand(a);
+  const normB = normalizeBrand(b);
+  if (!normA || !normB) return false;
+  return normA.startsWith(normB) || normB.startsWith(normA);
+}

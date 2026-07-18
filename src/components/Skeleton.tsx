@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
-import { colors, radius } from '@/theme';
+import { radius } from '@/theme';
+import { useTheme } from '@/providers/ThemeProvider';
 
 /** Shimmering placeholder block for loading states. */
 export function Skeleton({
@@ -15,6 +16,7 @@ export function Skeleton({
   round?: boolean;
 }) {
   const opacity = useRef(new Animated.Value(0.4)).current;
+  const { colors } = useTheme();
 
   useEffect(() => {
     const loop = Animated.loop(

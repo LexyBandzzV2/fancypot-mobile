@@ -119,6 +119,18 @@ nothing to deploy here. The mobile client just calls it by name via
 `wardrobe-process`, `revenuecat-webhook`, and `delete-account` are also already
 deployed on the shared project — see the compliance audit for current status.
 
+**Fresh Feed** and the **monthly brand scraper** are new in this build. `feed-fresh`
+reuses the same `SERPAPI_KEY` secret to pull live Google Shopping listings for the
+user's saved stores (non-AI, flat-rate per query, cached server-side); `feed-scrape`
+refreshes the full-catalog `feed_scraped_products` table on a monthly cron. Deploy
+the functions and apply their migrations:
+
+```bash
+supabase functions deploy feed-fresh
+supabase functions deploy feed-scrape
+supabase db push   # feed_fresh_cache, feed_scraped_products, feed_monthly_scrape_cron, outfits_product_url
+```
+
 Everything else (tables, RLS, auth, storage bucket `wardrobe`, the other 5 AI edge
 functions with their per-tier spend caps) already exists and is reused as-is.
 
