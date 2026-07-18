@@ -5,17 +5,26 @@
 //
 // Invocation: scheduled monthly by pg_cron (see
 // migrations/*_feed_monthly_scrape_cron.sql) with the service-role key as the
-// bearer token. It can also be invoked manually the same way to seed the
-// table immediately after deploy:
+// bearer token. It can also be invoked manually with a dedicated operator key
+// to seed the table on demand:
 //
 //   curl -X POST https://gizqpfbmqgwhbalywkqv.supabase.co/functions/v1/feed-scrape \
-//     -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
+//     -H "Authorization: Bearer <FEED_SCRAPE_OPERATOR_KEY>" \
 //     -H "Content-Type: application/json" -d '{}'
 //
 // Deploy:
 //   supabase functions deploy feed-scrape --project-ref gizqpfbmqgwhbalywkqv --no-verify-jwt
 // (JWT verification off because pg_net's call carries the service key, not a
-// user JWT — the handler enforces the service key itself below.)
+// user JWT — the handler enforces the credential itself below.)
+//
+// Auth accepts exact, timing-safe matches against EITHER:
+//   - SUPABASE_SERVICE_ROLE_KEY (the pg_cron path, via the
+//     feed_refresh_service_key vault secret)
+//   - FEED_SCRAPE_OPERATOR_KEY (a separate secret for manual/ops-triggered
+//     runs, so on-demand seeding never requires handling the service-role key)
+// Deliberately NOT JWT-based: decoding a JWT's `role` claim without verifying
+// its signature lets anyone forge a token claiming service_role. Both
+// candidates here are plain secrets compared byte-for-byte in constant time.
 //
 // Body (all optional):
 //   { "batch": 0, "batches": 4 }  — process only slice `batch` of `batches`
@@ -59,14 +68,21 @@ Deno.serve(async (req) => {
 
   const url = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const operatorKey = Deno.env.get('FEED_SCRAPE_OPERATOR_KEY');
   const serpKey = Deno.env.get('SERPAPI_KEY');
 
-  // Operator-only endpoint: the ONLY accepted credential is the service-role
-  // key (pg_cron passes it via vault). User JWTs are rejected — this function
-  // spends the SerpAPI budget for the whole catalog and must not be callable
-  // by app clients.
+  // Operator-only endpoint: accept an exact, timing-safe match against either
+  // the service-role key (pg_cron, via vault) or a dedicated operator key
+  // (manual/ops-triggered runs). User JWTs are rejected outright — this
+  // function spends the SerpAPI budget for the whole catalog and must not be
+  // callable by app clients. No JWT decoding: reading a `role` claim without
+  // verifying the token's signature would let anyone forge one.
   const authHeader = req.headers.get('Authorization') ?? '';
-  if (authHeader !== `Bearer ${serviceKey}`) {
+  const presented = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  const authorized =
+    timingSafeEqualStr(presented, serviceKey) ||
+    (!!operatorKey && timingSafeEqualStr(presented, operatorKey));
+  if (!authorized) {
     return json({ error: 'Forbidden' }, 403);
   }
 
@@ -187,6 +203,19 @@ Deno.serve(async (req) => {
   );
   return json({ ok: true, brands: okBrands, failed: failedBrands, rows: totalRows }, 200);
 });
+
+// Constant-time string comparison — a naive `===` short-circuits on the first
+// mismatched byte, letting a timing attack narrow down a secret one
+// character at a time. Always walks the full (padded) length instead.
+function timingSafeEqualStr(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  const len = Math.max(a.length, b.length);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < len; i++) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
 
 // Keep in sync with normalizeBrand in src/lib/brands.ts (see note there).
 function normalizeBrandKey(s: string): string {
