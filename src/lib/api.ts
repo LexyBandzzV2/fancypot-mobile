@@ -100,7 +100,16 @@ export async function insertWardrobeItem(
 ): Promise<WardrobeItem> {
   const { data, error } = await supabase
     .from('wardrobe_items')
-    .insert({ user_id: userId, image_url: imagePath, processing_status: 'pending' })
+    // `category` is NOT NULL in the DB but is only known after the async
+    // classifier (wardrobe-process) runs, so seed a placeholder to satisfy the
+    // constraint at insert time — the classifier overwrites it moments later.
+    // Without this, every upload fails with a not-null violation on category.
+    .insert({
+      user_id: userId,
+      image_url: imagePath,
+      category: 'Uncategorized',
+      processing_status: 'pending',
+    })
     .select('*')
     .single();
   if (error) throw error;
