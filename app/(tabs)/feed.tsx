@@ -185,11 +185,14 @@ export default function FeedScreen() {
     onRefresh();
   }, [onRefresh]);
 
-  // Reveal the nudge past ~2.5 screens. setState with an unchanged boolean is a
-  // no-op in React, so this is cheap to call on every scroll frame.
+  // Reveal the nudge after ~one screen of scrolling. Kept shallow on purpose:
+  // a store/budget-filtered feed can be short, and a deeper trigger (this was
+  // 1600 once) means the button never appears on it at all. setState with an
+  // unchanged boolean is a no-op in React, so this is cheap to call on every
+  // scroll frame.
   const onScroll = useCallback(
     (e: { nativeEvent: { contentOffset: { y: number } } }) => {
-      setShowScrollTop(e.nativeEvent.contentOffset.y > 1600);
+      setShowScrollTop(e.nativeEvent.contentOffset.y > 600);
     },
     [],
   );
