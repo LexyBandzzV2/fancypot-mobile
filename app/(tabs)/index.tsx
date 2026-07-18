@@ -17,8 +17,10 @@ import {
   HeaderIconButton,
   BottomSheet,
   SheetAction,
+  Button,
   EmptyState,
   SkeletonGrid,
+  TextField,
   UsageLimitBanner,
   ThemedText,
 } from '@/components';
@@ -28,18 +30,77 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useWardrobe, type WardrobeDisplayItem } from '@/hooks/useWardrobe';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useSubscription } from '@/providers/SubscriptionProvider';
+import { WARDROBE_CATEGORIES } from '@/lib/api';
+
+// A piece still 'pending' after this long is considered stalled — the styling
+// call was refused or died (the backend meters it and can decline). The tile
+// then offers a retry instead of an eternal spinner.
+const STALL_MS = 3 * 60 * 1000;
+
+function isProcessing(item: WardrobeDisplayItem): boolean {
+  return item.processing_status === 'pending' || item.processing_status === 'processing';
+}
+
+function isFailed(item: WardrobeDisplayItem): boolean {
+  return (
+    item.processing_status === 'error' ||
+    item.processing_status === 'failed' ||
+    !!item.processing_error
+  );
+}
+
+function isStalled(item: WardrobeDisplayItem): boolean {
+  if (!isProcessing(item)) return false;
+  const started = new Date(item.created_at).getTime();
+  return Number.isFinite(started) && Date.now() - started > STALL_MS;
+}
 
 export default function ClosetScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { items, loading, add, remove, reload } = useWardrobe();
+  const { items, loading, add, remove, reload, retryProcessing, update } = useWardrobe();
   const { fromCamera, fromLibrary } = useImagePicker();
   const { tier } = useSubscription();
   const [addSheet, setAddSheet] = useState(false);
   const [selected, setSelected] = useState<WardrobeDisplayItem | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Edit-details sheet: opened right after an upload (skippable) and from the
+  // long-press menu on any piece.
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editCategory, setEditCategory] = useState<string | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const atLimit = items.length >= tier.limits.wardrobeItems;
+
+  const openEditor = (id: string, name: string | null, category: string | null) => {
+    setEditId(id);
+    setEditName(name ?? '');
+    setEditCategory(category && category !== 'Uncategorized' ? category : null);
+  };
+
+  const closeEditor = () => {
+    setEditId(null);
+    setEditName('');
+    setEditCategory(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editId) return;
+    setSavingEdit(true);
+    try {
+      await update(editId, {
+        // Empty name → null so the AI classifier's name (when it lands) wins.
+        name: editName.trim() || null,
+        ...(editCategory ? { category: editCategory } : {}),
+      });
+      closeEditor();
+    } catch (e: any) {
+      Alert.alert('Could not save details', e?.message ?? 'Please try again.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   const handleAdd = async (source: 'camera' | 'library') => {
     setAddSheet(false);
@@ -48,8 +109,11 @@ export default function ClosetScreen() {
     if (!picked) return;
     setUploading(true);
     try {
-      await add(picked.base64);
+      const row = await add(picked.base64);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Offer details right away (name / category). Skipping is fine — the AI
+      // classifier fills category in the background either way.
+      if (row) openEditor(row.id, row.name, row.category);
     } catch (e: any) {
       Alert.alert('Could not add piece', e?.message ?? 'Please try again.');
     } finally {
@@ -84,6 +148,8 @@ export default function ClosetScreen() {
     ),
     [items.length, tier, atLimit],
   );
+
+  const editingItem = editId ? items.find((i) => i.id === editId) : null;
 
   return (
     <View style={styles.root}>
@@ -121,7 +187,18 @@ export default function ClosetScreen() {
             <RefreshControl refreshing={false} onRefresh={reload} tintColor={colors.blushDeep} />
           }
           renderItem={({ item }) => (
-            <ClosetTile item={item} onLongPress={() => setSelected(item)} />
+            <ClosetTile
+              item={item}
+              onPress={() => {
+                // Stalled/failed pieces retry on tap; settled pieces open edit.
+                if (isStalled(item) || isFailed(item)) {
+                  retryProcessing(item);
+                } else if (!isProcessing(item)) {
+                  openEditor(item.id, item.name, item.category);
+                }
+              }}
+              onLongPress={() => setSelected(item)}
+            />
           )}
         />
       )}
@@ -155,11 +232,75 @@ export default function ClosetScreen() {
 
       <BottomSheet visible={!!selected} onClose={() => setSelected(null)}>
         <SheetAction
+          label="Edit details"
+          icon={<Ionicons name="create-outline" size={22} color={colors.ink} />}
+          onPress={() => {
+            const it = selected;
+            setSelected(null);
+            if (it) openEditor(it.id, it.name, it.category);
+          }}
+        />
+        {selected && (isStalled(selected) || isFailed(selected)) ? (
+          <SheetAction
+            label="Retry styling"
+            icon={<Ionicons name="refresh-outline" size={22} color={colors.ink} />}
+            onPress={() => {
+              const it = selected;
+              setSelected(null);
+              if (it) retryProcessing(it);
+            }}
+          />
+        ) : null}
+        <SheetAction
           label="Remove from closet"
           destructive
           icon={<Ionicons name="trash-outline" size={22} color={colors.danger} />}
           onPress={() => selected && confirmDelete(selected)}
         />
+      </BottomSheet>
+
+      {/* Edit details: offered right after upload (skippable) and on demand. */}
+      <BottomSheet visible={!!editId} onClose={closeEditor} title="Piece details">
+        {editingItem?.signedUrl ? (
+          <View style={styles.editPreviewWrap}>
+            <Image source={{ uri: editingItem.signedUrl }} style={styles.editPreview} contentFit="cover" />
+          </View>
+        ) : null}
+        <TextField
+          label="NAME"
+          placeholder="e.g. Black slip dress"
+          value={editName}
+          onChangeText={setEditName}
+          returnKeyType="done"
+        />
+        <ThemedText variant="label" color={colors.inkMuted} style={styles.editLabel}>
+          CATEGORY
+        </ThemedText>
+        <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.editHint}>
+          Leave unpicked and we'll sort it for you automatically.
+        </ThemedText>
+        <View style={styles.categoryChips}>
+          {WARDROBE_CATEGORIES.map((c) => {
+            const on = editCategory === c;
+            return (
+              <Pressable
+                key={c}
+                onPress={() => setEditCategory(on ? null : c)}
+                style={[styles.categoryChip, on && styles.categoryChipOn]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
+                  {c}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </View>
+        <View style={styles.editActions}>
+          <Button label="Skip" variant="ghost" fullWidth={false} onPress={closeEditor} />
+          <Button label="Save details" fullWidth={false} onPress={saveEdit} loading={savingEdit} />
+        </View>
       </BottomSheet>
     </View>
   );
@@ -167,16 +308,21 @@ export default function ClosetScreen() {
 
 function ClosetTile({
   item,
+  onPress,
   onLongPress,
 }: {
   item: WardrobeDisplayItem;
+  onPress: () => void;
   onLongPress: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const processing = item.processing_status === 'pending' || item.processing_status === 'processing';
+  const stalled = isStalled(item);
+  const failed = isFailed(item);
+  const processing = isProcessing(item) && !stalled;
   return (
     <Pressable
+      onPress={onPress}
       onLongPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onLongPress();
@@ -195,6 +341,13 @@ function ClosetTile({
           <ActivityIndicator color={colors.cream} size="small" />
           <ThemedText variant="labelSmall" color={colors.cream} style={styles.processingText}>
             Styling…
+          </ThemedText>
+        </View>
+      ) : stalled || failed ? (
+        <View style={styles.processing}>
+          <Ionicons name="refresh" size={20} color={colors.cream} />
+          <ThemedText variant="labelSmall" color={colors.cream} style={styles.processingText}>
+            Tap to retry
           </ThemedText>
         </View>
       ) : null}
@@ -254,6 +407,33 @@ const makeStyles = (c: Colors) =>
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.xs,
       backgroundColor: c.overlay,
+    },
+    editPreviewWrap: { alignItems: 'center', marginBottom: spacing.md },
+    editPreview: {
+      width: 88,
+      height: 104,
+      borderRadius: radius.md,
+      backgroundColor: c.pearl,
+    },
+    editLabel: { letterSpacing: 1, marginTop: spacing.md, marginBottom: spacing.xs },
+    editHint: { marginBottom: spacing.sm, lineHeight: 16 },
+    categoryChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+    categoryChip: {
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.pill,
+      borderWidth: 1,
+      borderColor: c.borderStrong,
+      backgroundColor: c.white,
+      minHeight: 40,
+      justifyContent: 'center',
+    },
+    categoryChipOn: { backgroundColor: c.ink, borderColor: c.ink },
+    editActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: spacing.md,
+      marginTop: spacing.lg,
     },
     fab: {
       position: 'absolute',
