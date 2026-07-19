@@ -3,14 +3,14 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { spacing, radius, useThemedStyles } from '@/theme';
+import { fonts, spacing, radius, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
 import { Glass } from './Glass';
 import { ThemedText } from './Typography';
 
 const BAR_HEIGHT = 64;
-const CENTER_SIZE = 58;
+const CENTER_SIZE = 44;
 
 /**
  * Space the floating bar occupies above the bottom safe-area inset. Screens
@@ -26,11 +26,12 @@ interface TabConfig {
   active: IconName;
 }
 
-// Keyed by route file name under app/(tabs). `create` is the elevated center.
+// Keyed by route file name under app/(tabs). `create` is the in-bar center
+// circle (web BottomNav's "big" Style item).
 const TABS: Record<string, TabConfig> = {
   index: { label: 'Closet', icon: 'shirt-outline', active: 'shirt' },
-  feed: { label: 'Feed', icon: 'sparkles-outline', active: 'sparkles' },
-  create: { label: 'Style', icon: 'add', active: 'add' },
+  feed: { label: 'Feed', icon: 'heart-outline', active: 'heart' },
+  create: { label: 'Style', icon: 'sparkles-outline', active: 'sparkles' },
   saved: { label: 'Saved', icon: 'bookmark-outline', active: 'bookmark' },
   profile: { label: 'Profile', icon: 'person-outline', active: 'person' },
 };
@@ -56,10 +57,11 @@ interface FloatingTabBarProps {
 }
 
 /**
- * Floating frosted-glass pill navigation. Sits above the safe area, five
- * thumb-reachable destinations, with the central Style action raised into an
- * illuminated pink circle. Preserves the existing tab routes and tabPress
- * behavior (emit → navigate).
+ * Floating white pill navigation (ported from the web BottomNav): a rounded
+ * card with a soft pink shadow and pink-blush border. Five destinations; the
+ * central Style item sits INSIDE the bar as a blush circle that fills hot
+ * pink when active. Preserves the existing tab routes and tabPress behavior
+ * (emit → navigate).
  */
 export function FloatingTabBar({ state, navigation }: FloatingTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -72,36 +74,20 @@ export function FloatingTabBar({ state, navigation }: FloatingTabBarProps) {
     if (!focused && !event?.defaultPrevented) navigation.navigate(route.name);
   };
 
-  const activeName = state.routes[state.index]?.name;
-  const centerRoute = state.routes.find((r) => r.name === CENTER_ROUTE);
-  const centerFocused = activeName === CENTER_ROUTE;
   const barBottom = insets.bottom + spacing.sm;
 
   return (
     <View style={[styles.root, { paddingBottom: barBottom }]} pointerEvents="box-none">
-      <Glass intensity={60} style={styles.bar}>
+      {/* ~95% white over blur — the web bar's bg-card/95 + backdrop-blur. */}
+      <Glass intensity={60} tintColor={`${colors.white}F2`} style={styles.bar}>
         {state.routes.map((route, i) => {
           const cfg = TABS[route.name];
           if (!cfg) return null;
 
-          if (route.name === CENTER_ROUTE) {
-            // Reserve the slot; the raised circle is an overlay (Glass clips).
-            return (
-              <View key={route.key} style={styles.slot} pointerEvents="none">
-                <View style={styles.centerSpacer} />
-                <ThemedText
-                  variant="labelSmall"
-                  color={centerFocused ? colors.pinkWarm : colors.inkMuted}
-                  style={styles.label}
-                >
-                  {cfg.label}
-                </ThemedText>
-              </View>
-            );
-          }
-
           const focused = state.index === i;
-          const color = focused ? colors.ink : colors.inkMuted;
+          const isCenter = route.name === CENTER_ROUTE;
+          const color = focused ? colors.pinkWarm : colors.inkMuted;
+
           return (
             <Pressable
               key={route.key}
@@ -111,35 +97,30 @@ export function FloatingTabBar({ state, navigation }: FloatingTabBarProps) {
               accessibilityState={{ selected: focused }}
               accessibilityLabel={cfg.label}
             >
-              <View style={[styles.iconWrap, focused && styles.iconWrapOn]}>
-                <Ionicons name={focused ? cfg.active : cfg.icon} size={22} color={color} />
-              </View>
-              <ThemedText variant="labelSmall" color={color} style={styles.label}>
+              {isCenter ? (
+                <View style={[styles.centerCircle, focused && styles.centerCircleOn]}>
+                  <Ionicons
+                    name={focused ? cfg.active : cfg.icon}
+                    size={20}
+                    color={focused ? colors.white : colors.pinkWarm}
+                  />
+                </View>
+              ) : (
+                <View style={styles.iconWrap}>
+                  <Ionicons name={focused ? cfg.active : cfg.icon} size={19} color={color} />
+                </View>
+              )}
+              <ThemedText
+                variant="labelSmall"
+                color={color}
+                style={[styles.label, focused && styles.labelOn]}
+              >
                 {cfg.label}
               </ThemedText>
             </Pressable>
           );
         })}
       </Glass>
-
-      {/* Raised, illuminated center Style action — outside Glass so it isn't
-          clipped, and width-constrained so it only intercepts its own taps. */}
-      {centerRoute ? (
-        <View
-          style={[styles.centerOverlay, { bottom: barBottom + BAR_HEIGHT - CENTER_SIZE + 14 }]}
-          pointerEvents="box-none"
-        >
-          <Pressable
-            onPress={() => go(centerRoute, centerFocused)}
-            accessibilityRole="button"
-            accessibilityState={{ selected: centerFocused }}
-            accessibilityLabel="Style"
-            style={({ pressed }) => [styles.centerButton, pressed && styles.centerPressed]}
-          >
-            <Ionicons name="add" size={30} color={colors.cream} />
-          </Pressable>
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -151,7 +132,8 @@ const makeStyles = (c: Colors) =>
       left: 0,
       right: 0,
       bottom: 0,
-      paddingHorizontal: spacing.xl,
+      // Web: mx-4 (16) insets around the floating card.
+      paddingHorizontal: spacing.lg,
     },
     bar: {
       flexDirection: 'row',
@@ -159,11 +141,14 @@ const makeStyles = (c: Colors) =>
       borderRadius: radius.pill,
       alignItems: 'center',
       paddingHorizontal: spacing.sm,
-      // Soft lift so the pill reads as floating above the content.
-      shadowColor: c.ink,
-      shadowOpacity: 0.12,
-      shadowRadius: 16,
-      shadowOffset: { width: 0, height: 6 },
+      borderWidth: 1,
+      borderColor: c.pinkWarmGlow,
+      // Web: shadow-[0_10px_30px_-10px_rgba(232,90,140,0.25)] — blushDeep is
+      // that exact rose (#E85A8C).
+      shadowColor: c.blushDeep,
+      shadowOpacity: 0.25,
+      shadowRadius: 15,
+      shadowOffset: { width: 0, height: 10 },
       elevation: 8,
     },
     slot: {
@@ -171,39 +156,32 @@ const makeStyles = (c: Colors) =>
       alignItems: 'center',
       justifyContent: 'center',
       gap: 2,
-      paddingVertical: spacing.xs,
+      paddingVertical: 2,
     },
     iconWrap: {
-      minWidth: 44,
       height: 28,
-      borderRadius: radius.pill,
+      minWidth: 36,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingHorizontal: spacing.md,
     },
-    iconWrapOn: { backgroundColor: c.pinkWarmGlow },
-    label: { fontSize: 11, lineHeight: 14 },
-    centerSpacer: { height: 26 },
-    centerOverlay: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      alignItems: 'center',
-    },
-    centerButton: {
+    // Center Style circle lives inside the bar: blush at rest, hot pink when
+    // active (web: bg-[--pink-soft] text-primary / bg-primary + shadow-pink).
+    centerCircle: {
       width: CENTER_SIZE,
       height: CENTER_SIZE,
       borderRadius: CENTER_SIZE / 2,
-      backgroundColor: c.pinkWarm,
+      backgroundColor: c.blush,
       alignItems: 'center',
       justifyContent: 'center',
-      borderWidth: 3,
-      borderColor: c.cream,
-      shadowColor: c.pinkWarm,
-      shadowOpacity: 0.45,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 10,
     },
-    centerPressed: { transform: [{ scale: 0.94 }] },
+    centerCircleOn: {
+      backgroundColor: c.pinkWarm,
+      shadowColor: c.pinkWarm,
+      shadowOpacity: 0.35,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 5 },
+      elevation: 6,
+    },
+    label: { fontSize: 10, lineHeight: 13 },
+    labelOn: { fontFamily: fonts.sansMedium },
   });

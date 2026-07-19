@@ -159,6 +159,10 @@ export default function GetTheLookScreen() {
       <View style={styles.content}>
         {results.length === 0 ? (
           <View style={styles.start}>
+            {/* Web upload.tsx: soft-pink circle with the camera glyph. */}
+            <View style={styles.startBadge}>
+              <Ionicons name="camera" size={24} color={colors.pinkWarm} />
+            </View>
             <ThemedText variant="h2" center style={styles.startTitle}>
               Snap an outfit
             </ThemedText>
@@ -173,17 +177,21 @@ export default function GetTheLookScreen() {
               height={280}
             />
             <View style={styles.startActions}>
+              {/* Web: pink-filled primary over a white pink-bordered secondary. */}
               <Button
                 label="Take a photo"
+                variant="accent"
                 onPress={() => search('camera')}
                 loading={searching}
-                icon={<Ionicons name="camera" size={18} color={colors.cream} />}
+                icon={<Ionicons name="camera" size={18} color={colors.white} />}
+                style={styles.primaryCta}
               />
               <View style={{ height: spacing.sm }} />
               <Button
                 label="Choose from library"
                 variant="outline"
                 onPress={() => search('library')}
+                style={styles.libraryBtn}
               />
             </View>
           </View>
@@ -315,9 +323,28 @@ const makeStyles = (colors: Colors) =>
     root: { flex: 1, backgroundColor: colors.cream },
     content: { flex: 1, padding: spacing.lg },
     start: { flex: 1, justifyContent: 'center' },
+    startBadge: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.blush,
+      alignItems: 'center',
+      justifyContent: 'center',
+      alignSelf: 'center',
+      marginBottom: spacing.md,
+    },
     startTitle: { marginBottom: spacing.xs },
     startBody: { marginBottom: spacing.xl, paddingHorizontal: spacing.lg },
     startActions: { marginTop: spacing.lg },
+    // Web's deep drop shadow under the pink "Take a photo" pill.
+    primaryCta: {
+      shadowColor: colors.ink,
+      shadowOpacity: 0.3,
+      shadowRadius: 20,
+      shadowOffset: { width: 0, height: 12 },
+      elevation: 5,
+    },
+    libraryBtn: { backgroundColor: colors.white, borderColor: colors.pinkWarmGlow },
     swipe: { flex: 1, justifyContent: 'center' },
     cardWrap: {
       borderRadius: radius.lg,

@@ -8,13 +8,13 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import {
   AppHeader,
-  HeaderIconButton,
   BottomSheet,
   SheetAction,
   Button,
@@ -68,6 +68,10 @@ export default function ClosetScreen() {
   const [addSheet, setAddSheet] = useState(false);
   const [selected, setSelected] = useState<WardrobeDisplayItem | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Client-side browse filters (web closet's search field + category chips):
+  // never touch the API — a simple name/category narrowing of loaded items.
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<string | null>(null);
   // Edit-details sheet: opened right after an upload (skippable) and from the
   // long-press menu on any piece.
   const [editId, setEditId] = useState<string | null>(null);
@@ -76,6 +80,15 @@ export default function ClosetScreen() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   const atLimit = items.length >= tier.limits.wardrobeItems;
+
+  const visibleItems = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return items.filter((i) => {
+      if (q && !(i.name ?? '').toLowerCase().includes(q)) return false;
+      if (category && (i.category ?? '').toLowerCase() !== category.toLowerCase()) return false;
+      return true;
+    });
+  }, [items, query, category]);
 
   const openEditor = (id: string, name: string | null, category: string | null) => {
     setEditId(id);
@@ -133,38 +146,32 @@ export default function ClosetScreen() {
     ]);
   };
 
-  const header = useMemo(
-    () => (
-      <View>
-        <View style={styles.metaRow}>
-          <ThemedText variant="labelSmall" color={colors.inkMuted}>
-            {items.length} of {tier.limits.wardrobeItems} pieces · {tier.name}
-          </ThemedText>
-        </View>
-        {atLimit ? (
-          <View style={styles.banner}>
-            <UsageLimitBanner
-              message={`You've filled all ${tier.limits.wardrobeItems} ${tier.name} slots.`}
-            />
-          </View>
-        ) : null}
-      </View>
-    ),
-    [items.length, tier, atLimit],
-  );
-
   const editingItem = editId ? items.find((i) => i.id === editId) : null;
 
   return (
     <View style={styles.root}>
       <AppHeader
         title="Your Closet"
+        subtitle={`${items.length} of ${tier.limits.wardrobeItems} pieces · ${tier.name}`}
         right={
-          <HeaderIconButton onPress={() => setAddSheet(true)} label="Add piece">
-            <Ionicons name="add" size={26} color={colors.ink} />
-          </HeaderIconButton>
+          <Pressable
+            onPress={() => setAddSheet(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Add piece"
+            style={({ pressed }) => [styles.addBtn, pressed && styles.pressedDim]}
+          >
+            <Ionicons name="add" size={22} color={colors.white} />
+          </Pressable>
         }
       />
+
+      {atLimit ? (
+        <View style={styles.banner}>
+          <UsageLimitBanner
+            message={`You've filled all ${tier.limits.wardrobeItems} ${tier.name} slots.`}
+          />
+        </View>
+      ) : null}
 
       {loading && items.length === 0 ? (
         <View style={styles.pad}>
@@ -179,44 +186,80 @@ export default function ClosetScreen() {
           onAction={() => setAddSheet(true)}
         />
       ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(i) => i.id}
-          numColumns={NUM_COLUMNS}
-          ListHeaderComponent={header}
-          columnWrapperStyle={styles.column}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={false} onRefresh={reload} tintColor={colors.blushDeep} />
-          }
-          renderItem={({ item }) => (
-            <ClosetTile
-              item={item}
-              onPress={() => {
-                // Stalled/failed pieces retry on tap; settled pieces open edit.
-                if (isStalled(item) || isFailed(item)) {
-                  retryProcessing(item);
-                } else if (!isProcessing(item)) {
-                  openEditor(item.id, item.name, item.category);
-                }
-              }}
-              onLongPress={() => setSelected(item)}
+        <>
+          <View style={styles.searchWrap}>
+            <TextField
+              placeholder="Search your closet"
+              value={query}
+              onChangeText={setQuery}
+              returnKeyType="search"
+              autoCorrect={false}
+              accessibilityLabel="Search your closet"
             />
-          )}
-        />
+          </View>
+          <View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryChips}
+            >
+              <Chip label="All" selected={category === null} onPress={() => setCategory(null)} />
+              {WARDROBE_CATEGORIES.map((c) => (
+                <Chip
+                  key={c}
+                  label={c}
+                  selected={category === c}
+                  onPress={() => setCategory(category === c ? null : c)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+          <FlatList
+            data={visibleItems}
+            keyExtractor={(i) => i.id}
+            numColumns={NUM_COLUMNS}
+            columnWrapperStyle={styles.column}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={false} onRefresh={reload} tintColor={colors.blushDeep} />
+            }
+            ListEmptyComponent={
+              <EmptyState
+                icon="search-outline"
+                title="No pieces match"
+                body="Try a different search or category."
+              />
+            }
+            renderItem={({ item }) => (
+              <ClosetTile
+                item={item}
+                onPress={() => {
+                  // Stalled/failed pieces retry on tap; settled pieces open edit.
+                  if (isStalled(item) || isFailed(item)) {
+                    retryProcessing(item);
+                  } else if (!isProcessing(item)) {
+                    openEditor(item.id, item.name, item.category);
+                  }
+                }}
+                onLongPress={() => setSelected(item)}
+              />
+            )}
+          />
+        </>
       )}
 
       {/* Floating add button (thumb reachable) */}
       <FloatingActionButton
         icon="camera"
+        tone="accent"
         loading={uploading}
         onPress={() => setAddSheet(true)}
         label="Add piece"
         style={styles.fab}
       />
 
-      <BottomSheet visible={addSheet} onClose={() => setAddSheet(false)} title="Add a piece">
+      <BottomSheet visible={addSheet} onClose={() => setAddSheet(false)} title="Add to Closet">
         <SheetAction
           label="Take a photo"
           icon={<Ionicons name="camera-outline" size={22} color={colors.ink} />}
@@ -308,6 +351,8 @@ function ClosetTile({
   const stalled = isStalled(item);
   const failed = isFailed(item);
   const processing = isProcessing(item) && !stalled;
+  const category =
+    item.category && item.category !== 'Uncategorized' ? item.category : null;
   return (
     <Pressable
       onPress={onPress}
@@ -315,46 +360,52 @@ function ClosetTile({
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onLongPress();
       }}
-      style={styles.tile}
+      accessibilityRole="button"
+      accessibilityLabel={item.name ?? 'Closet piece'}
+      style={({ pressed }) => [styles.tile, pressed && styles.pressedDim]}
     >
-      {item.signedUrl ? (
-        <Image source={{ uri: item.signedUrl }} style={styles.tileImg} contentFit="cover" transition={200} />
-      ) : (
-        <View style={[styles.tileImg, styles.tilePlaceholder]}>
-          <Ionicons name="shirt-outline" size={28} color={colors.blushDeep} />
-        </View>
-      )}
-      {processing ? (
-        <View style={styles.processing}>
-          <ActivityIndicator color={colors.cream} size="small" />
-          <ThemedText variant="labelSmall" color={colors.cream} style={styles.processingText}>
-            Styling…
+      <View style={styles.tileImgWrap}>
+        {item.signedUrl ? (
+          <Image source={{ uri: item.signedUrl }} style={styles.tileImg} contentFit="cover" transition={200} />
+        ) : (
+          <View style={[styles.tileImg, styles.tilePlaceholder]}>
+            <Ionicons name="shirt-outline" size={28} color={colors.blushDeep} />
+          </View>
+        )}
+        {processing ? (
+          <View style={styles.processing}>
+            <ActivityIndicator color={colors.cream} size="small" />
+            <ThemedText variant="labelSmall" color={colors.cream} style={styles.processingText}>
+              Styling…
+            </ThemedText>
+          </View>
+        ) : stalled || failed ? (
+          <View style={styles.processing}>
+            <Ionicons name="refresh" size={20} color={colors.cream} />
+            <ThemedText variant="labelSmall" color={colors.cream} style={styles.processingText}>
+              Tap to retry
+            </ThemedText>
+          </View>
+        ) : null}
+      </View>
+      <View style={styles.tileMeta}>
+        <ThemedText variant="labelSmall" color={colors.ink} numberOfLines={1}>
+          {item.name ?? 'Untitled piece'}
+        </ThemedText>
+        {category ? (
+          <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1} style={styles.tileCaption}>
+            {category}
           </ThemedText>
-        </View>
-      ) : stalled || failed ? (
-        <View style={styles.processing}>
-          <Ionicons name="refresh" size={20} color={colors.cream} />
-          <ThemedText variant="labelSmall" color={colors.cream} style={styles.processingText}>
-            Tap to retry
-          </ThemedText>
-        </View>
-      ) : null}
-      {item.name ? (
-        <View style={styles.tileLabel}>
-          <ThemedText variant="labelSmall" color={colors.cream} numberOfLines={1}>
-            {item.name}
-          </ThemedText>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
     </Pressable>
   );
 }
 
-// Instagram-style grid: fixed-width square tiles computed from the screen so a
-// single item stays small in its column instead of stretching full-width.
-const NUM_COLUMNS = 3;
+// Web closet grid: two editorial columns of white rounded cards.
+const NUM_COLUMNS = 2;
 const H_PADDING = spacing.lg;
-const GAP = spacing.sm;
+const GAP = spacing.md;
 const TILE_W =
   (Dimensions.get('window').width - H_PADDING * 2 - GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
@@ -362,21 +413,52 @@ const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.cream },
     pad: { paddingHorizontal: spacing.lg },
-    metaRow: { paddingBottom: spacing.md },
-    banner: { paddingBottom: spacing.md },
-    list: { paddingHorizontal: H_PADDING, paddingBottom: 120 },
+    pressedDim: { opacity: 0.85 },
+    // Web closet's round hot-pink add button with the pink glow shadow.
+    addBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: c.pinkWarm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: c.pinkWarm,
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 4,
+    },
+    banner: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md },
+    searchWrap: { paddingHorizontal: spacing.lg },
+    categoryChips: {
+      gap: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.sm,
+    },
+    list: { paddingHorizontal: H_PADDING, paddingBottom: 120, paddingTop: spacing.xs },
     column: { gap: GAP, marginBottom: GAP },
+    // Web garment card: rounded-3xl white, pink-blush border, inner padding,
+    // soft pink shadow.
     tile: {
       width: TILE_W,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       backgroundColor: c.white,
       borderWidth: 1,
-      borderColor: c.border,
+      borderColor: c.pinkWarmGlow,
+      padding: 10, // web p-2.5
+      shadowColor: c.pinkWarm,
+      shadowOpacity: 0.14,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 2,
+    },
+    tileImgWrap: {
+      borderRadius: radius.md,
       overflow: 'hidden',
+      backgroundColor: c.beige, // web --pink-cream well behind cutout photos
     },
     tileImg: { width: '100%', aspectRatio: 1 },
     tilePlaceholder: {
-      backgroundColor: c.pearl,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -387,15 +469,8 @@ const makeStyles = (c: Colors) =>
       justifyContent: 'center',
     },
     processingText: { marginTop: spacing.xs },
-    tileLabel: {
-      position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 0,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: spacing.xs,
-      backgroundColor: c.overlay,
-    },
+    tileMeta: { paddingHorizontal: spacing.xs, paddingTop: spacing.sm, paddingBottom: spacing.xs },
+    tileCaption: { marginTop: 1 },
     editPreviewWrap: { alignItems: 'center', marginBottom: spacing.md },
     editPreview: {
       width: 88,

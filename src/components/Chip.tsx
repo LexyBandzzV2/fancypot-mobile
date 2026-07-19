@@ -13,7 +13,11 @@ interface ChipProps {
   label: string;
   selected?: boolean;
   onPress: () => void;
-  /** Selected fill: 'ink' (default — filters, selections) or 'accent' (pink — store/brand chips, modes). */
+  /**
+   * Legacy knob kept for caller compatibility. The web design (feed chips and
+   * the filters page alike) fills every selected chip hot pink, so both tones
+   * now render identically — accepted so existing call sites keep compiling.
+   */
   tone?: Tone;
   icon?: keyof typeof Ionicons.glyphMap;
   disabled?: boolean;
@@ -22,15 +26,17 @@ interface ChipProps {
 }
 
 /**
- * The one pill chip. Replaces the near-identical hand-rolled
+ * The one pill chip, matching the web chips: unselected is a borderless
+ * blush-filled pill (--pink-blush) with ink text; selected fills hot pink
+ * with white text. Replaces the near-identical hand-rolled
  * FilterChip/SelectionChip/BrandChip/mode-chip copies that lived on five
- * screens (feed, closet, stylist, preferences, plus sheets). Selected state
- * fills with the tone color; unselected is a bordered white pill.
+ * screens (feed, closet, stylist, preferences, plus sheets).
  */
 export function Chip({
   label,
   selected = false,
   onPress,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   tone = 'ink',
   icon,
   disabled = false,
@@ -39,8 +45,7 @@ export function Chip({
 }: ChipProps) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const fill = tone === 'accent' ? colors.pinkWarm : colors.ink;
-  const fg = selected ? colors.cream : colors.ink;
+  const fg = selected ? colors.white : colors.ink;
 
   return (
     <Pressable
@@ -54,15 +59,15 @@ export function Chip({
       accessibilityState={{ selected, disabled }}
       style={({ pressed }) => [
         styles.chip,
-        selected && { backgroundColor: fill, borderColor: fill },
+        selected && styles.chipOn,
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
         style,
       ]}
     >
       <View style={styles.content}>
-        {icon ? <Ionicons name={icon} size={15} color={fg} style={styles.icon} /> : null}
-        <ThemedText variant="label" color={fg}>
+        {icon ? <Ionicons name={icon} size={14} color={fg} style={styles.icon} /> : null}
+        <ThemedText variant="labelSmall" color={fg}>
           {label}
         </ThemedText>
       </View>
@@ -82,12 +87,11 @@ const makeStyles = (c: Colors) =>
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.sm,
       borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: c.borderStrong,
-      backgroundColor: c.white,
-      minHeight: 40,
+      backgroundColor: c.pinkWarmGlow,
+      minHeight: 36,
       justifyContent: 'center',
     },
+    chipOn: { backgroundColor: c.pinkWarm },
     content: { flexDirection: 'row', alignItems: 'center' },
     icon: { marginRight: spacing.xs },
     pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },

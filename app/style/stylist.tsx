@@ -255,7 +255,8 @@ export default function StylistScreen() {
             onPress={onGenerate}
             loading={running}
             disabled={!canGenerate}
-            icon={!running ? <Ionicons name="color-wand" size={18} color={colors.cream} /> : undefined}
+            icon={!running ? <Ionicons name="sparkles" size={18} color={colors.cream} /> : undefined}
+            style={styles.generateBtn}
           />
         </Glass>
       ) : null}
@@ -398,7 +399,7 @@ const makeStyles = (colors: Colors) =>
       height: 112,
       borderRadius: radius.md,
       borderWidth: 2,
-      borderColor: colors.border,
+      borderColor: colors.pinkWarmGlow,
       overflow: 'hidden',
       backgroundColor: colors.white,
     },
@@ -432,6 +433,14 @@ const makeStyles = (colors: Colors) =>
       padding: spacing.lg,
       borderTopWidth: 1,
       borderTopColor: colors.glassEdge,
+    },
+    // Web Generate CTA: dark pill with the signature soft pink glow.
+    generateBtn: {
+      shadowColor: colors.pinkWarm,
+      shadowOpacity: 0.4,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 6,
     },
     resultWrap: { gap: spacing.lg },
     resultImageWrap: {
