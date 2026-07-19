@@ -191,13 +191,26 @@ export async function chargeAiSpend(userId: string, fn: AiFunction, req?: Reques
   const spent = (rows || []).reduce((s: number, r: { cost_cents: number | string }) => s + Number(r.cost_cents), 0);
 
   if (spent + cost > cap) {
-    return jsonResponse({
-      error: "ai_spend_cap_reached",
-      message: `You've reached your ${plan} plan's AI spend limit ($${(cap / 100).toFixed(2)} per 30 days). Upgrade or wait for it to reset.`,
-      plan,
-      cap_usd: cap / 100,
-      spent_usd: spent / 100,
-    }, 402);
+    // Over the plan cap — before refusing, try to cover the overflow with
+    // rewarded-ad bonus allowance (earned only via verified AdMob SSV, see the
+    // admob-ssv edge function). consume_ai_bonus atomically debits the balance;
+    // when the user has no bonus (the common case) it consumes nothing and we
+    // refuse exactly as before, so paying users are entirely unaffected.
+    const overflow = spent + cost - cap;
+    const { data: consumed } = await admin.rpc("consume_ai_bonus", {
+      p_user_id: userId,
+      p_cents: overflow,
+    });
+    if (Number(consumed ?? 0) < overflow) {
+      return jsonResponse({
+        error: "ai_spend_cap_reached",
+        message: `You've reached your ${plan} plan's AI spend limit ($${(cap / 100).toFixed(2)} per 30 days). Upgrade or wait for it to reset.`,
+        plan,
+        cap_usd: cap / 100,
+        spent_usd: spent / 100,
+      }, 402);
+    }
+    // Bonus covered the overflow — fall through to record usage and allow.
   }
 
   // Capture request metadata for abuse triage.

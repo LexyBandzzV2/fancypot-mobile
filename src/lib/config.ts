@@ -24,6 +24,14 @@ function revenueCatKey(prefix: string, value: string | undefined): string {
   return value && value.startsWith(prefix) ? value : '';
 }
 
+// Real AdMob ad-unit ids look like "ca-app-pub-<16digits>/<10digits>". Anything
+// else (empty, REPLACE_WITH_ placeholders) is treated as unset so AdsProvider
+// falls back to Google's official test ad units — which is also what we always
+// use in __DEV__. Never ship a debug build with real ad units (AdMob bans it).
+function admobUnit(value: string | undefined): string {
+  return value && value.startsWith('ca-app-pub-') && value.includes('/') ? value : '';
+}
+
 export const config = {
   supabaseUrl: required(
     'EXPO_PUBLIC_SUPABASE_URL',
@@ -37,4 +45,14 @@ export const config = {
   // app still boots without IAP configured; the paywall degrades gracefully.
   revenueCatIosKey: revenueCatKey('appl_', process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY),
   revenueCatAndroidKey: revenueCatKey('goog_', process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY),
+  // AdMob ad-unit ids (platform specific). Empty => AdsProvider uses Google's
+  // test units. Real units are injected per-build via eas.json, like the RC keys.
+  // Note: the AdMob *app* id (a separate value) lives in app.json, since it is
+  // baked into the native binary at build time, not read at runtime.
+  admob: {
+    iosInterstitial: admobUnit(process.env.EXPO_PUBLIC_ADMOB_IOS_INTERSTITIAL),
+    androidInterstitial: admobUnit(process.env.EXPO_PUBLIC_ADMOB_ANDROID_INTERSTITIAL),
+    iosRewarded: admobUnit(process.env.EXPO_PUBLIC_ADMOB_IOS_REWARDED),
+    androidRewarded: admobUnit(process.env.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED),
+  },
 } as const;
