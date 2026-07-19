@@ -29,6 +29,6 @@ export default function Root({ children }: PropsWithChildren) {
 
 const RESET = `
 html, body, #root { height: 100%; width: 100%; margin: 0; }
-body { background-color: #FAF3E7; overflow-x: hidden; }
+body { background-color: #FDF4F6; overflow-x: hidden; }
 #root { display: flex; flex-direction: column; }
 `;
