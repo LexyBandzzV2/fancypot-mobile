@@ -11,6 +11,7 @@ export { BottomSheet, SheetAction } from './BottomSheet';
 export { Chip, ChipWrap } from './Chip';
 export { SectionLabel } from './SectionLabel';
 export { FloatingActionButton } from './FloatingActionButton';
+export { FloatingTabBar, FLOATING_TAB_BAR_HEIGHT } from './FloatingTabBar';
 export { SettingsGroup, SettingsRow } from './SettingsRow';
 export { UploadZone } from './UploadZone';
 export { StackHeader } from './StackHeader';
