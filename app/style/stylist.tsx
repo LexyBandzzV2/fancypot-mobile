@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { StackHeader, Button, ThemedText, EmptyState, Card } from '@/components';
+import { StackHeader, Button, Chip, ThemedText, EmptyState, Card, SectionLabel } from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
@@ -186,23 +186,17 @@ export default function StylistScreen() {
               <>
                 {mode === 'mood' ? (
                   <>
-                    <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
-                      OCCASION
-                    </ThemedText>
+                    <SectionLabel>OCCASION</SectionLabel>
                     <ChipRow options={OCCASIONS} value={occasion} onChange={setOccasion} styles={styles} colors={colors} />
 
-                    <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
-                      VIBE
-                    </ThemedText>
+                    <SectionLabel>VIBE</SectionLabel>
                     <ChipRow options={VIBES} value={vibe} onChange={setVibe} styles={styles} colors={colors} />
                   </>
                 ) : null}
 
                 {mode === 'mood' || mode === 'pick' ? (
                   <>
-                    <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
-                      {mode === 'pick' ? 'CHOOSE ONE PIECE' : 'PICK PIECES (OPTIONAL)'}
-                    </ThemedText>
+                    <SectionLabel>{mode === 'pick' ? 'CHOOSE ONE PIECE' : 'PICK PIECES (OPTIONAL)'}</SectionLabel>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pieces}>
                       {items.map((it) => {
                         const on = selected.includes(it.id);
@@ -231,14 +225,10 @@ export default function StylistScreen() {
 
                 {mode === 'mix' ? (
                   <>
-                    <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
-                      OCCASION
-                    </ThemedText>
+                    <SectionLabel>OCCASION</SectionLabel>
                     <ChipRow options={OCCASIONS} value={occasion} onChange={setOccasion} styles={styles} colors={colors} />
 
-                    <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
-                      VIBE
-                    </ThemedText>
+                    <SectionLabel>VIBE</SectionLabel>
                     <ChipRow options={VIBES} value={vibe} onChange={setVibe} styles={styles} colors={colors} />
 
                     <ThemedText variant="body" color={colors.inkMuted} style={styles.hint}>
@@ -292,17 +282,16 @@ function ModeRow({
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modes}>
-      {MODES.map((m) => {
-        const on = m.key === mode;
-        return (
-          <Pressable key={m.key} onPress={() => onChange(m.key)} style={[styles.modeChip, on && styles.modeChipOn]}>
-            <Ionicons name={m.icon} size={15} color={on ? colors.cream : colors.ink} style={styles.modeIcon} />
-            <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
-              {m.label}
-            </ThemedText>
-          </Pressable>
-        );
-      })}
+      {MODES.map((m) => (
+        <Chip
+          key={m.key}
+          label={m.label}
+          icon={m.icon}
+          tone="accent"
+          selected={m.key === mode}
+          onPress={() => onChange(m.key)}
+        />
+      ))}
     </ScrollView>
   );
 }
@@ -322,16 +311,9 @@ function ChipRow({
 }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-      {options.map((o) => {
-        const on = o === value;
-        return (
-          <Pressable key={o} onPress={() => onChange(o)} style={[styles.chip, on && styles.chipOn]}>
-            <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
-              {o}
-            </ThemedText>
-          </Pressable>
-        );
-      })}
+      {options.map((o) => (
+        <Chip key={o} label={o} selected={o === value} onPress={() => onChange(o)} />
+      ))}
     </ScrollView>
   );
 }

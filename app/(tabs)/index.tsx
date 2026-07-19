@@ -18,7 +18,11 @@ import {
   BottomSheet,
   SheetAction,
   Button,
+  Chip,
+  ChipWrap,
   EmptyState,
+  FloatingActionButton,
+  SectionLabel,
   SkeletonGrid,
   TextField,
   UsageLimitBanner,
@@ -204,18 +208,13 @@ export default function ClosetScreen() {
       )}
 
       {/* Floating add button (thumb reachable) */}
-      <Pressable
+      <FloatingActionButton
+        icon="camera"
+        loading={uploading}
         onPress={() => setAddSheet(true)}
+        label="Add piece"
         style={styles.fab}
-        accessibilityRole="button"
-        accessibilityLabel="Add piece"
-      >
-        {uploading ? (
-          <ActivityIndicator color={colors.cream} />
-        ) : (
-          <Ionicons name="camera" size={26} color={colors.cream} />
-        )}
-      </Pressable>
+      />
 
       <BottomSheet visible={addSheet} onClose={() => setAddSheet(false)} title="Add a piece">
         <SheetAction
@@ -273,30 +272,19 @@ export default function ClosetScreen() {
           onChangeText={setEditName}
           returnKeyType="done"
         />
-        <ThemedText variant="label" color={colors.inkMuted} style={styles.editLabel}>
+        <SectionLabel hint="Leave unpicked and we'll sort it for you automatically.">
           CATEGORY
-        </ThemedText>
-        <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.editHint}>
-          Leave unpicked and we'll sort it for you automatically.
-        </ThemedText>
-        <View style={styles.categoryChips}>
-          {WARDROBE_CATEGORIES.map((c) => {
-            const on = editCategory === c;
-            return (
-              <Pressable
-                key={c}
-                onPress={() => setEditCategory(on ? null : c)}
-                style={[styles.categoryChip, on && styles.categoryChipOn]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-              >
-                <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
-                  {c}
-                </ThemedText>
-              </Pressable>
-            );
-          })}
-        </View>
+        </SectionLabel>
+        <ChipWrap>
+          {WARDROBE_CATEGORIES.map((c) => (
+            <Chip
+              key={c}
+              label={c}
+              selected={editCategory === c}
+              onPress={() => setEditCategory(editCategory === c ? null : c)}
+            />
+          ))}
+        </ChipWrap>
         <View style={styles.editActions}>
           <Button label="Skip" variant="ghost" fullWidth={false} onPress={closeEditor} />
           <Button label="Save details" fullWidth={false} onPress={saveEdit} loading={savingEdit} />
@@ -415,40 +403,13 @@ const makeStyles = (c: Colors) =>
       borderRadius: radius.md,
       backgroundColor: c.pearl,
     },
-    editLabel: { letterSpacing: 1, marginTop: spacing.md, marginBottom: spacing.xs },
-    editHint: { marginBottom: spacing.sm, lineHeight: 16 },
-    categoryChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-    categoryChip: {
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: c.borderStrong,
-      backgroundColor: c.white,
-      minHeight: 40,
-      justifyContent: 'center',
-    },
-    categoryChipOn: { backgroundColor: c.ink, borderColor: c.ink },
     editActions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
       gap: spacing.md,
       marginTop: spacing.lg,
     },
-    fab: {
-      position: 'absolute',
-      right: spacing.lg,
-      bottom: spacing.xl,
-      width: 60,
-      height: 60,
-      borderRadius: 30,
-      backgroundColor: c.ink,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: c.ink,
-      shadowOpacity: 0.25,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 6,
-    },
+    // FloatingActionButton owns its size/color; lift it clear of the floating
+    // tab bar (whose footprint is taller than the default FAB bottom offset).
+    fab: { bottom: 108 },
   });

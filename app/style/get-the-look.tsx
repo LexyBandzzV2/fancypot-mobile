@@ -12,7 +12,7 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { StackHeader, Button, ThemedText, EmptyState, Card } from '@/components';
+import { StackHeader, Button, ThemedText, EmptyState, Card, UploadZone } from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
@@ -159,13 +159,26 @@ export default function GetTheLookScreen() {
       <View style={styles.content}>
         {results.length === 0 ? (
           <View style={styles.start}>
-            <EmptyState
-              icon="camera-outline"
-              title="Snap an outfit"
-              body="Upload any outfit photo and we'll find shoppable look-alikes you can swipe through."
+            <ThemedText variant="h2" center style={styles.startTitle}>
+              Snap an outfit
+            </ThemedText>
+            <ThemedText variant="body" color={colors.inkMuted} center style={styles.startBody}>
+              Upload any outfit photo and we'll find shoppable look-alikes you can swipe through.
+            </ThemedText>
+            <UploadZone
+              onPress={() => search('library')}
+              title="Tap to upload a photo"
+              subtitle="JPG or PNG"
+              icon="scan-outline"
+              height={280}
             />
             <View style={styles.startActions}>
-              <Button label="Take a photo" onPress={() => search('camera')} loading={searching} />
+              <Button
+                label="Take a photo"
+                onPress={() => search('camera')}
+                loading={searching}
+                icon={<Ionicons name="camera" size={18} color={colors.cream} />}
+              />
               <View style={{ height: spacing.sm }} />
               <Button
                 label="Choose from library"
@@ -302,6 +315,8 @@ const makeStyles = (colors: Colors) =>
     root: { flex: 1, backgroundColor: colors.cream },
     content: { flex: 1, padding: spacing.lg },
     start: { flex: 1, justifyContent: 'center' },
+    startTitle: { marginBottom: spacing.xs },
+    startBody: { marginBottom: spacing.xl, paddingHorizontal: spacing.lg },
     startActions: { marginTop: spacing.lg },
     swipe: { flex: 1, justifyContent: 'center' },
     cardWrap: {
