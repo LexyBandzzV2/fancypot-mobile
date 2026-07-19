@@ -49,38 +49,38 @@ export interface Colors {
   glassFill: string;
 }
 
-// ---- LIGHT (the design-board palette: pearl white / blush pink / rich black) ----
+// ---- LIGHT (ported 1:1 from ui-blueprint-builder/src/styles.css oklch tokens) ----
 export const lightColors: Colors = {
-  // Neutrals / surfaces — pink-white, not beige (board bg)
-  cream: '#FDF4F6', // app background (also native splash + status bar)
-  pearl: '#F8ECF0', // muted surface
-  beige: '#F0DCD4', // champagne warmth
-  tissue: '#FBE3EC', // wrapping pink
+  // Neutrals / surfaces
+  cream: '#FFF8F8', // app background (--background)
+  pearl: '#FCF0F0', // muted surface (--muted)
+  beige: '#FFF5F2', // --pink-cream warmth
+  tissue: '#FFE1E5', // --secondary soft pink
 
   // Blush accents
-  blush: '#F6C6D8',
-  blushDeep: '#DE8BA9', // primary accent / active states — rosy, not terracotta
+  blush: '#FFC9D2', // --pink-soft
+  blushDeep: '#E85A8C', // readable rose accent (the UI's pink shadow tone)
 
-  // Warm pink ("Mean Girls" accent — hero CTAs, highlights)
-  pinkWarm: '#F9539B', // board hot pink; also PWA theme_color
-  pinkWarmSoft: '#FBA8CC',
-  pinkWarmGlow: '#FDE0EC',
+  // Hot pink (--primary / --pink-hot; CTAs, highlights, active states)
+  pinkWarm: '#FF3A84',
+  pinkWarmSoft: '#FF77B4', // gradient end (--gradient-hot B)
+  pinkWarmGlow: '#FFE1E3', // --pink-blush glow surface / card borders
 
-  // Text / ink — rich near-black (board), not warm brown
-  ink: '#1C1518', // primary text + primary button fill
-  onyx: '#100B0D', // deepest
-  inkMuted: '#77626C', // muted body text (mauve-gray)
+  // Text / ink (--foreground)
+  ink: '#110C0B',
+  onyx: '#000000',
+  inkMuted: '#695959', // --muted-foreground
 
   // Utility
-  white: '#FFFFFF', // a raised surface
-  border: '#F2DCE4', // hairline on pink-white
-  borderStrong: '#E5C3D1',
-  overlay: 'rgba(28, 21, 24, 0.45)',
+  white: '#FFFFFF', // a raised surface (--card)
+  border: '#F2E0E0', // --border
+  borderStrong: '#EFC5CF',
+  overlay: 'rgba(17, 12, 11, 0.45)',
   scrim: 'rgba(0, 0, 0, 0.55)',
   success: '#3F8A5B',
   successSoft: '#E7F2EA',
-  danger: '#C4553F',
-  danger_soft: '#F6DCD8',
+  danger: '#D93A47', // --destructive family
+  danger_soft: '#FBDDE0',
 
   // Glass tokens (frosted surfaces) — see components/Glass.tsx
   glassTint: 'light',
@@ -92,8 +92,8 @@ export const lightColors: Colors = {
 // ---- DARK (same brand DNA on a deep warm plum-black) ----
 export const darkColors: Colors = {
   // Neutrals / surfaces — warm, slightly plum-tinted blacks (never flat gray)
-  cream: '#161012', // app background
-  pearl: '#1E161A', // muted surface
+  cream: '#17080F', // --background (.dark) // app background
+  pearl: '#200D16', // muted surface
   beige: '#2A2026',
   tissue: '#2E1F27', // deep wrapping-pink tint
 
@@ -102,8 +102,8 @@ export const darkColors: Colors = {
   blushDeep: '#E29AA6', // active states read brighter on dark
 
   // Warm pink — the hero accent, unchanged so branding is identical
-  pinkWarm: '#F9539B',
-  pinkWarmSoft: '#FBA8CC',
+  pinkWarm: '#FF3A84',
+  pinkWarmSoft: '#FF77B4',
   pinkWarmGlow: '#3A2230', // on dark this becomes a soft pink-tinted glow surface
 
   // Text / ink — warm off-whites, not pure white
@@ -112,7 +112,7 @@ export const darkColors: Colors = {
   inkMuted: '#B6A5AC', // muted body text
 
   // Utility
-  white: '#241C21', // a raised surface (dark card)
+  white: '#28121D', // --card (.dark) // a raised surface (dark card)
   border: 'rgba(255, 255, 255, 0.10)',
   borderStrong: 'rgba(255, 255, 255, 0.18)',
   overlay: 'rgba(0, 0, 0, 0.55)',
