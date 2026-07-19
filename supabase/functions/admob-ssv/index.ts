@@ -26,6 +26,8 @@ const DAILY_CAP = 3;
 
 const VERIFIER_KEYS_URL = 'https://www.gstatic.com/admob/reward/verifier-keys.json';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 type VerifierKey = { keyId: number; pem?: string; base64?: string };
 type KeyCache = { keys: VerifierKey[]; fetchedAtMs: number };
 let keyCache: KeyCache | null = null;
@@ -189,10 +191,12 @@ Deno.serve(async (req) => {
     }
 
     // Signature is authentic past this point.
-    if (!userId) {
-      // Verified but no user to credit (AdMob dropped both ids). Nothing we can
-      // do; return 200 so AdMob stops retrying an unrecoverable callback.
-      console.warn('admob-ssv: verified callback missing user id', { transactionId });
+    if (!userId || !UUID_RE.test(userId)) {
+      // Verified but no usable user to credit — AdMob dropped both ids, or the
+      // value isn't a Supabase user uuid. Return 200 so AdMob stops retrying an
+      // unrecoverable callback (a non-uuid would otherwise error the RPC → 500 →
+      // endless retries).
+      console.warn('admob-ssv: verified callback without a usable user id', { transactionId });
       return new Response(JSON.stringify({ ok: true, credited: false, reason: 'no_user' }), {
         headers: { 'Content-Type': 'application/json' },
       });

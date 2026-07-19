@@ -82,7 +82,13 @@ set search_path = public
 as $$
 declare
   v_today_count integer;
+  v_updated     integer;
 begin
+  -- Serialize concurrent grants for this user so the daily-cap count below can't
+  -- be raced by two different-transaction callbacks arriving at once (the unique
+  -- transaction_id only guards same-transaction replays, not the count).
+  perform pg_advisory_xact_lock(hashtextextended(p_user_id::text, 0));
+
   -- Replay guard: same AdMob transaction already credited.
   if exists (select 1 from public.ad_reward_grants where transaction_id = p_transaction_id) then
     return 'duplicate';
@@ -109,10 +115,29 @@ begin
   update public.profiles
      set bonus_ai_cents = bonus_ai_cents + p_cents
    where user_id = p_user_id;
+  get diagnostics v_updated = row_count;
+  if v_updated = 0 then
+    -- No profile row to credit. Raise so the whole function (including the
+    -- ad_reward_grants insert above) rolls back, rather than silently consuming
+    -- the transaction id + a daily-cap slot while crediting nothing.
+    raise exception 'grant_ai_reward: no profiles row for user %', p_user_id;
+  end if;
 
   return 'granted';
 end;
 $$;
+
+-- CRITICAL: both functions are SECURITY DEFINER and must run ONLY with the
+-- service-role key (consume_ai_bonus from ai-router, grant_ai_reward from the
+-- admob-ssv edge function). Postgres grants EXECUTE to PUBLIC by default, and
+-- Supabase/PostgREST would then expose them as RPC endpoints that anon /
+-- authenticated users could call directly with attacker-controlled amounts —
+-- self-granting unlimited bonus with no ad, or draining another user's balance.
+-- Revoke the default grant and re-grant to service_role only.
+revoke execute on function public.consume_ai_bonus(uuid, integer) from public, anon, authenticated;
+revoke execute on function public.grant_ai_reward(uuid, text, integer, integer) from public, anon, authenticated;
+grant execute on function public.consume_ai_bonus(uuid, integer) to service_role;
+grant execute on function public.grant_ai_reward(uuid, text, integer, integer) to service_role;
 
 comment on column public.profiles.bonus_ai_cents is
   'Rewarded-ad bonus AI allowance (USD cents). Consumed by chargeAiSpend only when a user is over their plan cap. Granted only via verified AdMob SSV.';

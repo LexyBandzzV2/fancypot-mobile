@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import {
   getTrackingPermissionsAsync,
   requestTrackingPermissionsAsync,
@@ -52,8 +52,6 @@ interface AdsContextValue {
   canOfferReward: boolean;
   /** Rewarded ads the user may still watch today (0..REWARD_DAILY_CAP). */
   rewardsRemaining: number;
-  /** The per-day rewarded-ad cap, for messaging. */
-  rewardDailyCap: number;
 }
 
 const AdsContext = createContext<AdsContextValue | undefined>(undefined);
@@ -97,6 +95,18 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     userIdRef.current = user?.id;
   }, [user?.id]);
+
+  // Resolve + clear any in-flight watchRewardedForBonus() promise exactly once.
+  // EVERY teardown path (CLOSED, ERROR, effect cleanup, show() rejection) routes
+  // through here, so the promise can never leak and permanently jam the
+  // one-at-a-time guard (which would otherwise brick the feature for the session).
+  const settleReward = useCallback((outcome: RewardOutcome) => {
+    const flow = rewardFlowRef.current;
+    if (flow) {
+      rewardFlowRef.current = null;
+      flow.resolve(outcome);
+    }
+  }, []);
 
   // One-time SDK init: request ATT (personalized vs not), configure, initialize.
   // Consent/config MUST happen before initialize() per the SDK docs.
@@ -199,14 +209,16 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
         if (uid) recordRewardWatched(uid).then(setRewardsRemaining).catch(() => {});
       }),
       ad.addAdEventListener(AdEventType.CLOSED, () => {
-        const flow = rewardFlowRef.current;
-        rewardFlowRef.current = null;
-        if (flow) flow.resolve(flow.earned ? 'earned' : 'dismissed');
+        const earned = rewardFlowRef.current?.earned ?? false;
+        settleReward(earned ? 'earned' : 'dismissed');
         setReady(false);
         ad.load(); // preload the next one
       }),
       ad.addAdEventListener(AdEventType.ERROR, () => {
         setReady(false);
+        // ERROR is a generic channel and can fire after show() with a flow
+        // pending — unblock the caller so its promise never hangs.
+        settleReward('not-ready');
         if (retryTimer) clearTimeout(retryTimer);
         retryTimer = setTimeout(() => ad.load(), AD_RETRY_MS);
       }),
@@ -216,12 +228,15 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     return () => {
       unsubs.forEach((u) => u());
       if (retryTimer) clearTimeout(retryTimer);
+      // Teardown mid-watch (upgrade/logout/user change): resolve the pending
+      // promise so it can't leak and jam the one-at-a-time guard.
+      settleReward('not-ready');
       rewardedRef.current = null;
       rewardedReadyRef.current = false;
     };
-  }, [initialized, isFree, npaOnly, user?.id]);
+  }, [initialized, isFree, npaOnly, user?.id, settleReward]);
 
-  // Keep today's remaining count fresh when the user (or the day) changes.
+  // Keep today's remaining count fresh when the user changes.
   useEffect(() => {
     if (!user?.id) {
       setRewardsRemaining(REWARD_DAILY_CAP);
@@ -229,6 +244,19 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     }
     rewardsRemainingToday(user.id).then(setRewardsRemaining).catch(() => {});
   }, [user?.id]);
+
+  // Recompute when the app returns to the foreground, so the offer reappears
+  // after the local day rolls over while the session was backgrounded (the
+  // per-user effect above never re-runs across a midnight boundary on its own).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      const uid = userIdRef.current;
+      if (state === 'active' && uid) {
+        rewardsRemainingToday(uid).then(setRewardsRemaining).catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, []);
 
   const maybeShowInterstitial = useCallback(async () => {
     if (!adsSupported || !isFree) return;
@@ -241,7 +269,9 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     try {
       await ad.show();
     } catch {
-      // Presentation failed — it'll reload on CLOSED or the next build.
+      // Native show() rejected without a CLOSED/ERROR event — best-effort reload
+      // so interstitials don't silently stop for the rest of the session.
+      ad.load();
     }
   }, [isFree]);
 
@@ -257,14 +287,15 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     return new Promise<RewardOutcome>((resolve) => {
       rewardFlowRef.current = { earned: false, resolve };
       Promise.resolve(ad.show()).catch(() => {
-        const flow = rewardFlowRef.current;
-        if (flow) {
-          rewardFlowRef.current = null;
-          flow.resolve('not-ready');
-        }
+        // Native show() rejected without a CLOSED/ERROR event — reset readiness,
+        // preload a fresh ad, and unblock the caller.
+        rewardedReadyRef.current = false;
+        setRewardedReady(false);
+        ad.load();
+        settleReward('not-ready');
       });
     });
-  }, [isFree]);
+  }, [isFree, settleReward]);
 
   const canOfferReward = adsSupported && isFree && rewardedReady && rewardsRemaining > 0;
 
@@ -274,7 +305,6 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
       watchRewardedForBonus,
       canOfferReward,
       rewardsRemaining,
-      rewardDailyCap: REWARD_DAILY_CAP,
     }),
     [maybeShowInterstitial, watchRewardedForBonus, canOfferReward, rewardsRemaining],
   );

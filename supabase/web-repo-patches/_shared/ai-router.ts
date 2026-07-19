@@ -196,12 +196,18 @@ export async function chargeAiSpend(userId: string, fn: AiFunction, req?: Reques
     // admob-ssv edge function). consume_ai_bonus atomically debits the balance;
     // when the user has no bonus (the common case) it consumes nothing and we
     // refuse exactly as before, so paying users are entirely unaffected.
+    // Charge the bonus only for THIS call's over-cap portion. Once a
+    // bonus-covered call has recorded its full cost in ai_usage, `spent` climbs
+    // past `cap`, so `overflow` keeps growing; charging the raw overflow would
+    // over-drain the balance (3 rewards would buy only 2 try-ons). Capping at
+    // `cost` means each fully-over-cap call debits exactly one action's worth.
     const overflow = spent + cost - cap;
+    const bonusNeeded = Math.min(cost, overflow);
     const { data: consumed } = await admin.rpc("consume_ai_bonus", {
       p_user_id: userId,
-      p_cents: overflow,
+      p_cents: bonusNeeded,
     });
-    if (Number(consumed ?? 0) < overflow) {
+    if (Number(consumed ?? 0) < bonusNeeded) {
       return jsonResponse({
         error: "ai_spend_cap_reached",
         message: `You've reached your ${plan} plan's AI spend limit ($${(cap / 100).toFixed(2)} per 30 days). Upgrade or wait for it to reset.`,

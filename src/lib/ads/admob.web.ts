@@ -20,8 +20,6 @@ export const RewardedAdEventType = {
 export const TestIds = {
   INTERSTITIAL: '',
   REWARDED: '',
-  BANNER: '',
-  APP_OPEN: '',
 } as const;
 
 export const MaxAdContentRating = { G: 'G', PG: 'PG', T: 'T', MA: 'MA' } as const;

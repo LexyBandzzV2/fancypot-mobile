@@ -53,6 +53,10 @@ export async function rewardsRemainingToday(userId: string): Promise<number> {
 /**
  * Record that the user just earned a rewarded ad, returning how many remain
  * today. Call this on the EARNED_REWARD event, not merely on ad open.
+ *
+ * The read-modify-write here isn't atomic, but AdsProvider serializes reward
+ * flows (its one-at-a-time guard) so concurrent calls can't happen, and the
+ * server re-enforces the cap regardless. Don't reuse this from parallel callers.
  */
 export async function recordRewardWatched(userId: string): Promise<number> {
   const rec = await read(userId);
