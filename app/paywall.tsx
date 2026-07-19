@@ -5,20 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Card, ThemedText, Wordmark } from '@/components';
 import { Glass } from '@/components/Glass';
-import { spacing, radius, type, useThemedStyles } from '@/theme';
+import { spacing, radius, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import type { Colors } from '@/theme/colors';
 import { ORDERED_TIERS, type Tier } from '@/lib/plans';
 import { useSubscription } from '@/providers/SubscriptionProvider';
 
-/** Best-value tier, called out with a badge + pink glow border. */
+/** Best-value tier, called out with the "Most Popular" badge + pink border. */
 const RECOMMENDED: Tier['entitlement'] = 'pro';
-
-const TIER_ICON: Record<Tier['entitlement'], keyof typeof Ionicons.glyphMap> = {
-  free: 'pricetags-outline',
-  pro: 'sparkles',
-  business: 'diamond-outline',
-};
 
 export default function Paywall() {
   const router = useRouter();
@@ -54,24 +48,28 @@ export default function Paywall() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.close}>
-          <Ionicons name="close" size={24} color={colors.ink} />
-        </Pressable>
-
-        <View style={styles.header}>
-          <View style={styles.heroGlowWrap} pointerEvents="none">
-            <Glass
-              intensity={60}
-              tintColor={colors.pinkWarmGlow}
-              style={styles.heroGlow}
-            />
-          </View>
-          <ThemedText style={type.eyebrow} color={colors.pinkWarm} center>
-            Upgrade your stylist
+        {/* Header row — title centered, close on the right (modal context) */}
+        <View style={styles.headerRow}>
+          <View style={styles.headerSpacer} />
+          <ThemedText variant="h3" center style={styles.headerTitle}>
+            Upgrade Your Stylist
           </ThemedText>
-          <Wordmark size={44} />
-          <ThemedText variant="bodyItalic" color={colors.inkMuted} center style={styles.sub}>
-            Unlock unlimited outfits, more try-ons, and zero ads.
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            style={styles.close}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
+            <Ionicons name="close" size={20} color={colors.ink} />
+          </Pressable>
+        </View>
+
+        {/* Script wordmark hero, like the web upgrade page */}
+        <View style={styles.header}>
+          <Wordmark size={52} color={colors.pinkWarm} />
+          <ThemedText variant="labelSmall" color={colors.inkMuted} center style={styles.sub}>
+            Unlock more looks, smarter styling,{'\n'}and premium features.
           </ThemedText>
         </View>
 
@@ -81,10 +79,14 @@ export default function Paywall() {
             const isSelected = t.entitlement === selected.entitlement;
             const isRecommended = t.entitlement === RECOMMENDED;
             const selectable = !!t.rcPackageId && !isCurrent;
+            const [priceMain, pricePeriod] = t.priceLabel.split('/');
             return (
               <Pressable
                 key={t.entitlement}
                 onPress={() => selectable && setSelected(t)}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.name} plan, ${t.priceLabel}`}
+                accessibilityState={{ selected: isSelected, disabled: !selectable }}
                 style={[
                   styles.planShadow,
                   isSelected && selectable && styles.planShadowSelected,
@@ -99,58 +101,43 @@ export default function Paywall() {
                   </View>
                 ) : null}
                 <Card
-                  glass
+                  glass={false}
                   style={StyleSheet.flatten([
                     styles.plan,
                     isSelected && selectable && styles.planSelected,
-                    isRecommended && styles.planRecommended,
                     isCurrent && styles.planCurrent,
                   ])}
                 >
                   <View style={styles.planHeader}>
                     <View style={styles.planTitleRow}>
-                      <View
-                        style={[
-                          styles.planIcon,
-                          isRecommended && styles.planIconRecommended,
-                        ]}
-                      >
-                        <Ionicons
-                          name={TIER_ICON[t.entitlement]}
-                          size={18}
-                          color={isRecommended ? colors.white : colors.blushDeep}
-                        />
-                      </View>
+                      {selectable ? (
+                        <View style={[styles.radio, isSelected && styles.radioOn]}>
+                          {isSelected ? <View style={styles.radioDot} /> : null}
+                        </View>
+                      ) : null}
                       <ThemedText variant="h3">{t.name}</ThemedText>
+                      {isCurrent ? (
+                        <View style={styles.currentBadge}>
+                          <ThemedText variant="labelSmall" color={colors.cream}>
+                            Current
+                          </ThemedText>
+                        </View>
+                      ) : null}
                     </View>
-                    {isCurrent ? (
-                      <View style={styles.currentBadge}>
-                        <ThemedText variant="labelSmall" color={colors.cream}>
-                          Current
+                    <View style={styles.priceRow}>
+                      <ThemedText variant="h3">{priceMain}</ThemedText>
+                      {pricePeriod ? (
+                        <ThemedText variant="labelSmall" color={colors.inkMuted}>
+                          /{pricePeriod}
                         </ThemedText>
-                      </View>
-                    ) : isSelected && selectable ? (
-                      <Ionicons name="checkmark-circle" size={26} color={colors.pinkWarm} />
-                    ) : selectable ? (
-                      <Ionicons name="ellipse-outline" size={26} color={colors.borderStrong} />
-                    ) : null}
-                  </View>
-
-                  <View style={styles.priceRow}>
-                    <ThemedText variant="h2" color={colors.ink}>
-                      {t.priceLabel.split('/')[0]}
-                    </ThemedText>
-                    {t.priceLabel.includes('/') ? (
-                      <ThemedText variant="label" color={colors.inkMuted} style={styles.pricePeriod}>
-                        /{t.priceLabel.split('/')[1]}
-                      </ThemedText>
-                    ) : null}
+                      ) : null}
+                    </View>
                   </View>
 
                   <View style={styles.perks}>
                     {t.perks.map((p) => (
                       <View key={p} style={styles.perk}>
-                        <Ionicons name="checkmark" size={16} color={colors.pinkWarm} />
+                        <Ionicons name="checkmark" size={15} color={colors.pinkWarm} />
                         <ThemedText variant="labelSmall" color={colors.ink} style={styles.perkText}>
                           {p}
                         </ThemedText>
@@ -163,47 +150,53 @@ export default function Paywall() {
           })}
         </View>
 
+        <Pressable onPress={() => restore()} hitSlop={8} style={styles.restore} accessibilityRole="button">
+          <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.restoreText}>
+            Restore Purchases
+          </ThemedText>
+        </Pressable>
+
         <ThemedText variant="labelSmall" color={colors.inkMuted} center style={styles.fine}>
           Payment is charged to your App Store / Google Play account. Subscriptions
           auto-renew unless turned off at least 24 hours before the period ends. Manage
           or cancel anytime in your store account settings. Prices may vary by region.
         </ThemedText>
+      </ScrollView>
 
+      <Glass intensity={50} style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
+        <View style={styles.ctaGlow}>
+          <Button
+            label={
+              selected.entitlement === currentTier.entitlement
+                ? 'Your current plan'
+                : `Continue with ${selected.name}`
+            }
+            onPress={onSubscribe}
+            loading={busy}
+            disabled={!selected.rcPackageId || selected.entitlement === currentTier.entitlement}
+            variant="primary"
+            icon={<Ionicons name="sparkles" size={16} color={colors.cream} />}
+          />
+        </View>
         {/* Apple 3.1.2 / Google Play: functional Terms + Privacy links on the purchase screen. */}
         <View style={styles.legalLinks}>
-          <Pressable onPress={() => router.push('/legal/terms')} hitSlop={8}>
-            <ThemedText variant="labelSmall" color={colors.inkMuted}>
-              Terms of Use
+          <ThemedText variant="labelSmall" color={colors.inkMuted}>
+            By continuing, you agree to our{' '}
+          </ThemedText>
+          <Pressable onPress={() => router.push('/legal/terms')} hitSlop={8} accessibilityRole="link">
+            <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.legalLink}>
+              Terms
             </ThemedText>
           </Pressable>
           <ThemedText variant="labelSmall" color={colors.inkMuted}>
-            ·
+            {' '}and{' '}
           </ThemedText>
-          <Pressable onPress={() => router.push('/legal/privacy')} hitSlop={8}>
-            <ThemedText variant="labelSmall" color={colors.inkMuted}>
+          <Pressable onPress={() => router.push('/legal/privacy')} hitSlop={8} accessibilityRole="link">
+            <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.legalLink}>
               Privacy Policy
             </ThemedText>
           </Pressable>
         </View>
-      </ScrollView>
-
-      <Glass intensity={50} style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <Button
-          label={
-            selected.entitlement === currentTier.entitlement
-              ? 'Your current plan'
-              : `Continue with ${selected.name}`
-          }
-          onPress={onSubscribe}
-          loading={busy}
-          disabled={!selected.rcPackageId || selected.entitlement === currentTier.entitlement}
-          variant="accent"
-        />
-        <Pressable onPress={() => restore()} hitSlop={8} style={styles.restore}>
-          <ThemedText variant="labelSmall" color={colors.inkMuted}>
-            Restore purchases
-          </ThemedText>
-        </Pressable>
       </Glass>
     </View>
   );
@@ -213,43 +206,39 @@ const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.cream },
     content: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
+    headerRow: { flexDirection: 'row', alignItems: 'center' },
+    headerSpacer: { width: 36 },
+    headerTitle: { flex: 1 },
     close: {
-      alignSelf: 'flex-end',
-      width: 40,
-      height: 40,
+      width: 36,
+      height: 36,
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: radius.pill,
-      backgroundColor: c.pearl,
+      borderWidth: 1,
+      borderColor: c.pinkWarmGlow,
+      backgroundColor: c.white,
     },
-    header: { alignItems: 'center', marginTop: spacing.sm, marginBottom: spacing.xxl },
-    heroGlowWrap: {
-      position: 'absolute',
-      top: -60,
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '100%',
-    },
-    heroGlow: { width: 220, height: 220, borderRadius: 110 },
-    sub: { marginTop: spacing.sm, maxWidth: 280 },
-    plans: { gap: spacing.xl, marginTop: spacing.sm },
+    header: { alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.xl },
+    sub: { marginTop: spacing.sm },
+    plans: { gap: spacing.lg, marginTop: spacing.sm },
     planShadow: {
       borderRadius: radius.lg,
       shadowColor: c.ink,
-      shadowOpacity: 0.08,
+      shadowOpacity: 0.06,
       shadowRadius: 14,
       shadowOffset: { width: 0, height: 6 },
       elevation: 2,
     },
     planShadowSelected: {
       shadowColor: c.pinkWarm,
-      shadowOpacity: 0.28,
+      shadowOpacity: 0.3,
       shadowRadius: 20,
       shadowOffset: { width: 0, height: 8 },
       elevation: 6,
     },
     planShadowRecommended: {
-      shadowColor: c.pinkWarm,
+      shadowColor: c.blushDeep,
       shadowOpacity: 0.22,
       shadowRadius: 22,
       shadowOffset: { width: 0, height: 10 },
@@ -257,19 +246,21 @@ const makeStyles = (c: Colors) =>
     },
     plan: {
       borderWidth: 1.5,
-      borderColor: c.border,
-      padding: spacing.xl,
+      borderColor: c.pinkWarmGlow,
+      padding: spacing.lg,
+      // Card's flat style brings its own subtle shadow; borders here rule.
+      shadowOpacity: 0,
+      elevation: 0,
     },
-    planSelected: { borderColor: c.pinkWarm },
-    planRecommended: { borderColor: c.pinkWarmSoft },
-    planCurrent: { borderColor: c.borderStrong, opacity: 0.75 },
+    planSelected: { borderColor: c.pinkWarm, backgroundColor: c.pinkWarmGlow },
+    planCurrent: { borderColor: c.borderStrong, opacity: 0.8 },
     badge: {
       alignSelf: 'center',
       backgroundColor: c.pinkWarm,
       paddingHorizontal: spacing.md,
-      paddingVertical: 6,
+      paddingVertical: 5,
       borderRadius: radius.pill,
-      marginBottom: -14,
+      marginBottom: -12,
       zIndex: 2,
       shadowColor: c.pinkWarm,
       shadowOpacity: 0.35,
@@ -277,37 +268,38 @@ const makeStyles = (c: Colors) =>
       shadowOffset: { width: 0, height: 4 },
       elevation: 6,
     },
-    badgeText: { letterSpacing: 1.2 },
-    planHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    planTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-    planIcon: {
-      width: 32,
-      height: 32,
-      borderRadius: radius.pill,
-      backgroundColor: c.tissue,
+    badgeText: { letterSpacing: 1.2, fontSize: 11 },
+    planHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    planTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
+    radio: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: c.borderStrong,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    planIconRecommended: { backgroundColor: c.pinkWarm },
-    priceRow: { flexDirection: 'row', alignItems: 'flex-end', marginTop: spacing.sm },
-    pricePeriod: { marginLeft: 2, marginBottom: 3 },
+    radioOn: { borderColor: c.pinkWarm },
+    radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: c.pinkWarm },
+    priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 1 },
     currentBadge: {
       backgroundColor: c.ink,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
       borderRadius: radius.pill,
     },
-    perks: { marginTop: spacing.lg, gap: spacing.md },
+    perks: { marginTop: spacing.md, gap: spacing.sm },
     perk: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
     perkText: { flex: 1 },
-    fine: { marginTop: spacing.xxl, maxWidth: 340, alignSelf: 'center' },
-    legalLinks: {
-      flexDirection: 'row',
-      justifyContent: 'center',
-      alignItems: 'center',
-      gap: spacing.sm,
-      marginTop: spacing.md,
-    },
+    restore: { alignSelf: 'center', marginTop: spacing.lg, padding: spacing.xs },
+    restoreText: { textDecorationLine: 'underline' },
+    fine: { marginTop: spacing.lg, maxWidth: 340, alignSelf: 'center' },
     footer: {
       padding: spacing.lg,
       borderTopWidth: 1,
@@ -315,5 +307,21 @@ const makeStyles = (c: Colors) =>
       borderTopLeftRadius: radius.lg,
       borderTopRightRadius: radius.lg,
     },
-    restore: { alignSelf: 'center', marginTop: spacing.md },
+    // Pink glow under the big black CTA.
+    ctaGlow: {
+      borderRadius: radius.pill,
+      shadowColor: c.pinkWarm,
+      shadowOpacity: 0.4,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 8,
+    },
+    legalLinks: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginTop: spacing.md,
+    },
+    legalLink: { textDecorationLine: 'underline' },
   });

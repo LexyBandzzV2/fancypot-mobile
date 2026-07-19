@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter, usePathname, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { spacing, radius, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
@@ -56,11 +56,21 @@ const ACCOUNT: NavItem[] = [
  * and is opened from the header menu button on any screen. Bottom of the panel
  * pins the upgrade CTA and sign-out.
  */
+/** Route-group segments don't appear in `usePathname()` output, so strip them
+ * to compare a drawer href against the current path (e.g. '/(tabs)/feed' →
+ * '/feed', '/(tabs)' → '/'). */
+function hrefPath(href: Href): string {
+  const raw = typeof href === 'string' ? href : (href.pathname ?? '/');
+  const stripped = raw.replace(/\/\([^)]+\)/g, '');
+  return stripped === '' ? '/' : stripped;
+}
+
 export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const styles = useThemedStyles(makeStyles);
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pathname = usePathname();
   const { user, profile, signOut } = useAuth();
   const { tier } = useSubscription();
 
@@ -101,10 +111,10 @@ export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () 
         </Animated.View>
         <Animated.View style={[styles.panelWrap, { transform: [{ translateX }] }]}>
           <Glass style={[styles.panel, { paddingTop: insets.top + spacing.lg }]} intensity={60}>
-            {/* Account summary */}
+            {/* Account summary + close, like the web drawer header */}
             <View style={styles.account}>
               <View style={styles.avatar}>
-                <ThemedText variant="h3" color={colors.cream}>
+                <ThemedText variant="h3" color={colors.blushDeep}>
                   {initials}
                 </ThemedText>
               </View>
@@ -116,6 +126,15 @@ export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () 
                   {tier.name} plan
                 </ThemedText>
               </View>
+              <Pressable
+                onPress={onClose}
+                hitSlop={8}
+                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Close menu"
+              >
+                <Ionicons name="close" size={18} color={colors.inkMuted} />
+              </Pressable>
             </View>
 
             <ScrollView
@@ -124,18 +143,33 @@ export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () 
               showsVerticalScrollIndicator={false}
             >
               {PRIMARY.map((item) => (
-                <DrawerLink key={item.label} item={item} onPress={() => go(item.href)} />
+                <DrawerLink
+                  key={item.label}
+                  item={item}
+                  active={pathname === hrefPath(item.href)}
+                  onPress={() => go(item.href)}
+                />
               ))}
               <View style={styles.divider} />
               <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.groupLabel}>
                 STYLE TOOLS
               </ThemedText>
               {TOOLS.map((item) => (
-                <DrawerLink key={item.label} item={item} onPress={() => go(item.href)} />
+                <DrawerLink
+                  key={item.label}
+                  item={item}
+                  active={pathname === hrefPath(item.href)}
+                  onPress={() => go(item.href)}
+                />
               ))}
               <View style={styles.divider} />
               {ACCOUNT.map((item) => (
-                <DrawerLink key={item.label} item={item} onPress={() => go(item.href)} />
+                <DrawerLink
+                  key={item.label}
+                  item={item}
+                  active={pathname === hrefPath(item.href)}
+                  onPress={() => go(item.href)}
+                />
               ))}
             </ScrollView>
 
@@ -163,8 +197,8 @@ export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () 
                 }}
                 accessibilityRole="button"
               >
-                <Ionicons name="log-out-outline" size={20} color={colors.danger} />
-                <ThemedText variant="label" color={colors.danger}>
+                <Ionicons name="log-out-outline" size={20} color={colors.pinkWarm} />
+                <ThemedText variant="label" color={colors.pinkWarm}>
                   Log out
                 </ThemedText>
               </Pressable>
@@ -176,18 +210,29 @@ export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () 
   );
 }
 
-function DrawerLink({ item, onPress }: { item: NavItem; onPress: () => void }) {
+function DrawerLink({
+  item,
+  active,
+  onPress,
+}: {
+  item: NavItem;
+  active?: boolean;
+  onPress: () => void;
+}) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [styles.link, pressed && styles.linkPressed]}
+      style={({ pressed }) => [styles.link, active && styles.linkActive, pressed && styles.linkPressed]}
       accessibilityRole="button"
       accessibilityLabel={item.label}
+      accessibilityState={{ selected: !!active }}
     >
-      <Ionicons name={item.icon} size={22} color={colors.ink} />
-      <ThemedText variant="body">{item.label}</ThemedText>
+      <Ionicons name={item.icon} size={20} color={colors.pinkWarm} />
+      <ThemedText variant="body" color={active ? colors.pinkWarm : colors.ink}>
+        {item.label}
+      </ThemedText>
     </Pressable>
   );
 }
@@ -196,11 +241,22 @@ const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, flexDirection: 'row' },
     backdrop: { ...fillObject, backgroundColor: c.scrim },
-    panelWrap: { width: PANEL_WIDTH, height: '100%' },
+    // Web drawer: pink-blush right edge + a deep rose drop shadow.
+    panelWrap: {
+      width: PANEL_WIDTH,
+      height: '100%',
+      shadowColor: c.blushDeep,
+      shadowOpacity: 0.35,
+      shadowRadius: 30,
+      shadowOffset: { width: 12, height: 0 },
+      elevation: 16,
+    },
     panel: {
       flex: 1,
       borderTopRightRadius: radius.lg,
       borderBottomRightRadius: radius.lg,
+      borderRightWidth: 1,
+      borderRightColor: c.pinkWarmGlow,
       paddingHorizontal: spacing.lg,
       overflow: 'hidden',
     },
@@ -211,25 +267,41 @@ const makeStyles = (c: Colors) =>
       paddingBottom: spacing.lg,
     },
     avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: c.ink,
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: c.tissue,
+      borderWidth: 2,
+      borderColor: c.blush,
       alignItems: 'center',
       justifyContent: 'center',
     },
     accountInfo: { flex: 1 },
+    closeBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     scroll: { flex: 1 },
     scrollContent: { paddingVertical: spacing.sm },
-    groupLabel: { letterSpacing: 1, marginTop: spacing.sm, marginBottom: spacing.xs, paddingHorizontal: spacing.sm },
+    groupLabel: {
+      fontSize: 11,
+      letterSpacing: 2.5,
+      marginTop: spacing.sm,
+      marginBottom: spacing.xs,
+      paddingHorizontal: spacing.sm,
+    },
     link: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
       minHeight: 52,
-      paddingHorizontal: spacing.sm,
+      paddingHorizontal: spacing.md,
       borderRadius: radius.md,
     },
+    linkActive: { backgroundColor: c.pinkWarmGlow },
     linkPressed: { backgroundColor: c.pearl },
     divider: { height: 1, backgroundColor: c.border, marginVertical: spacing.sm },
     footer: { gap: spacing.sm, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: c.border },
@@ -241,6 +313,11 @@ const makeStyles = (c: Colors) =>
       backgroundColor: c.pinkWarm,
       borderRadius: radius.pill,
       minHeight: 48,
+      shadowColor: c.pinkWarm,
+      shadowOpacity: 0.35,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 6,
     },
     signOut: {
       flexDirection: 'row',

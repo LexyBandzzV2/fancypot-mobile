@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { StackHeader, Button, ThemedText, Card } from '@/components';
+import { StackHeader, Button, ThemedText, Chip, ChipWrap, SectionLabel } from '@/components';
 import { radius, spacing, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme, type ThemePreference } from '@/providers/ThemeProvider';
@@ -66,25 +66,31 @@ export default function Preferences() {
     <View style={styles.root}>
       <StackHeader title="Style preferences" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Section
-          title="BUDGET"
+        <SectionLabel
+          style={styles.firstLabel}
           hint="Pick every price range you want to see — mix cheap and luxury freely. Leave all off to see everything."
         >
-          <Chips
-            options={BUDGETS}
-            selected={budgets}
-            onToggle={(v) => toggle(budgets, setBudgets, v)}
-          />
-        </Section>
-        <Section title="YOUR STYLES">
-          <Chips options={STYLES} selected={styles_} onToggle={(v) => toggle(styles_, setStyles, v)} />
-        </Section>
-        <Section title="FAVORITE STORES">
-          <Chips options={STORES} selected={stores} onToggle={(v) => toggle(stores, setStores, v)} />
-        </Section>
-        <Section title="APPEARANCE">
-          <AppearanceSelector />
-        </Section>
+          BUDGET (PER PIECE)
+        </SectionLabel>
+        <OptionChips
+          options={BUDGETS}
+          selected={budgets}
+          onToggle={(v) => toggle(budgets, setBudgets, v)}
+        />
+        <SectionLabel>YOUR STYLES</SectionLabel>
+        <OptionChips
+          options={STYLES}
+          selected={styles_}
+          onToggle={(v) => toggle(styles_, setStyles, v)}
+        />
+        <SectionLabel>FAVORITE STORES (OPTIONAL)</SectionLabel>
+        <OptionChips
+          options={STORES}
+          selected={stores}
+          onToggle={(v) => toggle(stores, setStores, v)}
+        />
+        <SectionLabel>APPEARANCE</SectionLabel>
+        <AppearanceSelector />
       </ScrollView>
       <View style={styles.footer}>
         <Button label="Save preferences" onPress={save} loading={saving} />
@@ -93,81 +99,44 @@ export default function Preferences() {
   );
 }
 
+/** Blush pill chips for one option group — the shared web-styled Chip. */
+function OptionChips({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: string[];
+  selected: string[];
+  onToggle: (v: string) => void;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  return (
+    <ChipWrap style={styles.chips}>
+      {options.map((o) => (
+        <Chip key={o} label={o} selected={selected.includes(o)} onPress={() => onToggle(o)} />
+      ))}
+    </ChipWrap>
+  );
+}
+
 /** Three-way Light / Dark / System selector, backed by ThemeProvider's persisted preference. */
 function AppearanceSelector() {
   const { colors, preference, setPreference } = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
-    <Card style={styles.appearanceCard}>
-      <View style={styles.appearanceRow}>
-        {APPEARANCE_OPTIONS.map((opt) => {
-          const on = preference === opt.value;
-          return (
-            <Pressable
-              key={opt.value}
-              onPress={() => setPreference(opt.value)}
-              style={[styles.appearancePill, on && styles.appearancePillOn]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
-            >
-              <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
-                {opt.label}
-              </ThemedText>
-            </Pressable>
-          );
-        })}
-      </View>
-    </Card>
-  );
-}
-
-function Section({
-  title,
-  hint,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  children: React.ReactNode;
-}) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(makeStyles);
-  return (
-    <View style={styles.section}>
-      <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionTitle}>
-        {title}
-      </ThemedText>
-      {hint ? (
-        <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.sectionHint}>
-          {hint}
-        </ThemedText>
-      ) : null}
-      {children}
-    </View>
-  );
-}
-
-function Chips({
-  options,
-  selected,
-  onToggle,
-  single,
-}: {
-  options: string[];
-  selected: string[];
-  onToggle: (v: string) => void;
-  single?: boolean;
-}) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(makeStyles);
-  return (
-    <View style={styles.chips}>
-      {options.map((o) => {
-        const on = selected.includes(o);
+    <View style={styles.appearanceRow}>
+      {APPEARANCE_OPTIONS.map((opt) => {
+        const on = preference === opt.value;
         return (
-          <Pressable key={o} onPress={() => onToggle(o)} style={[styles.chip, on && styles.chipOn]}>
-            <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
-              {o}
+          <Pressable
+            key={opt.value}
+            onPress={() => setPreference(opt.value)}
+            style={[styles.appearancePill, on && styles.appearancePillOn]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+          >
+            <ThemedText variant="label" color={on ? colors.white : colors.ink}>
+              {opt.label}
             </ThemedText>
           </Pressable>
         );
@@ -180,33 +149,27 @@ const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.cream },
     content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
-    section: { marginBottom: spacing.xl },
-    sectionTitle: { marginBottom: spacing.md, letterSpacing: 1 },
-    sectionHint: { marginTop: -spacing.sm, marginBottom: spacing.md, lineHeight: 18 },
-    chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-    chip: {
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: c.borderStrong,
-      backgroundColor: c.white,
-      minHeight: 40,
-      justifyContent: 'center',
-    },
-    chipOn: { backgroundColor: c.ink, borderColor: c.ink },
+    firstLabel: { marginTop: 0 },
+    chips: { marginBottom: spacing.md },
     footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: c.border },
-    appearanceCard: { padding: spacing.xs },
+    // Segmented pill on a blush track — same pink-fill selection language as
+    // the web chips (the web app has no appearance control; this keeps ours,
+    // restyled to match).
     appearanceRow: {
       flexDirection: 'row',
-      gap: spacing.sm,
+      gap: spacing.xs,
+      backgroundColor: c.pinkWarmGlow,
+      borderRadius: radius.pill,
+      padding: spacing.xs,
+      marginBottom: spacing.md,
     },
     appearancePill: {
       flex: 1,
       paddingVertical: spacing.sm,
+      minHeight: 40,
       borderRadius: radius.pill,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    appearancePillOn: { backgroundColor: c.ink },
+    appearancePillOn: { backgroundColor: c.pinkWarm },
   });

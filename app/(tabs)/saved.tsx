@@ -21,7 +21,7 @@ import {
 } from '@/components';
 import { ThemedText } from '@/components';
 import type { Colors } from '@/theme/colors';
-import { radius, spacing, useThemedStyles } from '@/theme';
+import { fonts, radius, spacing, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
 
@@ -40,9 +40,14 @@ export default function SavedScreen() {
     ]);
   };
 
+  const countLabel =
+    loading && outfits.length === 0
+      ? 'Your outfit library'
+      : `${outfits.length} saved ${outfits.length === 1 ? 'look' : 'looks'}`;
+
   return (
     <View style={styles.root}>
-      <AppHeader title="Saved Looks" subtitle="Your outfit library" />
+      <AppHeader title="Saved Looks" subtitle={countLabel} />
       {loading && outfits.length === 0 ? (
         <View style={styles.pad}>
           <SkeletonGrid count={4} />
@@ -74,42 +79,56 @@ export default function SavedScreen() {
         <FlatList
           data={outfits}
           keyExtractor={(o) => o.id}
-          numColumns={3}
+          numColumns={2}
           columnWrapperStyle={styles.column}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={false} onRefresh={reload} tintColor={colors.blushDeep} />
           }
-          renderItem={({ item }) => (
-            <Pressable
-              style={styles.tile}
-              onPress={() => router.push({ pathname: '/style/try-on', params: { outfitId: item.id } })}
-              onLongPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                setSelected(item);
-              }}
-            >
-              {item.signedUrl ? (
-                <Image source={{ uri: item.signedUrl }} style={styles.img} contentFit="cover" transition={200} />
-              ) : (
-                <View style={[styles.img, styles.placeholder]}>
-                  <Ionicons name="image-outline" size={28} color={colors.blushDeep} />
-                </View>
-              )}
-              {item.name ? (
+          renderItem={({ item }) => {
+            const count = item.item_ids?.length ?? 0;
+            const meta = count > 0 ? `${count} ${count === 1 ? 'item' : 'items'}` : item.occasion;
+            return (
+              <Pressable
+                style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+                onPress={() => router.push({ pathname: '/style/try-on', params: { outfitId: item.id } })}
+                onLongPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  setSelected(item);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={item.name ?? 'Saved look'}
+                accessibilityHint="Opens virtual try-on. Long press for more options."
+              >
+                {item.signedUrl ? (
+                  <Image source={{ uri: item.signedUrl }} style={styles.img} contentFit="cover" transition={200} />
+                ) : (
+                  <View style={[styles.img, styles.placeholder]}>
+                    <Ionicons name="image-outline" size={28} color={colors.blushDeep} />
+                  </View>
+                )}
                 <View style={styles.label}>
-                  <ThemedText variant="labelSmall" numberOfLines={1}>
-                    {item.name}
+                  <ThemedText style={styles.lookName} numberOfLines={1}>
+                    {item.name ?? 'Saved look'}
                   </ThemedText>
+                  {meta ? (
+                    <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
+                      {meta}
+                    </ThemedText>
+                  ) : null}
                 </View>
-              ) : null}
-            </Pressable>
-          )}
+              </Pressable>
+            );
+          }}
         />
       )}
 
-      <BottomSheet visible={!!selected} onClose={() => setSelected(null)}>
+      <BottomSheet
+        visible={!!selected}
+        onClose={() => setSelected(null)}
+        title={selected?.name ?? undefined}
+      >
         <SheetAction
           label="Try this on"
           icon={<Ionicons name="body-outline" size={22} color={colors.ink} />}
@@ -153,18 +172,27 @@ const makeStyles = (c: Colors) =>
     pad: { paddingHorizontal: spacing.lg },
     list: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
     column: { gap: GAP },
+    // Editorial look card, matching the web saved grid: radius 24, blush-glow
+    // border, soft rose shadow, 3:4 image with name + meta beneath.
     tile: {
       flex: 1,
       marginBottom: GAP,
-      borderRadius: radius.md,
+      borderRadius: radius.lg,
       backgroundColor: c.white,
       borderWidth: 1,
-      borderColor: c.border,
+      borderColor: c.pinkWarmGlow,
       overflow: 'hidden',
+      shadowColor: c.blushDeep,
+      shadowOpacity: 0.12,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 2,
     },
-    img: { width: '100%', aspectRatio: 1 },
-    placeholder: { backgroundColor: c.pearl, alignItems: 'center', justifyContent: 'center' },
-    label: { padding: spacing.sm },
+    tilePressed: { opacity: 0.85 },
+    img: { width: '100%', aspectRatio: 3 / 4, backgroundColor: c.beige },
+    placeholder: { alignItems: 'center', justifyContent: 'center' },
+    label: { paddingHorizontal: spacing.md, paddingVertical: 10 },
+    lookName: { fontFamily: fonts.display, fontSize: 16, lineHeight: 22 },
     // Empty state styles
     emptyContainer: { flex: 1, backgroundColor: c.cream },
     gridBackground: {

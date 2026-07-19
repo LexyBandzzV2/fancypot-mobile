@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, StyleSheet, Pressable, ScrollView, Alert, Linking } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card, ThemedText, Button } from '@/components';
+import { ThemedText, SectionLabel, SettingsGroup, SettingsRow } from '@/components';
 import type { Colors } from '@/theme/colors';
-import { radius, spacing, useThemedStyles } from '@/theme';
+import { fonts, radius, spacing, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSubscription } from '@/providers/SubscriptionProvider';
@@ -22,122 +23,147 @@ export default function ProfileScreen() {
   const { tier, restore } = useSubscription();
   const { openDrawer } = useNavDrawer();
 
-  const initials = (profile?.display_name ?? user?.email ?? 'F')
-    .slice(0, 1)
-    .toUpperCase();
+  const displayName = profile?.display_name ?? user?.email ?? '';
+  const firstName = displayName.split(/[\s@]/)[0] || 'there';
+  const initials = (displayName || 'F').slice(0, 1).toUpperCase();
+  const isBusiness = tier.entitlement === 'business';
 
   return (
     <ScrollView
       style={styles.root}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.xl }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}
       showsVerticalScrollIndicator={false}
     >
-      <Pressable
-        onPress={openDrawer}
-        hitSlop={12}
-        style={styles.menuBtn}
-        accessibilityRole="button"
-        accessibilityLabel="Open menu"
-      >
-        <Ionicons name="menu" size={26} color={colors.ink} />
-      </Pressable>
-      {/* Account card */}
-      <Card style={styles.accountCard}>
+      {/* Greeting header — menu, "Hi, <name> ♥", avatar */}
+      <View style={styles.header}>
+        <Pressable
+          onPress={openDrawer}
+          hitSlop={12}
+          style={styles.menuBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+        >
+          <Ionicons name="menu" size={26} color={colors.ink} />
+        </Pressable>
+        <View style={styles.greeting}>
+          <ThemedText variant="h1" numberOfLines={1}>
+            Hi, {firstName} <ThemedText variant="h1" color={colors.pinkWarm}>♥</ThemedText>
+          </ThemedText>
+          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.greetingSub}>
+            You look amazing today.
+          </ThemedText>
+        </View>
         <View style={styles.avatar}>
-          <ThemedText variant="h2" color={colors.cream}>
+          <ThemedText variant="h3" color={colors.blushDeep}>
             {initials}
           </ThemedText>
         </View>
-        <View style={styles.accountInfo}>
-          <ThemedText variant="h3" numberOfLines={1}>
-            {profile?.display_name ?? 'Your account'}
-          </ThemedText>
-          <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
-            {user?.email}
-          </ThemedText>
-        </View>
-        <View style={styles.planBadge}>
-          <ThemedText variant="labelSmall" color={colors.pinkWarm}>
-            {tier.name}
-          </ThemedText>
-        </View>
-      </Card>
+      </View>
 
-      {/* Plan / usage */}
-      <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionTitle}>
-        YOUR PLAN
-      </ThemedText>
-      <Card>
-        <Row
-          icon="pricetags-outline"
-          label={`${tier.name} — ${tier.priceLabel}`}
-          value={`${tier.limits.outfitsPerMonth} outfits/mo`}
-        />
-        <Divider />
-        <Button
-          label={tier.entitlement === 'business' ? 'Manage subscription' : 'Upgrade plan'}
-          variant={tier.entitlement === 'business' ? 'outline' : 'accent'}
-          onPress={() =>
-            tier.entitlement === 'business'
-              ? router.push('/settings/manage-subscription')
-              : router.push('/paywall')
-          }
-        />
-        <View style={styles.restore}>
-          <Pressable onPress={() => restore()} hitSlop={8}>
-            <ThemedText variant="labelSmall" color={colors.blushDeep}>
-              Restore purchases
+      {/* Plan card — blush gradient with the Upgrade / Manage pill */}
+      <SectionLabel>YOUR PLAN</SectionLabel>
+      <LinearGradient
+        colors={[colors.pinkWarmGlow, colors.beige]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.planCard}
+      >
+        <View style={styles.planTop}>
+          <View style={styles.planTitleRow}>
+            <Ionicons name="sparkles" size={16} color={colors.pinkWarm} />
+            <View>
+              <ThemedText style={styles.planName}>{tier.name} Plan</ThemedText>
+              <ThemedText variant="labelSmall" color={colors.inkMuted}>
+                {tier.priceLabel}
+              </ThemedText>
+            </View>
+          </View>
+          <Pressable
+            onPress={() =>
+              isBusiness ? router.push('/settings/manage-subscription') : router.push('/paywall')
+            }
+            style={({ pressed }) => [styles.planPill, pressed && styles.pressedDim]}
+            accessibilityRole="button"
+            accessibilityLabel={isBusiness ? 'Manage subscription' : 'Upgrade plan'}
+          >
+            <ThemedText variant="labelSmall" color={colors.white}>
+              {isBusiness ? 'Manage' : 'Upgrade'}
             </ThemedText>
           </Pressable>
         </View>
-      </Card>
+        <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.planMeta}>
+          {tier.limits.outfitsPerMonth} outfits/mo · {tier.limits.wardrobeItems} closet items ·{' '}
+          {tier.limits.tryOnsPerWeek} try-ons/wk
+        </ThemedText>
+        <Pressable
+          onPress={() => restore()}
+          hitSlop={8}
+          style={styles.restore}
+          accessibilityRole="button"
+        >
+          <ThemedText variant="labelSmall" color={colors.blushDeep}>
+            Restore purchases
+          </ThemedText>
+        </Pressable>
+      </LinearGradient>
 
-      {/* Preferences */}
-      <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionTitle}>
-        SETTINGS
-      </ThemedText>
-      <Card padded={false}>
-        <LinkRow
+      {/* Settings */}
+      <SectionLabel>SETTINGS</SectionLabel>
+      <SettingsGroup>
+        <SettingsRow
           icon="options-outline"
           label="Style preferences"
           onPress={() => router.push('/settings/preferences')}
         />
-        <Divider />
-        <LinkRow
+        <SettingsRow
           icon="key-outline"
           label="Change password"
           onPress={() => router.push('/settings/change-password')}
         />
-        <Divider />
-        <LinkRow
-          icon={profile?.phone_verified ? 'checkmark-circle-outline' : 'call-outline'}
+        <SettingsRow
+          icon={profile?.phone_verified ? 'shield-checkmark-outline' : 'call-outline'}
           label={profile?.phone_verified ? 'Phone verified' : 'Verify phone number'}
+          value={profile?.phone_verified ? 'Verified' : undefined}
           onPress={() => router.push('/verify-phone')}
         />
-      </Card>
+      </SettingsGroup>
 
-      {/* Legal / support */}
-      <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionTitle}>
-        SUPPORT
-      </ThemedText>
-      <Card padded={false}>
-        <LinkRow icon="help-circle-outline" label="Contact support" onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)} />
-        <Divider />
-        <LinkRow icon="document-text-outline" label="Privacy policy" onPress={() => router.push('/legal/privacy')} />
-        <Divider />
-        <LinkRow icon="reader-outline" label="Terms of use" onPress={() => router.push('/legal/terms')} />
-      </Card>
+      {/* Support / legal */}
+      <SectionLabel>SUPPORT</SectionLabel>
+      <SettingsGroup>
+        <SettingsRow
+          icon="chatbubble-ellipses-outline"
+          label="Contact support"
+          onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}
+        />
+        <SettingsRow
+          icon="document-text-outline"
+          label="Privacy policy"
+          onPress={() => router.push('/legal/privacy')}
+        />
+        <SettingsRow
+          icon="reader-outline"
+          label="Terms of use"
+          onPress={() => router.push('/legal/terms')}
+        />
+      </SettingsGroup>
 
-      {/* Danger zone */}
+      {/* Log out / delete — quiet card-style buttons, like the web */}
       <View style={styles.danger}>
-        <Button label="Sign out" variant="outline" onPress={signOut} />
+        <Pressable
+          onPress={signOut}
+          style={({ pressed }) => [styles.quietBtn, pressed && styles.pressedDim]}
+          accessibilityRole="button"
+        >
+          <ThemedText variant="label">Log Out</ThemedText>
+        </Pressable>
         <Pressable
           onPress={() => router.push('/settings/delete-account')}
-          style={styles.deleteLink}
-          hitSlop={8}
+          style={({ pressed }) => [styles.quietBtn, pressed && styles.pressedDim]}
+          accessibilityRole="button"
         >
-          <ThemedText variant="labelSmall" color={colors.danger}>
-            Delete account
+          <ThemedText variant="label" color={colors.danger}>
+            Delete Account
           </ThemedText>
         </Pressable>
       </View>
@@ -145,51 +171,11 @@ export default function ProfileScreen() {
   );
 }
 
-function Row({ icon, label, value }: { icon: any; label: string; value?: string }) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(makeStyles);
-  return (
-    <View style={styles.row}>
-      <Ionicons name={icon} size={20} color={colors.ink} />
-      <ThemedText variant="body" style={styles.rowLabel}>
-        {label}
-      </ThemedText>
-      {value ? (
-        <ThemedText variant="labelSmall" color={colors.inkMuted}>
-          {value}
-        </ThemedText>
-      ) : null}
-    </View>
-  );
-}
-
-function LinkRow({ icon, label, onPress }: { icon: any; label: string; onPress: () => void }) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(makeStyles);
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.linkRow, pressed && { opacity: 0.6 }]}
-      accessibilityRole="button"
-    >
-      <Ionicons name={icon} size={20} color={colors.ink} />
-      <ThemedText variant="body" style={styles.rowLabel}>
-        {label}
-      </ThemedText>
-      <Ionicons name="chevron-forward" size={18} color={colors.borderStrong} />
-    </Pressable>
-  );
-}
-
-function Divider() {
-  const styles = useThemedStyles(makeStyles);
-  return <View style={styles.divider} />;
-}
-
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.cream },
     content: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
+    header: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
     menuBtn: {
       width: 40,
       height: 40,
@@ -197,36 +183,50 @@ const makeStyles = (c: Colors) =>
       alignItems: 'center',
       justifyContent: 'center',
       marginLeft: -spacing.sm,
-      marginBottom: spacing.md,
     },
-    accountCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+    greeting: { flex: 1 },
+    greetingSub: { marginTop: 2 },
     avatar: {
       width: 56,
       height: 56,
       borderRadius: 28,
-      backgroundColor: c.ink,
+      backgroundColor: c.tissue,
+      borderWidth: 2,
+      borderColor: c.blush,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    accountInfo: { flex: 1 },
-    planBadge: {
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.xs,
+    planCard: {
+      borderRadius: radius.lg,
+      borderWidth: 1,
+      borderColor: c.pinkWarmGlow,
+      padding: spacing.lg,
+    },
+    planTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+    planTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    planName: { fontFamily: fonts.display, fontSize: 18, lineHeight: 24 },
+    planPill: {
+      backgroundColor: c.pinkWarm,
       borderRadius: radius.pill,
-      backgroundColor: c.pinkWarmGlow,
+      paddingHorizontal: spacing.md,
+      paddingVertical: 6,
+      shadowColor: c.pinkWarm,
+      shadowOpacity: 0.35,
+      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 4,
     },
-    sectionTitle: { marginTop: spacing.xl, marginBottom: spacing.sm, letterSpacing: 1 },
-    row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
-    rowLabel: { flex: 1 },
-    linkRow: {
-      flexDirection: 'row',
+    planMeta: { marginTop: spacing.md },
+    restore: { marginTop: spacing.sm, alignSelf: 'flex-start' },
+    pressedDim: { opacity: 0.7 },
+    danger: { marginTop: spacing.xl, gap: spacing.sm },
+    quietBtn: {
+      minHeight: 48,
+      borderRadius: radius.md,
+      backgroundColor: c.white,
+      borderWidth: 1,
+      borderColor: c.pinkWarmGlow,
       alignItems: 'center',
-      gap: spacing.md,
-      minHeight: 52,
-      paddingHorizontal: spacing.lg,
+      justifyContent: 'center',
     },
-    divider: { height: 1, backgroundColor: c.border, marginLeft: spacing.lg },
-    restore: { alignItems: 'center', marginTop: spacing.md },
-    danger: { marginTop: spacing.xxl, gap: spacing.md, alignItems: 'center' },
-    deleteLink: { padding: spacing.sm },
   });
