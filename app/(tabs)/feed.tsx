@@ -6,6 +6,7 @@ import {
   RefreshControl,
   Pressable,
   ScrollView,
+  Animated,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,17 +16,15 @@ import {
   AppHeader,
   BottomSheet,
   Button,
-  Card,
   Chip,
   ChipWrap,
   EmptyState,
-  FloatingActionButton,
   SectionLabel,
   SkeletonGrid,
   ThemedText,
 } from '@/components';
 import type { Colors } from '@/theme/colors';
-import { radius, spacing, useThemedStyles } from '@/theme';
+import { fonts, radius, spacing, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import {
   getFeed,
@@ -259,15 +258,34 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.root}>
-      <AppHeader title="Style Feed" subtitle="Fresh finds from the places you love" />
+      <AppHeader
+        title="Style Feed"
+        subtitle="Fresh finds from the places you love"
+        right={
+          // Web's circular search affordance — wired to the filter sheet (the
+          // nearest real "narrow the feed" function; there is no text search).
+          <Pressable
+            onPress={openFilter}
+            accessibilityRole="button"
+            accessibilityLabel="Filter the feed"
+            style={({ pressed }) => [styles.searchBtn, pressed && styles.pressedDim]}
+          >
+            <Ionicons name="search" size={17} color={colors.pinkWarm} />
+          </Pressable>
+        }
+      />
       <View style={styles.controlsRow}>
-        <Chip
-          label={filterCount > 0 ? `Filters · ${filterCount}` : 'Filters'}
-          icon="options-outline"
-          tone="accent"
-          selected={!!filter}
+        <Pressable
           onPress={openFilter}
-        />
+          accessibilityRole="button"
+          accessibilityLabel={filterCount > 0 ? `Filters, ${filterCount} active` : 'Filters'}
+          style={({ pressed }) => [styles.filterPill, pressed && styles.pressedDim]}
+        >
+          <Ionicons name="options-outline" size={16} color={colors.pinkWarm} />
+          <ThemedText variant="labelSmall">
+            {filterCount > 0 ? `Filters · ${filterCount}` : 'Filters'}
+          </ThemedText>
+        </Pressable>
         {filter ? (
           <Pressable onPress={clearFilter} hitSlop={8} style={styles.clearBtn} accessibilityRole="button">
             <Ionicons name="close-circle" size={16} color={colors.inkMuted} />
@@ -341,18 +359,11 @@ export default function FeedScreen() {
           }
         />
       )}
-      {showScrollTop && !loading && products.length > 0 ? (
-        <FloatingActionButton
-          icon="arrow-up"
-          tone="accent"
-          small
-          onPress={scrollToTopAndRefresh}
-          label="Back to top and refresh"
-          style={styles.scrollTopBtn}
-        />
+      {!loading && products.length > 0 ? (
+        <RefreshNudge visible={showScrollTop} onPress={scrollToTopAndRefresh} />
       ) : null}
 
-      <BottomSheet visible={filterOpen} onClose={() => setFilterOpen(false)} title="Filter the feed">
+      <BottomSheet visible={filterOpen} onClose={() => setFilterOpen(false)} title="Filters">
         <ScrollView showsVerticalScrollIndicator={false} style={styles.sheetScroll}>
           <SectionLabel hint="Mix any ranges — leave all off to see every price.">
             PRICE RANGE
@@ -381,9 +392,11 @@ export default function FeedScreen() {
             ))}
           </ChipWrap>
         </ScrollView>
+        {/* Web filters page: stacked full-width pills — pink-filled Clear on
+            top, white pink-bordered Apply below. */}
         <View style={styles.sheetActions}>
-          <Button label="Clear" variant="accentInk" fullWidth={false} onPress={clearFilter} />
-          <Button label="Show results" fullWidth={false} onPress={applyFilter} />
+          <Button label="Clear" variant="accent" onPress={clearFilter} style={styles.sheetClear} />
+          <Button label="Apply Filters" variant="outline" onPress={applyFilter} style={styles.sheetApply} />
         </View>
       </BottomSheet>
     </View>
@@ -461,6 +474,51 @@ function StoreChipRow({
   );
 }
 
+/**
+ * Web feed's centered bottom "Refresh feed" pill: hot pink, up-arrow in a
+ * translucent white circle, fading/sliding in past the scroll threshold.
+ */
+function RefreshNudge({ visible, onPress }: { visible: boolean; onPress: () => void }) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(anim, {
+      toValue: visible ? 1 : 0,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  }, [visible, anim]);
+
+  return (
+    <Animated.View
+      pointerEvents={visible ? 'box-none' : 'none'}
+      style={[
+        styles.nudgeWrap,
+        {
+          opacity: anim,
+          transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }],
+        },
+      ]}
+    >
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Back to top and refresh"
+        style={({ pressed }) => [styles.nudgePill, pressed && styles.pressedDim]}
+      >
+        <View style={styles.nudgeArrow}>
+          <Ionicons name="arrow-up" size={14} color={colors.white} />
+        </View>
+        <ThemedText variant="labelSmall" color={colors.white} style={styles.nudgeLabel}>
+          Refresh feed
+        </ThemedText>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 function ProductCard({
   item,
   reaction,
@@ -477,67 +535,102 @@ function ProductCard({
   const styles = useThemedStyles(makeStyles);
   const synthetic = isSyntheticProduct(item.id);
   return (
-    <Card style={styles.card} padded={false}>
-      {item.image_url ? (
-        <Image source={{ uri: item.image_url }} style={styles.cardImg} contentFit="cover" transition={200} />
-      ) : (
-        <View style={[styles.cardImg, styles.placeholder]}>
-          <Ionicons name="pricetag-outline" size={30} color={colors.blushDeep} />
-        </View>
-      )}
-      <View style={styles.cardBody}>
-        <ThemedText variant="eyebrow" color={colors.blushDeep}>
-          {item.brand ?? 'Brand'}
-        </ThemedText>
-        <ThemedText variant="h3" numberOfLines={1}>
-          {item.name ?? 'Product'}
-        </ThemedText>
-        <View style={styles.cardFooter}>
-          <ThemedText variant="label" color={colors.ink}>
+    <View style={styles.card}>
+      <View style={styles.cardImgWrap}>
+        {item.image_url ? (
+          <Image source={{ uri: item.image_url }} style={styles.cardImg} contentFit="cover" transition={200} />
+        ) : (
+          <View style={[styles.cardImg, styles.placeholder]}>
+            <Ionicons name="pricetag-outline" size={30} color={colors.blushDeep} />
+          </View>
+        )}
+        {/* Floating like — web FeedCard's heart on a white/90 circle. */}
+        {!synthetic ? (
+          <Pressable
+            onPress={() => onReact(item, 'like')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Like"
+            accessibilityState={{ selected: reaction === 'like' }}
+            style={styles.heartBtn}
+          >
+            <Ionicons
+              name={reaction === 'like' ? 'heart' : 'heart-outline'}
+              size={18}
+              color={colors.pinkWarm}
+            />
+          </Pressable>
+        ) : null}
+      </View>
+      <View style={styles.cardFooter}>
+        <View style={styles.cardInfo}>
+          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.brand} numberOfLines={1}>
+            {(item.brand ?? 'Brand').toUpperCase()}
+          </ThemedText>
+          <ThemedText style={styles.name} numberOfLines={1}>
+            {item.name ?? 'Product'}
+          </ThemedText>
+          <ThemedText style={styles.price}>
             {/* Scraped prices can be pre-formatted display strings ("€2,310.00");
                 only bare numbers need a currency symbol prepended. */}
             {item.price == null ? '' : typeof item.price === 'number' ? `$${item.price}` : item.price}
           </ThemedText>
-          <View style={styles.actions}>
-            {!synthetic ? (
-              <ReactBtn
-                icon={reaction === 'like' ? 'heart' : 'heart-outline'}
-                active={reaction === 'like'}
-                onPress={() => onReact(item, 'like')}
-              />
-            ) : null}
-            {!synthetic ? (
-              <ReactBtn
-                icon={reaction === 'save' ? 'bookmark' : 'bookmark-outline'}
-                active={reaction === 'save'}
-                onPress={() => onReact(item, 'save')}
-              />
-            ) : null}
-            <ReactBtn icon="close" onPress={() => onReact(item, 'dislike')} />
-            {item.product_url ? (
-              <ReactBtn icon="open-outline" onPress={() => openProductUrl(item.product_url)} />
-            ) : null}
-          </View>
+        </View>
+        <View style={styles.actions}>
+          {!synthetic ? (
+            <CircleBtn
+              icon={reaction === 'save' ? 'bookmark' : 'bookmark-outline'}
+              color={colors.pinkWarm}
+              label="Save"
+              selected={reaction === 'save'}
+              onPress={() => onReact(item, 'save')}
+            />
+          ) : null}
+          <CircleBtn
+            icon="close"
+            color={colors.inkMuted}
+            label="Not for me"
+            onPress={() => onReact(item, 'dislike')}
+          />
+          {item.product_url ? (
+            <CircleBtn
+              icon="open-outline"
+              color={colors.pinkWarm}
+              label="Open product page"
+              onPress={() => openProductUrl(item.product_url)}
+            />
+          ) : null}
         </View>
       </View>
-    </Card>
+    </View>
   );
 }
 
-function ReactBtn({
+/** 36pt pink-blush-bordered circle button (web FeedCard's bookmark chip). */
+function CircleBtn({
   icon,
-  active,
+  color,
+  label,
+  selected,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
-  active?: boolean;
+  color: string;
+  label: string;
+  selected?: boolean;
   onPress: () => void;
 }) {
-  const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
-    <Pressable onPress={onPress} hitSlop={10} style={styles.reactBtn} accessibilityRole="button">
-      <Ionicons name={icon} size={22} color={active ? colors.pinkWarm : colors.ink} />
+    <Pressable
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={selected == null ? undefined : { selected }}
+      style={({ pressed }) => [styles.circleBtn, pressed && styles.pressedDim]}
+    >
+      <Ionicons name={icon} size={16} color={color} />
     </Pressable>
   );
 }
@@ -546,6 +639,16 @@ const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.cream },
     pad: { paddingHorizontal: spacing.lg },
+    pressedDim: { opacity: 0.8 },
+    // 40pt circular header affordance on a blush glow fill (web's search).
+    searchBtn: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: c.pinkWarmGlow,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     controlsRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -553,41 +656,122 @@ const makeStyles = (c: Colors) =>
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
     },
+    // Web Filters pill: white card, pink-blush border, soft pink shadow.
+    filterPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: c.white,
+      borderWidth: 1,
+      borderColor: c.pinkWarmGlow,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.sm,
+      minHeight: 36,
+      shadowColor: c.pinkWarm,
+      shadowOpacity: 0.18,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 2,
+    },
     clearBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
     sheetScroll: { maxHeight: 420 },
-    sheetActions: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: spacing.md,
-      marginTop: spacing.lg,
+    sheetActions: { gap: spacing.md, marginTop: spacing.xl },
+    sheetClear: {
+      shadowColor: c.pinkWarm,
+      shadowOpacity: 0.3,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 3,
     },
+    sheetApply: { backgroundColor: c.white, borderColor: c.pinkWarmGlow },
     storeChips: {
       gap: spacing.sm,
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.sm,
     },
     pickStoresAction: { alignItems: 'center', paddingHorizontal: spacing.xl, marginTop: spacing.lg },
-    // Compact "back to top" nudge — sits above the tab bar, bottom-right.
-    // FloatingActionButton owns its size/color; this only repositions it.
-    scrollTopBtn: { bottom: 108 },
-    list: { paddingHorizontal: spacing.lg, paddingBottom: 120, gap: spacing.lg },
-    card: { marginBottom: 0 },
-    // Portrait, image-forward — the garment is the hero of the card.
-    cardImg: { width: '100%', aspectRatio: 0.9 },
-    placeholder: { backgroundColor: c.pearl, alignItems: 'center', justifyContent: 'center' },
-    cardBody: { padding: spacing.lg, gap: spacing.xs },
+    list: { paddingHorizontal: spacing.lg, paddingBottom: 120, gap: spacing.lg, paddingTop: spacing.md },
+    // Web FeedCard: rounded-3xl white card, pink-blush border, soft pink shadow.
+    card: {
+      borderRadius: radius.lg,
+      backgroundColor: c.white,
+      borderWidth: 1,
+      borderColor: c.pinkWarmGlow,
+      overflow: 'hidden',
+      shadowColor: c.pinkWarm,
+      shadowOpacity: 0.18,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 2,
+    },
+    cardImgWrap: { backgroundColor: c.pinkWarmGlow },
+    // Web: aspect-[3/4] editorial portrait.
+    cardImg: { width: '100%', aspectRatio: 3 / 4 },
+    placeholder: { alignItems: 'center', justifyContent: 'center' },
+    heartBtn: {
+      position: 'absolute',
+      top: spacing.md,
+      right: spacing.md,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: `${c.white}E6`, // web: bg-card/90
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
     cardFooter: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginTop: spacing.sm,
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
     },
-    actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-    reactBtn: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+    cardInfo: { flex: 1 },
+    brand: { fontSize: 11, lineHeight: 15, letterSpacing: 2 },
+    name: { fontFamily: fonts.display, fontSize: 18, lineHeight: 24 },
+    price: { fontFamily: fonts.sansMedium, fontSize: 14, lineHeight: 20, marginTop: 1 },
+    actions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    circleBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: c.pinkWarmGlow,
       alignItems: 'center',
       justifyContent: 'center',
     },
+    // Centered bottom "Refresh feed" pill, fixed above the floating tab bar.
+    nudgeWrap: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 108,
+      alignItems: 'center',
+    },
+    nudgePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: c.pinkWarm,
+      borderRadius: radius.pill,
+      paddingLeft: spacing.md,
+      paddingRight: spacing.lg,
+      paddingVertical: spacing.sm,
+      shadowColor: c.pinkWarm,
+      shadowOpacity: 0.35,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 6,
+    },
+    nudgeArrow: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: `${c.white}33`, // primary-foreground/20
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    nudgeLabel: { fontFamily: fonts.sansMedium },
   });
