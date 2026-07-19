@@ -11,8 +11,19 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { AppHeader, BottomSheet, Button, Card, EmptyState, SkeletonGrid, ThemedText } from '@/components';
-import { Glass } from '@/components/Glass';
+import {
+  AppHeader,
+  BottomSheet,
+  Button,
+  Card,
+  Chip,
+  ChipWrap,
+  EmptyState,
+  FloatingActionButton,
+  SectionLabel,
+  SkeletonGrid,
+  ThemedText,
+} from '@/components';
 import type { Colors } from '@/theme/colors';
 import { radius, spacing, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -250,21 +261,13 @@ export default function FeedScreen() {
     <View style={styles.root}>
       <AppHeader title="Style Feed" subtitle="Fresh finds from the places you love" />
       <View style={styles.controlsRow}>
-        <Pressable
+        <Chip
+          label={filterCount > 0 ? `Filters · ${filterCount}` : 'Filters'}
+          icon="options-outline"
+          tone="accent"
+          selected={!!filter}
           onPress={openFilter}
-          style={[styles.filterBtn, filter ? styles.filterBtnOn : null]}
-          accessibilityRole="button"
-          accessibilityLabel="Filter the feed"
-        >
-          <Ionicons
-            name="options-outline"
-            size={18}
-            color={filter ? colors.cream : colors.ink}
-          />
-          <ThemedText variant="label" color={filter ? colors.cream : colors.ink}>
-            {filterCount > 0 ? `Filters · ${filterCount}` : 'Filters'}
-          </ThemedText>
-        </Pressable>
+        />
         {filter ? (
           <Pressable onPress={clearFilter} hitSlop={8} style={styles.clearBtn} accessibilityRole="button">
             <Ionicons name="close-circle" size={16} color={colors.inkMuted} />
@@ -339,81 +342,50 @@ export default function FeedScreen() {
         />
       )}
       {showScrollTop && !loading && products.length > 0 ? (
-        <Pressable
-          style={styles.scrollTopBtn}
+        <FloatingActionButton
+          icon="arrow-up"
+          tone="accent"
+          small
           onPress={scrollToTopAndRefresh}
-          accessibilityRole="button"
-          accessibilityLabel="Back to top and refresh"
-          hitSlop={8}
-        >
-          <Ionicons name="arrow-up" size={20} color={colors.cream} />
-        </Pressable>
+          label="Back to top and refresh"
+          style={styles.scrollTopBtn}
+        />
       ) : null}
 
       <BottomSheet visible={filterOpen} onClose={() => setFilterOpen(false)} title="Filter the feed">
         <ScrollView showsVerticalScrollIndicator={false} style={styles.sheetScroll}>
-          <ThemedText variant="label" color={colors.inkMuted} style={styles.sheetLabel}>
+          <SectionLabel hint="Mix any ranges — leave all off to see every price.">
             PRICE RANGE
-          </ThemedText>
-          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.sheetHint}>
-            Mix any ranges — leave all off to see every price.
-          </ThemedText>
-          <FilterChips
-            options={BUDGETS}
-            selected={draft.budgets}
-            onToggle={(v) => toggleDraft('budgets', v)}
-          />
-          <ThemedText variant="label" color={colors.inkMuted} style={styles.sheetLabel}>
+          </SectionLabel>
+          <ChipWrap>
+            {BUDGETS.map((b) => (
+              <Chip
+                key={b}
+                label={b}
+                selected={draft.budgets.includes(b)}
+                onPress={() => toggleDraft('budgets', b)}
+              />
+            ))}
+          </ChipWrap>
+          <SectionLabel hint="Explore any store — leave all off to see them all.">
             BRANDS
-          </ThemedText>
-          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.sheetHint}>
-            Explore any store — leave all off to see them all.
-          </ThemedText>
-          <FilterChips
-            options={STORES}
-            selected={draft.brands}
-            onToggle={(v) => toggleDraft('brands', v)}
-          />
+          </SectionLabel>
+          <ChipWrap>
+            {STORES.map((s) => (
+              <Chip
+                key={s}
+                label={s}
+                selected={draft.brands.includes(s)}
+                onPress={() => toggleDraft('brands', s)}
+              />
+            ))}
+          </ChipWrap>
         </ScrollView>
         <View style={styles.sheetActions}>
-          <Button label="Clear" variant="outline" fullWidth={false} onPress={clearFilter} />
+          <Button label="Clear" variant="accentInk" fullWidth={false} onPress={clearFilter} />
           <Button label="Show results" fullWidth={false} onPress={applyFilter} />
         </View>
       </BottomSheet>
-    </View>
-  );
-}
-
-// A compact multi-select chip grid used inside the filter sheet.
-function FilterChips({
-  options,
-  selected,
-  onToggle,
-}: {
-  options: string[];
-  selected: string[];
-  onToggle: (v: string) => void;
-}) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(makeStyles);
-  return (
-    <View style={styles.filterChips}>
-      {options.map((o) => {
-        const on = selected.includes(o);
-        return (
-          <Pressable
-            key={o}
-            onPress={() => onToggle(o)}
-            style={[styles.filterChip, on && styles.filterChipOn]}
-            accessibilityRole="button"
-            accessibilityState={{ selected: on }}
-          >
-            <ThemedText variant="label" color={on ? colors.cream : colors.ink}>
-              {o}
-            </ThemedText>
-          </Pressable>
-        );
-      })}
     </View>
   );
 }
@@ -465,7 +437,6 @@ function StoreChipRow({
   active: string | null;
   onChange: (v: string | null) => void;
 }) {
-  const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
     <ScrollView
@@ -473,39 +444,20 @@ function StoreChipRow({
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.storeChips}
     >
-      <StoreChip label="All" on={active === null} onPress={() => onChange(null)} />
+      <Chip label="All" tone="accent" selected={active === null} onPress={() => onChange(null)} />
       {stores.map((store) => {
         const on = active === store;
         return (
-          <StoreChip key={store} label={store} on={on} onPress={() => onChange(on ? null : store)} />
+          <Chip
+            key={store}
+            label={store}
+            tone="accent"
+            selected={on}
+            onPress={() => onChange(on ? null : store)}
+          />
         );
       })}
     </ScrollView>
-  );
-}
-
-function StoreChip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
-  const { colors } = useTheme();
-  const styles = useThemedStyles(makeStyles);
-
-  if (on) {
-    return (
-      <Pressable onPress={onPress} style={[styles.storeChip, styles.storeChipOn]}>
-        <ThemedText variant="label" color={colors.cream}>
-          {label}
-        </ThemedText>
-      </Pressable>
-    );
-  }
-
-  return (
-    <Pressable onPress={onPress}>
-      <Glass intensity={30} style={styles.storeChip}>
-        <ThemedText variant="label" color={colors.ink}>
-          {label}
-        </ThemedText>
-      </Glass>
-    </Pressable>
   );
 }
 
@@ -534,7 +486,7 @@ function ProductCard({
         </View>
       )}
       <View style={styles.cardBody}>
-        <ThemedText variant="labelSmall" color={colors.inkMuted}>
+        <ThemedText variant="eyebrow" color={colors.blushDeep}>
           {item.brand ?? 'Brand'}
         </ThemedText>
         <ThemedText variant="h3" numberOfLines={1}>
@@ -601,35 +553,8 @@ const makeStyles = (c: Colors) =>
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
     },
-    filterBtn: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.xs,
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: c.borderStrong,
-      backgroundColor: c.white,
-      minHeight: 40,
-    },
-    filterBtnOn: { backgroundColor: c.pinkWarm, borderColor: c.pinkWarm },
     clearBtn: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
     sheetScroll: { maxHeight: 420 },
-    sheetLabel: { letterSpacing: 1, marginTop: spacing.md },
-    sheetHint: { marginTop: spacing.xs, marginBottom: spacing.sm, lineHeight: 16 },
-    filterChips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-    filterChip: {
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.pill,
-      borderWidth: 1,
-      borderColor: c.borderStrong,
-      backgroundColor: c.white,
-      minHeight: 40,
-      justifyContent: 'center',
-    },
-    filterChipOn: { backgroundColor: c.ink, borderColor: c.ink },
     sheetActions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
@@ -641,36 +566,14 @@ const makeStyles = (c: Colors) =>
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.sm,
     },
-    storeChip: {
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
-      borderRadius: radius.pill,
-      minHeight: 40,
-      justifyContent: 'center',
-    },
-    storeChipOn: { backgroundColor: c.pinkWarm, borderColor: c.pinkWarm, borderWidth: 1 },
     pickStoresAction: { alignItems: 'center', paddingHorizontal: spacing.xl, marginTop: spacing.lg },
-    // Compact "back to top" nudge — small enough to sit out of the way, above
-    // the tab bar in the bottom-right corner.
-    scrollTopBtn: {
-      position: 'absolute',
-      right: spacing.lg,
-      bottom: 96,
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: c.pinkWarm,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: c.ink,
-      shadowOpacity: 0.2,
-      shadowRadius: 8,
-      shadowOffset: { width: 0, height: 3 },
-      elevation: 4,
-    },
+    // Compact "back to top" nudge — sits above the tab bar, bottom-right.
+    // FloatingActionButton owns its size/color; this only repositions it.
+    scrollTopBtn: { bottom: 108 },
     list: { paddingHorizontal: spacing.lg, paddingBottom: 120, gap: spacing.lg },
     card: { marginBottom: 0 },
-    cardImg: { width: '100%', aspectRatio: 1.1 },
+    // Portrait, image-forward — the garment is the hero of the card.
+    cardImg: { width: '100%', aspectRatio: 0.9 },
     placeholder: { backgroundColor: c.pearl, alignItems: 'center', justifyContent: 'center' },
     cardBody: { padding: spacing.lg, gap: spacing.xs },
     cardFooter: {
