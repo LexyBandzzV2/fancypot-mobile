@@ -11,6 +11,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
+import { useAds } from '@/providers/AdsProvider';
 import { tryOn } from '@/lib/api';
 import { openProductUrl } from '@/lib/affiliate';
 
@@ -20,6 +21,7 @@ export default function TryOnScreen() {
   const { fromCamera, fromLibrary } = useImagePicker();
   const { outfits } = useOutfits();
   const { run, running } = useAIAction();
+  const { maybeShowInterstitial } = useAds();
   const { outfitId } = useLocalSearchParams<{ outfitId?: string }>();
   const [personImage, setPersonImage] = useState<string | null>(null);
   const [personBase64, setPersonBase64] = useState<string | null>(null);
@@ -61,7 +63,14 @@ export default function TryOnScreen() {
             <Card style={styles.resultCard} padded={false}>
               <Image source={{ uri: result }} style={styles.result} contentFit="cover" transition={250} />
             </Card>
-            <Button label="Try another" variant="outline" onPress={() => setResult(null)} />
+            <Button
+              label="Try another"
+              variant="outline"
+              onPress={async () => {
+                await maybeShowInterstitial();
+                setResult(null);
+              }}
+            />
             {outfit?.source_url ? (
               <Pressable style={styles.shopLink} onPress={() => openProductUrl(outfit.source_url)}>
                 <Ionicons name="bag-handle-outline" size={18} color={colors.pinkWarm} />

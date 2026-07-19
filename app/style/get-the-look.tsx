@@ -19,6 +19,7 @@ import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useAuth } from '@/providers/AuthProvider';
+import { useAds } from '@/providers/AdsProvider';
 import { getTheLookSearch, saveOutfit, UsageLimitError, type LookMatch } from '@/lib/api';
 import { uploadWardrobeImage, signWardrobeUrl, deleteWardrobeObject } from '@/lib/storage';
 import { openProductUrl } from '@/lib/affiliate';
@@ -31,6 +32,7 @@ export default function GetTheLookScreen() {
   const styles = useThemedStyles(makeStyles);
   const { fromLibrary, fromCamera } = useImagePicker();
   const { user } = useAuth();
+  const { maybeShowInterstitial } = useAds();
   const [results, setResults] = useState<LookMatch[]>([]);
   const [index, setIndex] = useState(0);
   const [kept, setKept] = useState<LookMatch[]>([]);
@@ -221,7 +223,14 @@ export default function GetTheLookScreen() {
             <ThemedText variant="labelSmall" color={colors.inkMuted} center>
               Saved to your library.
             </ThemedText>
-            <Button label="Start over" variant="outline" onPress={() => setResults([])} />
+            <Button
+              label="Start over"
+              variant="outline"
+              onPress={async () => {
+                await maybeShowInterstitial();
+                setResults([]);
+              }}
+            />
           </View>
         ) : (
           <View style={styles.swipe}>

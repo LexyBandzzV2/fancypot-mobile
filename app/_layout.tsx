@@ -20,6 +20,7 @@ import { View } from 'react-native';
 import * as Sentry from '@sentry/react-native';
 import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { SubscriptionProvider } from '@/providers/SubscriptionProvider';
+import { AdsProvider } from '@/providers/AdsProvider';
 import { AIConsentProvider } from '@/providers/AIConsentProvider';
 import { NavDrawerProvider } from '@/providers/NavDrawerProvider';
 import { ThemeProvider, useTheme } from '@/providers/ThemeProvider';
@@ -119,12 +120,14 @@ function RootLayout() {
         <ThemeProvider>
           <AuthProvider>
             <SubscriptionProvider>
-              <AIConsentProvider>
-                <NavDrawerProvider>
-                  <ThemedStatusBar />
-                  <RootNavigator />
-                </NavDrawerProvider>
-              </AIConsentProvider>
+              <AdsProvider>
+                <AIConsentProvider>
+                  <NavDrawerProvider>
+                    <ThemedStatusBar />
+                    <RootNavigator />
+                  </NavDrawerProvider>
+                </AIConsentProvider>
+              </AdsProvider>
             </SubscriptionProvider>
           </AuthProvider>
         </ThemeProvider>

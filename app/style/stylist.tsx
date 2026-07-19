@@ -16,6 +16,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useWardrobe } from '@/hooks/useWardrobe';
 import { useOutfits } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
+import { useAds } from '@/providers/AdsProvider';
 import { generateOutfit, recommendPieces } from '@/lib/api';
 import { openProductUrl } from '@/lib/affiliate';
 
@@ -45,6 +46,7 @@ export default function StylistScreen() {
   const { items, loading: closetLoading } = useWardrobe();
   const { save } = useOutfits();
   const { run, running } = useAIAction();
+  const { maybeShowInterstitial } = useAds();
   const [mode, setMode] = useState<Mode>('mood');
   const [selected, setSelected] = useState<string[]>([]);
   const [occasion, setOccasion] = useState<string>('Everyday');
@@ -160,7 +162,14 @@ export default function StylistScreen() {
                 disabled={saved}
               />
               <View style={{ height: spacing.sm }} />
-              <Button label="Start over" variant="ghost" onPress={() => setResult(null)} />
+              <Button
+                label="Start over"
+                variant="ghost"
+                onPress={async () => {
+                  await maybeShowInterstitial();
+                  setResult(null);
+                }}
+              />
             </Card>
           </View>
         ) : (

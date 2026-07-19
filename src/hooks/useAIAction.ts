@@ -1,10 +1,11 @@
 import { useCallback, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, type AlertButton } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { UsageLimitError } from '@/lib/api';
 import { useAIConsent } from '@/providers/AIConsentProvider';
 import { useAuth } from '@/providers/AuthProvider';
+import { useAds } from '@/providers/AdsProvider';
 
 /**
  * Wraps an AI edge-function call with consistent loading state + error handling.
@@ -16,6 +17,7 @@ export function useAIAction() {
   const router = useRouter();
   const { ensureConsent } = useAIConsent();
   const { profile } = useAuth();
+  const { canOfferReward, watchRewardedForBonus } = useAds();
   const [running, setRunning] = useState(false);
 
   const run = useCallback(
@@ -50,10 +52,37 @@ export function useAIAction() {
           } else if (e.code === 'blocked') {
             Alert.alert('Access paused', e.message || 'Your AI access is temporarily paused.');
           } else {
-            Alert.alert('Plan limit reached', e.message || "You've hit your plan's limit.", [
-              { text: 'Not now', style: 'cancel' },
-              { text: 'Upgrade', onPress: () => router.push('/paywall') },
-            ]);
+            // Free users at their limit can watch a rewarded ad for one bonus
+            // action instead of upgrading right away. Only offered when an ad is
+            // actually loaded and they're under the daily cap (canOfferReward).
+            const buttons: AlertButton[] = [{ text: 'Not now', style: 'cancel' }];
+            if (canOfferReward) {
+              buttons.push({
+                text: 'Watch ad for a bonus',
+                onPress: async () => {
+                  const outcome = await watchRewardedForBonus();
+                  if (outcome === 'earned') {
+                    Alert.alert(
+                      'Bonus unlocked ✨',
+                      'Your extra try-on is on its way. Give it a few seconds, then tap the button again.',
+                    );
+                  } else if (outcome === 'capped') {
+                    Alert.alert(
+                      "That's all for today",
+                      "You've used all your bonus ads for today. Come back tomorrow, or upgrade for more styling.",
+                      [
+                        { text: 'Maybe later', style: 'cancel' },
+                        { text: 'Upgrade', onPress: () => router.push('/paywall') },
+                      ],
+                    );
+                  } else if (outcome !== 'dismissed') {
+                    Alert.alert('Ad not ready', 'No bonus ad is available right now — try again in a moment.');
+                  }
+                },
+              });
+            }
+            buttons.push({ text: 'Upgrade', onPress: () => router.push('/paywall') });
+            Alert.alert('Plan limit reached', e.message || "You've hit your plan's limit.", buttons);
           }
         } else {
           Alert.alert('Something went wrong', (e as Error)?.message ?? 'Please try again.');
@@ -63,7 +92,7 @@ export function useAIAction() {
         setRunning(false);
       }
     },
-    [router, ensureConsent, profile],
+    [router, ensureConsent, profile, canOfferReward, watchRewardedForBonus],
   );
 
   return { run, running };
