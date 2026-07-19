@@ -4,8 +4,10 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/cormorant-garamond": "^0.4.1",
+    "@expo-google-fonts/great-vibes": "^0.4.1",
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo-google-fonts/pinyon-script": "^0.4.1",
+    "@expo-google-fonts/playfair-display": "^0.4.2",
     "@expo/metro-runtime": "~57.0.3",
     "@expo/vector-icons": "^15.1.1",
     "@sentry/react-native": "~7.11.0",

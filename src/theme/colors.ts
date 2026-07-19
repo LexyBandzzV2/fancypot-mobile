@@ -49,42 +49,42 @@ export interface Colors {
   glassFill: string;
 }
 
-// ---- LIGHT (the original brand palette) ----
+// ---- LIGHT (the design-board palette: pearl white / blush pink / rich black) ----
 export const lightColors: Colors = {
-  // Neutrals / surfaces
-  cream: '#FAF3E7', // app background (also native splash + status bar)
-  pearl: '#F7F3EC', // muted surface
-  beige: '#E7D9C3',
-  tissue: '#F8E4E1', // AP wrapping pink
+  // Neutrals / surfaces — pink-white, not beige (board bg)
+  cream: '#FDF4F6', // app background (also native splash + status bar)
+  pearl: '#F8ECF0', // muted surface
+  beige: '#F0DCD4', // champagne warmth
+  tissue: '#FBE3EC', // wrapping pink
 
   // Blush accents
-  blush: '#F2C9C4',
-  blushDeep: '#D69B93', // primary accent / active states
+  blush: '#F6C6D8',
+  blushDeep: '#DE8BA9', // primary accent / active states — rosy, not terracotta
 
   // Warm pink ("Mean Girls" accent — hero CTAs, highlights)
-  pinkWarm: '#FF73B6', // also PWA theme_color
-  pinkWarmSoft: '#F7A9C4',
-  pinkWarmGlow: '#FBD3E0',
+  pinkWarm: '#F9539B', // board hot pink; also PWA theme_color
+  pinkWarmSoft: '#FBA8CC',
+  pinkWarmGlow: '#FDE0EC',
 
-  // Text / ink
-  ink: '#241E1C', // primary text + primary button fill
-  onyx: '#1A1614', // deepest
-  inkMuted: '#6E625C', // muted body text
+  // Text / ink — rich near-black (board), not warm brown
+  ink: '#1C1518', // primary text + primary button fill
+  onyx: '#100B0D', // deepest
+  inkMuted: '#77626C', // muted body text (mauve-gray)
 
   // Utility
   white: '#FFFFFF', // a raised surface
-  border: '#E7DCCB', // hairline on cream
-  borderStrong: '#D8C9B2',
-  overlay: 'rgba(26, 22, 20, 0.45)',
+  border: '#F2DCE4', // hairline on pink-white
+  borderStrong: '#E5C3D1',
+  overlay: 'rgba(28, 21, 24, 0.45)',
   scrim: 'rgba(0, 0, 0, 0.55)',
   success: '#3F8A5B',
   successSoft: '#E7F2EA',
   danger: '#C4553F',
-  danger_soft: '#F4D9D2',
+  danger_soft: '#F6DCD8',
 
   // Glass tokens (frosted surfaces) — see components/Glass.tsx
   glassTint: 'light',
-  glassScrim: 'rgba(250, 243, 231, 0.55)', // cream @ 55% — frosted fallback
+  glassScrim: 'rgba(253, 244, 246, 0.55)', // bg @ 55% — frosted fallback
   glassEdge: 'rgba(255, 255, 255, 0.55)', // top highlight on a glass edge
   glassFill: 'rgba(255, 255, 255, 0.60)', // translucent card body
 };
@@ -102,8 +102,8 @@ export const darkColors: Colors = {
   blushDeep: '#E29AA6', // active states read brighter on dark
 
   // Warm pink — the hero accent, unchanged so branding is identical
-  pinkWarm: '#FF73B6',
-  pinkWarmSoft: '#F7A9C4',
+  pinkWarm: '#F9539B',
+  pinkWarmSoft: '#FBA8CC',
   pinkWarmGlow: '#3A2230', // on dark this becomes a soft pink-tinted glow surface
 
   // Text / ink — warm off-whites, not pure white

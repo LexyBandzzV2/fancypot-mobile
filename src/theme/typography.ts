@@ -1,17 +1,17 @@
 /**
- * Typography tokens mirroring the web app's font stack:
- *   --font-script  : Pinyon Script        (the "Fancy Pot" wordmark)
- *   --font-display : Cormorant Garamond    (page headings)
- *   --font-sans    : Inter                 (UI labels, uppercase tracked text)
+ * Typography tokens matching the Fancy Pot design board:
+ *   --font-script  : Great Vibes       (the "Fancy Pot" wordmark / luxury script)
+ *   --font-display : Playfair Display  (editorial serif headings)
+ *   --font-sans    : Inter             (UI labels, uppercase tracked text)
  *
  * The matching @expo-google-fonts packages are loaded in app/_layout.tsx.
  * Font family keys below must equal the names registered with expo-font.
  */
 export const fonts = {
-  script: 'PinyonScript_400Regular',
-  display: 'CormorantGaramond_500Medium',
-  displaySemibold: 'CormorantGaramond_600SemiBold',
-  displayItalic: 'CormorantGaramond_500Medium_Italic',
+  script: 'GreatVibes_400Regular',
+  display: 'PlayfairDisplay_500Medium',
+  displaySemibold: 'PlayfairDisplay_600SemiBold',
+  displayItalic: 'PlayfairDisplay_500Medium_Italic',
   sans: 'Inter_400Regular',
   sansMedium: 'Inter_500Medium',
   sansSemibold: 'Inter_600SemiBold',
@@ -20,12 +20,13 @@ export const fonts = {
 export const type = {
   // Big script wordmark, e.g. "Fancy Pot"
   wordmark: { fontFamily: fonts.script, fontSize: 52, lineHeight: 58 },
-  // Cormorant display headings
-  h1: { fontFamily: fonts.displaySemibold, fontSize: 34, lineHeight: 40 },
-  h2: { fontFamily: fonts.displaySemibold, fontSize: 26, lineHeight: 32 },
-  h3: { fontFamily: fonts.display, fontSize: 22, lineHeight: 28 },
-  // Serif body
-  body: { fontFamily: fonts.display, fontSize: 17, lineHeight: 25 },
+  // Playfair editorial headings
+  h1: { fontFamily: fonts.displaySemibold, fontSize: 32, lineHeight: 40 },
+  h2: { fontFamily: fonts.displaySemibold, fontSize: 25, lineHeight: 32 },
+  h3: { fontFamily: fonts.display, fontSize: 21, lineHeight: 28 },
+  // Body copy is functional sans (serif stays reserved for headings/product
+  // names, per the design board's typography roles).
+  body: { fontFamily: fonts.sans, fontSize: 16, lineHeight: 24 },
   bodyItalic: { fontFamily: fonts.displayItalic, fontSize: 17, lineHeight: 25 },
   // Inter UI
   label: { fontFamily: fonts.sansMedium, fontSize: 15, lineHeight: 20 },

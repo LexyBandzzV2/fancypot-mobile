@@ -5,12 +5,12 @@ import { StatusBar } from 'expo-status-bar';
 import { Stack, useRouter, useSegments, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
-import { PinyonScript_400Regular } from '@expo-google-fonts/pinyon-script';
+import { GreatVibes_400Regular } from '@expo-google-fonts/great-vibes';
 import {
-  CormorantGaramond_500Medium,
-  CormorantGaramond_500Medium_Italic,
-  CormorantGaramond_600SemiBold,
-} from '@expo-google-fonts/cormorant-garamond';
+  PlayfairDisplay_500Medium,
+  PlayfairDisplay_500Medium_Italic,
+  PlayfairDisplay_600SemiBold,
+} from '@expo-google-fonts/playfair-display';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -100,10 +100,10 @@ function RootNavigator() {
 
 function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    PinyonScript_400Regular,
-    CormorantGaramond_500Medium,
-    CormorantGaramond_500Medium_Italic,
-    CormorantGaramond_600SemiBold,
+    GreatVibes_400Regular,
+    PlayfairDisplay_500Medium,
+    PlayfairDisplay_500Medium_Italic,
+    PlayfairDisplay_600SemiBold,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
