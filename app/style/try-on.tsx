@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'reac
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
-import { StackHeader, Button, ThemedText, EmptyState, Card } from '@/components';
+import { StackHeader, Button, ThemedText, EmptyState, Card, SectionLabel, UploadZone } from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
@@ -73,31 +73,20 @@ export default function TryOnScreen() {
           </View>
         ) : (
           <>
-            <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
-              YOUR PHOTO
-            </ThemedText>
-            <Pressable onPress={() => pickPerson('library')}>
-              <Glass intensity={40} style={styles.personSlot}>
-                {personImage ? (
-                  <Image source={{ uri: personImage }} style={styles.personImg} contentFit="cover" />
-                ) : (
-                  <View style={styles.personEmpty}>
-                    <Ionicons name="person-add-outline" size={30} color={colors.blushDeep} />
-                    <ThemedText variant="labelSmall" color={colors.inkMuted}>
-                      Tap to add a full-body photo
-                    </ThemedText>
-                  </View>
-                )}
-              </Glass>
-            </Pressable>
+            <SectionLabel>YOUR PHOTO</SectionLabel>
+            <UploadZone
+              onPress={() => pickPerson('library')}
+              imageUri={personImage}
+              title="Tap to add a full-body photo"
+              icon="scan-outline"
+              height={280}
+            />
             <View style={styles.personActions}>
               <Button label="Camera" variant="outline" fullWidth={false} onPress={() => pickPerson('camera')} />
               <Button label="Library" variant="outline" fullWidth={false} onPress={() => pickPerson('library')} />
             </View>
 
-            <ThemedText variant="label" color={colors.inkMuted} style={styles.sectionLabel}>
-              CHOOSE AN OUTFIT
-            </ThemedText>
+            <SectionLabel>CHOOSE AN OUTFIT</SectionLabel>
             {outfits.length === 0 ? (
               <View style={styles.noOutfits}>
                 <EmptyState
