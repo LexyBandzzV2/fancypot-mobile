@@ -82,8 +82,9 @@ export default function TryOnScreen() {
               height={280}
             />
             <View style={styles.personActions}>
-              <Button label="Camera" variant="outline" fullWidth={false} onPress={() => pickPerson('camera')} />
-              <Button label="Library" variant="outline" fullWidth={false} onPress={() => pickPerson('library')} />
+              {/* Web tryon.tsx: white card pills with the pink-blush border. */}
+              <Button label="Camera" variant="outline" fullWidth={false} onPress={() => pickPerson('camera')} style={styles.sourceBtn} />
+              <Button label="Library" variant="outline" fullWidth={false} onPress={() => pickPerson('library')} style={styles.sourceBtn} />
             </View>
 
             <SectionLabel>CHOOSE AN OUTFIT</SectionLabel>
@@ -135,6 +136,7 @@ export default function TryOnScreen() {
             loading={running}
             disabled={!canRun}
             icon={!running ? <Ionicons name="sparkles" size={18} color={colors.cream} /> : undefined}
+            style={styles.tryOnBtn}
           />
         </Glass>
       ) : null}
@@ -160,6 +162,7 @@ const makeStyles = (colors: Colors) =>
     personImg: { width: '100%', height: '100%' },
     personEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
     personActions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.md },
+    sourceBtn: { backgroundColor: colors.white, borderColor: colors.pinkWarmGlow },
     noOutfits: { height: 180 },
     shopLink: {
       flexDirection: 'row',
@@ -175,7 +178,7 @@ const makeStyles = (colors: Colors) =>
       height: 112,
       borderRadius: radius.md,
       borderWidth: 2,
-      borderColor: colors.border,
+      borderColor: colors.pinkWarmGlow,
       overflow: 'hidden',
       backgroundColor: colors.white,
     },
@@ -184,6 +187,14 @@ const makeStyles = (colors: Colors) =>
     outfitPh: { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.pearl },
     footer: {
       padding: spacing.lg,
+    },
+    // Dark "Try it on" pill with the signature soft pink glow.
+    tryOnBtn: {
+      shadowColor: colors.pinkWarm,
+      shadowOpacity: 0.4,
+      shadowRadius: 18,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 6,
     },
     resultWrap: { gap: spacing.lg },
     resultCard: { width: '100%' },
