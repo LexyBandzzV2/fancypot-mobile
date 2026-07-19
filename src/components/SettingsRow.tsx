@@ -44,7 +44,10 @@ export function SettingsRow({ icon, label, value, onPress, destructive }: Settin
 
   const body = (
     <>
-      <Ionicons name={icon} size={20} color={fg} />
+      {/* Web profile rows: icon in a soft pink-cream circle, pink glyph. */}
+      <View style={[styles.iconCircle, destructive && styles.iconCircleDestructive]}>
+        <Ionicons name={icon} size={16} color={destructive ? colors.danger : colors.pinkWarm} />
+      </View>
       <ThemedText variant="body" color={fg} style={styles.label}>
         {label}
       </ThemedText>
@@ -81,6 +84,15 @@ const makeStyles = (c: Colors) =>
       paddingHorizontal: spacing.lg,
     },
     label: { flex: 1 },
+    iconCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: c.beige,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    iconCircleDestructive: { backgroundColor: c.danger_soft },
     pressed: { opacity: 0.6 },
     divider: { height: 1, backgroundColor: c.border, marginLeft: spacing.lg },
   });
