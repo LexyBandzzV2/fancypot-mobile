@@ -1,3 +1,11 @@
+> ⚠️ **Status: the rewarded-ad bonus changes here are ALREADY DEPLOYED** to the
+> shared Supabase project via the web repo (`closet-conjurer-app`, the Lovable
+> project) — migration, the `ai-router.ts` bonus-consume fallback (applied on top
+> of the web repo's current file, preserving its `ai_unlimited` feature), and the
+> `admob-ssv` function. **Do NOT `cp` `_shared/ai-router.ts` from here over the
+> web repo** — this copy predates `ai_unlimited` and would regress it. Everything
+> below is retained as historical reference for the wardrobe-process work.
+
 # Patched web-repo edge functions (ready to copy)
 
 These are the **fully patched** versions of two files from the web repo

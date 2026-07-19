@@ -34,29 +34,28 @@ order; nothing here is required just to build a TestFlight test build.
 > (AdMob bans real ads in debug builds). Real units are used only in
 > preview/production builds.
 
-## 3. Deploy the backend (shared Supabase project `gizqpfbmqgwhbalywkqv`)
+## 3. Backend — ALREADY DEPLOYED ✅ (via the web repo / Lovable)
 
-Order matters — the migration must land before the patched router calls its RPC.
+The entire shared backend for this feature was applied directly to the shared
+Supabase project (`gizqpfbmqgwhbalywkqv`) through the **web repo**
+(`closet-conjurer-app`, the Lovable project), which auto-deploys its edge
+functions. Nothing to run here. What's live:
 
-```bash
-# a) migration: bonus_ai_cents, ad_reward_grants, consume_ai_bonus, grant_ai_reward
-supabase db push --project-ref gizqpfbmqgwhbalywkqv
+- **Migration** — `bonus_ai_cents` on `profiles`, the `ad_reward_grants` table,
+  and the `consume_ai_bonus` / `grant_ai_reward` RPCs (with `EXECUTE` revoked
+  from anon/authenticated — service-role only).
+- **`ai-router.ts`** — the bonus-consume fallback, applied on top of the web
+  repo's current file (so its `ai_unlimited` feature is preserved). All six AI
+  edge functions were redeployed.
+- **`admob-ssv`** edge function — deployed with `verify_jwt = false`.
 
-# b) the SSV callback that grants verified rewards (public endpoint; signature IS
-#    the auth, so JWT verification must be OFF)
-supabase functions deploy admob-ssv --no-verify-jwt --project-ref gizqpfbmqgwhbalywkqv
-```
-
-Then apply the shared enforcement patch in the **web repo** (see
-`supabase/web-repo-patches/README.md` for the full note):
-
-```bash
-cp supabase/web-repo-patches/_shared/ai-router.ts <web-repo>/supabase/functions/_shared/ai-router.ts
-cd <web-repo> && supabase functions deploy wardrobe-process --project-ref gizqpfbmqgwhbalywkqv
-```
-
-The router change is additive: with no bonus earned it behaves exactly as before,
-so paying users are unaffected even before you redeploy it.
+> ⚠️ Do NOT run `supabase db push` from this mobile repo, and do NOT
+> `cp supabase/web-repo-patches/_shared/ai-router.ts` over the web repo — that
+> copy predates the web repo's `ai_unlimited` change and would regress it. The
+> files under `supabase/migrations/`, `supabase/functions/admob-ssv/`, and
+> `supabase/web-repo-patches/` in THIS repo are now **reference copies only**;
+> the live versions were deployed via the web repo. (Re-running the migration
+> would be harmless anyway — it's fully idempotent.)
 
 ## 4. Wire the rewarded SSV callback in AdMob
 
