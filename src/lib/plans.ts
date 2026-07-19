@@ -50,7 +50,11 @@ export const TIERS: Record<EntitlementId, Tier> = {
     plan: 'pro',
     name: 'Pro',
     priceLabel: '$6.99/mo',
-    rcPackageId: '$rc_monthly', // maps to the Pro monthly package in RevenueCat
+    // Custom RevenueCat package identifier. Create a package with this exact id in
+    // the RC dashboard, inside the same Offering, attached to the App Store product
+    // fancypot_pro_monthly. (Standard $rc_* ids are duration-based and must be
+    // unique per offering, so both monthly tiers use custom ids instead.)
+    rcPackageId: 'pro_monthly',
     limits: { outfitsPerMonth: 15, wardrobeItems: 60, tryOnsPerWeek: 6 },
     perks: [
       '15 AI outfits / month',
@@ -65,7 +69,11 @@ export const TIERS: Record<EntitlementId, Tier> = {
     plan: 'ultimate',
     name: 'Business',
     priceLabel: '$14.99/mo',
-    rcPackageId: '$rc_annual', // placeholder RC package id; set in RC dashboard
+    // Custom RevenueCat package identifier. Create a package with this exact id in
+    // the RC dashboard, inside the same Offering as pro_monthly, attached to the
+    // App Store product fancypot_ultimate_monthly. This tier is MONTHLY too, so it
+    // cannot reuse the standard $rc_monthly id — hence a custom identifier.
+    rcPackageId: 'ultimate_monthly',
     limits: { outfitsPerMonth: 45, wardrobeItems: 180, tryOnsPerWeek: 18 },
     perks: [
       '45 AI outfits / month',
