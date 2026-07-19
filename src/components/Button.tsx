@@ -12,7 +12,7 @@ import { radius, spacing, type, TAP_TARGET } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import type { Colors } from '@/theme/colors';
 
-type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'accent' | 'danger';
+type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'accent' | 'accentInk' | 'danger';
 
 interface ButtonProps {
   label: string;
@@ -83,6 +83,8 @@ export function Button({
 const variants = (c: Colors): Record<Variant, { bg: string; fg: string; border: string }> => ({
   primary: { bg: c.ink, fg: c.cream, border: c.ink },
   accent: { bg: c.pinkWarm, fg: c.white, border: c.pinkWarm },
+  // Filled pink with dark text — a loud secondary action (e.g. filter Clear).
+  accentInk: { bg: c.pinkWarm, fg: c.ink, border: c.pinkWarm },
   secondary: { bg: c.blush, fg: c.ink, border: c.blush },
   outline: { bg: 'transparent', fg: c.ink, border: c.blushDeep },
   ghost: { bg: 'transparent', fg: c.ink, border: 'transparent' },
