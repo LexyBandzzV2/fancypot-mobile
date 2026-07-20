@@ -14,21 +14,24 @@ export function SectionLabel({
   children,
   hint,
   style,
+  center,
 }: {
   children: React.ReactNode;
   hint?: string;
   style?: TextStyle;
+  /** Center the title (and hint) instead of the default left alignment. */
+  center?: boolean;
 }) {
   const { colors } = useTheme();
   return (
     <>
       {/* Primary ink (warm cream-white in dark mode) so section titles read
           crisply instead of blending into the background as muted gray. */}
-      <ThemedText variant="label" color={colors.ink} style={[styles.label, style]}>
+      <ThemedText variant="label" center={center} color={colors.ink} style={[styles.label, style]}>
         {children}
       </ThemedText>
       {hint ? (
-        <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.hint}>
+        <ThemedText variant="labelSmall" center={center} color={colors.inkMuted} style={styles.hint}>
           {hint}
         </ThemedText>
       ) : null}

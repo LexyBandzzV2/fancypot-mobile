@@ -67,22 +67,23 @@ export default function Preferences() {
       <StackHeader title="Style preferences" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Order runs shortest → longest so the long store list stays last:
-            Appearance, Your Styles, Budget, then Favorite Stores. */}
-        <SectionLabel style={styles.firstLabel}>APPEARANCE</SectionLabel>
+            Appearance, Your Styles, Budget, then Favorite Stores. Everything is
+            center-aligned for the editorial "mean girl" look. */}
+        <SectionLabel center style={styles.firstLabel}>APPEARANCE</SectionLabel>
         <AppearanceSelector />
-        <SectionLabel>YOUR STYLES</SectionLabel>
+        <SectionLabel center>YOUR STYLES</SectionLabel>
         <OptionChips
           options={STYLES}
           selected={styles_}
           onToggle={(v) => toggle(styles_, setStyles, v)}
         />
-        <SectionLabel hint="Leave all off to see every price.">BUDGET</SectionLabel>
+        <SectionLabel center hint="Leave all off to see every price.">BUDGET</SectionLabel>
         <OptionChips
           options={BUDGETS}
           selected={budgets}
           onToggle={(v) => toggle(budgets, setBudgets, v)}
         />
-        <SectionLabel hint="Optional.">FAVORITE STORES</SectionLabel>
+        <SectionLabel center hint="Optional.">FAVORITE STORES</SectionLabel>
         <OptionChips
           options={STORES}
           selected={stores}
@@ -147,7 +148,9 @@ const makeStyles = (c: Colors) =>
     root: { flex: 1, backgroundColor: c.cream },
     content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
     firstLabel: { marginTop: 0 },
-    chips: { marginBottom: spacing.md },
+    // Center the wrapped chips (incl. a lone chip on the last row) for the
+    // middle-aligned look rather than the generic left-aligned grid.
+    chips: { marginBottom: spacing.md, justifyContent: 'center' },
     footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: c.border },
     // Segmented pill on a blush track — same pink-fill selection language as
     // the web chips (the web app has no appearance control; this keeps ours,
