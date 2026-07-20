@@ -688,10 +688,13 @@ const makeStyles = (c: Colors) =>
     storeChips: {
       gap: spacing.sm,
       paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.sm,
+      paddingTop: spacing.sm,
+      // Clear breathing room between the store chip row and the feed grid so
+      // the first clothing card doesn't read as overlapping the chips.
+      paddingBottom: spacing.md,
     },
     pickStoresAction: { alignItems: 'center', paddingHorizontal: spacing.xl, marginTop: spacing.lg },
-    list: { paddingHorizontal: spacing.lg, paddingBottom: 120, gap: spacing.lg, paddingTop: spacing.md },
+    list: { paddingHorizontal: spacing.lg, paddingBottom: 120, gap: spacing.lg, paddingTop: spacing.lg },
     // Web FeedCard: rounded-3xl white card, pink-blush border, soft pink shadow.
     card: {
       borderRadius: radius.lg,
