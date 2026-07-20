@@ -283,10 +283,18 @@ const SCRAPED_PAGE = 1000;
  * 1st of each month. Pass the user's saved stores to scope server-side; no
  * stores → the whole catalog.
  */
-export async function getScrapedFeed(stores?: string[]): Promise<FeedProduct[]> {
+export async function getScrapedFeed(
+  stores?: string[],
+  opts?: { maxRows?: number },
+): Promise<FeedProduct[]> {
   const keys = (stores ?? []).map(normalizeBrand).filter(Boolean);
+  // maxRows caps the fetch for a fast first paint (stop paging early); omit it
+  // to page the whole catalog (needed for cross-brand filter/search).
+  const maxRows = opts?.maxRows;
   const rows: Record<string, unknown>[] = [];
   for (let page = 0; page * SCRAPED_PAGE < SCRAPED_FEED_CEILING; page++) {
+    // Only pull as many rows as we still need this call (≤ SCRAPED_PAGE).
+    const want = maxRows ? Math.min(SCRAPED_PAGE, maxRows - rows.length) : SCRAPED_PAGE;
     let query = supabase
       .from('feed_scraped_products')
       .select('id, brand, name, price, image_url, product_url, category, style_tags, budget_tier')
@@ -295,7 +303,7 @@ export async function getScrapedFeed(stores?: string[]): Promise<FeedProduct[]> 
       // (duplicating some rows and dropping others).
       .order('scraped_at', { ascending: false })
       .order('id', { ascending: true })
-      .range(page * SCRAPED_PAGE, (page + 1) * SCRAPED_PAGE - 1);
+      .range(page * SCRAPED_PAGE, page * SCRAPED_PAGE + want - 1);
     if (keys.length > 0) query = query.in('brand_key', keys);
     const { data, error } = await query;
     if (error) {
@@ -305,7 +313,8 @@ export async function getScrapedFeed(stores?: string[]): Promise<FeedProduct[]> 
       throw error;
     }
     rows.push(...(data ?? []));
-    if ((data ?? []).length < SCRAPED_PAGE) break; // last page
+    if ((data ?? []).length < want) break; // last page
+    if (maxRows && rows.length >= maxRows) break; // hit the requested cap
   }
   // 'scraped-' prefix marks these ids as synthetic (no products row), same
   // contract as 'fresh-' — reactions must never be written against them.

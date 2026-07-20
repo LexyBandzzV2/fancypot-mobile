@@ -49,6 +49,10 @@ interface FeedFilter {
   brands: string[]; // empty = all brands
 }
 
+// First-paint cap for a user with no saved stores — one page is plenty to fill
+// the screen; the rest of the catalog streams in behind it.
+const INITIAL_SCRAPED_ROWS = 1000;
+
 export default function FeedScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -172,33 +176,46 @@ export default function FeedScreen() {
     }
   }, []);
 
-  const loadScraped = useCallback(async () => {
+  // FAST first paint: pull only what the default view shows — the user's saved
+  // stores (a few hundred rows, one page) — or, for a user with no saved
+  // stores, a single capped page. Paging the WHOLE ~14k-row catalog up front
+  // was the real reason the feed sat on a skeleton for seconds.
+  const loadScrapedInitial = useCallback(async () => {
     try {
-      // Always pull the whole catalog so the in-feed filter can explore brands
-      // beyond the user's saved stores. Brand/budget scoping is applied
-      // client-side in visibleProducts (the catalog is a few thousand rows —
-      // one query, cached until refresh).
-      setScrapedProducts(await getScrapedFeed());
+      const rows = savedStores.length
+        ? await getScrapedFeed(savedStores)
+        : await getScrapedFeed(undefined, { maxRows: INITIAL_SCRAPED_ROWS });
+      // Never let a smaller initial slice clobber an already-loaded full catalog
+      // (e.g. a refresh racing the background fill).
+      setScrapedProducts((prev) => (rows.length >= prev.length ? rows : prev));
     } catch {
       // keep the previous scraped list
     }
+  }, [savedStores]);
+
+  // BACKGROUND: page the whole catalog so the filter/search can reach brands
+  // beyond the saved stores. Runs after first paint; never gates the skeleton.
+  const loadScrapedFull = useCallback(async () => {
+    try {
+      const rows = await getScrapedFeed();
+      setScrapedProducts((prev) => (rows.length >= prev.length ? rows : prev));
+    } catch {
+      // keep whatever the initial load produced
+    }
   }, []);
 
-  // The skeleton only waits on curated + the scraped catalog — both are direct
-  // table reads and typically resolve in well under a second. `loadFresh` hits
-  // a LIVE Google Shopping search on a cache miss (a real external round-trip,
-  // 1-4+ seconds) — gating the skeleton on it made every cold-cache load feel
-  // slow even though most of the feed was already sitting in the catalog.
-  // Fire it in the background instead: freshLoading/freshProducts already
-  // stream its results into the feed reactively once they land, no skeleton
-  // needed.
+  // The skeleton waits on curated + the SCOPED scraped slice — both small,
+  // direct table reads that resolve fast. The full catalog and `loadFresh` (a
+  // LIVE Google Shopping call, 1-4s on a cache miss) both stream in afterward
+  // via their own state, so neither holds up the first cards.
   useEffect(() => {
     (async () => {
-      await Promise.all([loadCurated(), loadScraped()]);
+      await Promise.all([loadCurated(), loadScrapedInitial()]);
       setLoading(false);
     })();
     loadFresh(null);
-  }, [loadCurated, loadScraped, loadFresh]);
+    loadScrapedFull();
+  }, [loadCurated, loadScrapedInitial, loadScrapedFull, loadFresh]);
 
   // Chip change → re-scope only the fresh source (curated is store-independent;
   // refetching it here would be wasted I/O). Skipped on mount — the effect
@@ -217,10 +234,12 @@ export default function FeedScreen() {
     // Reshuffle first so the reorder is visible immediately, even before the
     // (usually unchanged) network refetch resolves.
     setShuffleSeed((s) => s + 1);
-    // Re-pull all sources; the monthly pg_cron job owns catalog scraping.
-    await Promise.all([loadCurated(), loadFresh(activeStore), loadScraped()]);
+    // Re-pull the fast sources so the spinner clears quickly; the full catalog
+    // refreshes in the background (the monthly pg_cron job owns scraping).
+    await Promise.all([loadCurated(), loadFresh(activeStore), loadScrapedInitial()]);
+    loadScrapedFull();
     setRefreshing(false);
-  }, [loadCurated, loadFresh, loadScraped, activeStore]);
+  }, [loadCurated, loadFresh, loadScrapedInitial, loadScrapedFull, activeStore]);
 
   // "Back to top" nudge: jump to the top, then run the same shuffle-refresh.
   const scrollToTopAndRefresh = useCallback(() => {
