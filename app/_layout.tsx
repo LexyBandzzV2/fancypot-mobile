@@ -22,6 +22,7 @@ import { AuthProvider, useAuth } from '@/providers/AuthProvider';
 import { SubscriptionProvider } from '@/providers/SubscriptionProvider';
 import { AdsProvider } from '@/providers/AdsProvider';
 import { AIConsentProvider } from '@/providers/AIConsentProvider';
+import { StylistJobProvider } from '@/providers/StylistJobProvider';
 import { NavDrawerProvider } from '@/providers/NavDrawerProvider';
 import { ThemeProvider, useTheme } from '@/providers/ThemeProvider';
 import { useAuthDeepLinks } from '@/hooks/useAuthDeepLinks';
@@ -90,6 +91,7 @@ function RootNavigator() {
       <Stack.Screen name="style/stylist" options={{ headerShown: false }} />
       <Stack.Screen name="style/get-the-look" options={{ headerShown: false }} />
       <Stack.Screen name="style/try-on" options={{ headerShown: false }} />
+      <Stack.Screen name="style/outfit/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="verify-phone" options={{ presentation: 'modal' }} />
       <Stack.Screen name="settings/manage-subscription" />
       <Stack.Screen name="settings/preferences" />
@@ -124,10 +126,12 @@ function RootLayout() {
             <SubscriptionProvider>
               <AdsProvider>
                 <AIConsentProvider>
-                  <NavDrawerProvider>
-                    <ThemedStatusBar />
-                    <RootNavigator />
-                  </NavDrawerProvider>
+                  <StylistJobProvider>
+                    <NavDrawerProvider>
+                      <ThemedStatusBar />
+                      <RootNavigator />
+                    </NavDrawerProvider>
+                  </StylistJobProvider>
                 </AIConsentProvider>
               </AdsProvider>
             </SubscriptionProvider>

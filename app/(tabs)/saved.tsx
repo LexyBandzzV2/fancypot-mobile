@@ -125,7 +125,7 @@ export default function SavedScreen() {
                 style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
                 onPress={() =>
                   isOutfit
-                    ? router.push({ pathname: '/style/try-on', params: { outfitId: item.id } })
+                    ? router.push({ pathname: '/style/outfit/[id]', params: { id: item.id } })
                     : openLookSource(item.source_url, item.name)
                 }
                 onLongPress={() => {
@@ -136,7 +136,7 @@ export default function SavedScreen() {
                 accessibilityLabel={item.name ?? 'Saved look'}
                 accessibilityHint={
                   isOutfit
-                    ? 'Opens virtual try-on. Long press for more options.'
+                    ? 'Opens the outfit with recommendations. Long press for more options.'
                     : 'Opens the product to shop. Long press for more options.'
                 }
               >

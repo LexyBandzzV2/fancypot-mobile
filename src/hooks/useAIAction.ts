@@ -20,29 +20,41 @@ export function useAIAction() {
   const { canOfferReward, watchRewardedForBonus, showAiGate } = useAds();
   const [running, setRunning] = useState(false);
 
+  /**
+   * The pre-AI gate WITHOUT running any action: phone verification → data
+   * consent → interstitial ad. Resolves true only when every gate is cleared,
+   * so a caller can run the AI call itself (e.g. hand it to a background job
+   * that outlives this screen). Returns false — silently or after a prompt —
+   * when the user must verify / declines consent.
+   */
+  const gate = useCallback(async (): Promise<boolean> => {
+    // One-time phone verification gate: browsing stays open, but AI features
+    // require a verified phone so the free tier can't be farmed via fake accounts.
+    if (profile && !profile.phone_verified) {
+      Alert.alert(
+        'Verify your number first',
+        'To keep Fancy Pot fair for everyone, verify your phone once before using AI features.',
+        [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Verify', onPress: () => router.push('/verify-phone') },
+        ],
+      );
+      return false;
+    }
+    // Apple 5.1.2(i) / Google Prominent Disclosure: get consent before sending
+    // the user's photos to third-party AI. No-op after the first grant.
+    const consented = await ensureConsent();
+    if (!consented) return false;
+    // Free-tier monetization: play a full-screen ad BEFORE the AI runs (each
+    // AI call costs us money). No-op for paid users / when no ad is loaded, so
+    // it never blocks the feature — the ad just gates it when available.
+    await showAiGate();
+    return true;
+  }, [router, ensureConsent, profile, showAiGate]);
+
   const run = useCallback(
     async <T>(action: () => Promise<T>): Promise<T | null> => {
-      // One-time phone verification gate: browsing stays open, but AI features
-      // require a verified phone so the free tier can't be farmed via fake accounts.
-      if (profile && !profile.phone_verified) {
-        Alert.alert(
-          'Verify your number first',
-          'To keep Fancy Pot fair for everyone, verify your phone once before using AI features.',
-          [
-            { text: 'Not now', style: 'cancel' },
-            { text: 'Verify', onPress: () => router.push('/verify-phone') },
-          ],
-        );
-        return null;
-      }
-      // Apple 5.1.2(i) / Google Prominent Disclosure: get consent before sending
-      // the user's photos to third-party AI. No-op after the first grant.
-      const consented = await ensureConsent();
-      if (!consented) return null;
-      // Free-tier monetization: play a full-screen ad BEFORE the AI runs (each
-      // AI call costs us money). No-op for paid users / when no ad is loaded, so
-      // it never blocks the feature — the ad just gates it when available.
-      await showAiGate();
+      if (!(await gate())) return null;
       setRunning(true);
       try {
         const result = await action();
@@ -96,8 +108,8 @@ export function useAIAction() {
         setRunning(false);
       }
     },
-    [router, ensureConsent, profile, canOfferReward, watchRewardedForBonus],
+    [gate, router, canOfferReward, watchRewardedForBonus],
   );
 
-  return { run, running };
+  return { run, gate, running };
 }
