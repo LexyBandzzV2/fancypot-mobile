@@ -69,7 +69,7 @@
       [
         "react-native-google-mobile-ads",
         {
-          "iosAppId": "ca-app-pub-3940256099942544~1458002511",
+          "iosAppId": "ca-app-pub-2901397404746354~3191624750",
           "androidAppId": "ca-app-pub-3940256099942544~3347511713",
           "userTrackingUsageDescription": "Fancy Pot uses this to show ads that fit your style and keep the app free to use. Your info is never sold.",
           "delayAppMeasurementInit": true,
