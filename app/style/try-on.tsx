@@ -13,6 +13,7 @@ import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
 import { useAds } from '@/providers/AdsProvider';
 import { tryOn } from '@/lib/api';
+import { imageUrlToDataUri } from '@/lib/storage';
 import { openLookSource } from '@/lib/affiliate';
 
 export default function TryOnScreen() {
@@ -46,16 +47,24 @@ export default function TryOnScreen() {
 
   const onTryOn = async () => {
     if (!personBase64 || !outfit?.signedUrl) return;
-    // The picker returns RAW base64, but the backend's resolveImageToDataUrl
-    // treats an un-prefixed string as a bare storage path (and blows up with a
-    // giant error embedding the whole base64). A `data:` URL is passed through
-    // untouched, so the prefix is load-bearing. Picker encodes JPEG @ q0.8.
-    const res = await run(() =>
-      tryOn({
+    // Both images go to the edge function as `data:` URIs.
+    //  • Person photo: the picker returns RAW base64; the backend resolver treats
+    //    an un-prefixed string as a bare storage path (and blows up with a giant
+    //    error embedding the whole base64), so the `data:` prefix is load-bearing.
+    //    Picker encodes JPEG @ q0.8.
+    //  • Outfit: a URL — a signed wardrobe URL, or (for feed / Get-the-Look looks)
+    //    a remote retailer/CDN link whose host the resolver won't allowlist
+    //    ("image host not allowed"). Inline it on-device too so it has no host to
+    //    reject. Done inside run() so the loader covers the fetch and a failed
+    //    fetch surfaces through the same error alert.
+    const res = await run(async () => {
+      const outfitImage = await imageUrlToDataUri(outfit.signedUrl!);
+      if (!outfitImage) throw new Error('Could not load the selected outfit image. Try another look.');
+      return tryOn({
         personImage: `data:image/jpeg;base64,${personBase64}`,
-        outfitImage: outfit.signedUrl!,
-      }),
-    );
+        outfitImage,
+      });
+    });
     if (res?.image_url) setResult(res.image_url);
   };
 
