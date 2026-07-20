@@ -31,6 +31,10 @@ import { rewardsRemainingToday, recordRewardWatched, REWARD_DAILY_CAP } from '@/
 const adsSupported = Platform.OS === 'ios' || Platform.OS === 'android';
 // Don't show interstitials back-to-back — feels janky and risks Apple rejection.
 const MIN_INTERSTITIAL_GAP_MS = 90 * 1000;
+// The pre-AI gate can fire more often than natural-break interstitials (each AI
+// call costs the operator money, so a free user pays it back with an ad), but a
+// short guard still blocks accidental double-taps / rapid re-generations.
+const MIN_AI_GATE_GAP_MS = 30 * 1000;
 // Back off before retrying a failed ad load so a persistent error can't spin.
 const AD_RETRY_MS = 30 * 1000;
 const AD_KEYWORDS = ['fashion', 'clothing', 'style', 'shopping', 'beauty'];
@@ -46,6 +50,13 @@ export type RewardOutcome =
 interface AdsContextValue {
   /** Show an interstitial if the user is free-tier, one is loaded, and the gap has elapsed. No-op otherwise. */
   maybeShowInterstitial: () => Promise<void>;
+  /**
+   * Pre-AI gate: for a free user, show a full-screen interstitial and RESOLVE
+   * ONLY once it's dismissed, so the caller can await it before running the AI
+   * action. No-op (resolves immediately) for paid users, unsupported platforms,
+   * or when no ad is loaded — availability must never block the feature.
+   */
+  showAiGate: () => Promise<void>;
   /** Show a rewarded ad to earn one bonus AI action. Resolves with the outcome. */
   watchRewardedForBonus: () => Promise<RewardOutcome>;
   /** True when a rewarded ad can be offered right now (free tier, loaded, under the daily cap). */
@@ -88,6 +99,9 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
   const interstitialReadyRef = useRef(false);
   const rewardedReadyRef = useRef(false);
   const lastInterstitialAtRef = useRef(0);
+  // Resolver for an in-flight showAiGate() promise — settled when the gate ad
+  // is dismissed (CLOSED) or fails (ERROR), so the awaiting AI action proceeds.
+  const aiGateRef = useRef<(() => void) | null>(null);
   const userIdRef = useRef<string | undefined>(undefined);
   // Bridges the imperative watchRewardedForBonus() promise to the ad's events.
   const rewardFlowRef = useRef<{ earned: boolean; resolve: (o: RewardOutcome) => void } | null>(null);
@@ -105,6 +119,17 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     if (flow) {
       rewardFlowRef.current = null;
       flow.resolve(outcome);
+    }
+  }, []);
+
+  // Resolve any pending showAiGate() promise exactly once, from every teardown
+  // path (CLOSED / ERROR / show() rejection), so an awaiting AI action can
+  // never hang behind an ad that already went away.
+  const settleAiGate = useCallback(() => {
+    const resolve = aiGateRef.current;
+    if (resolve) {
+      aiGateRef.current = null;
+      resolve();
     }
   }, []);
 
@@ -155,10 +180,12 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
       }),
       ad.addAdEventListener(AdEventType.CLOSED, () => {
         interstitialReadyRef.current = false;
+        settleAiGate(); // unblock a pre-AI gate waiting on dismissal
         ad.load(); // preload the next one
       }),
       ad.addAdEventListener(AdEventType.ERROR, () => {
         interstitialReadyRef.current = false;
+        settleAiGate(); // ERROR after show() must not leave the gate hanging
         if (retryTimer) clearTimeout(retryTimer);
         retryTimer = setTimeout(() => ad.load(), AD_RETRY_MS);
       }),
@@ -168,10 +195,12 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     return () => {
       unsubs.forEach((u) => u());
       if (retryTimer) clearTimeout(retryTimer);
+      // Teardown mid-gate (upgrade/logout): resolve so the caller isn't stuck.
+      settleAiGate();
       interstitialRef.current = null;
       interstitialReadyRef.current = false;
     };
-  }, [initialized, isFree, npaOnly]);
+  }, [initialized, isFree, npaOnly, settleAiGate]);
 
   // Build + preload the rewarded ad. Recreated when the user changes so the SSV
   // callback carries the right Supabase user id (SSV options are baked at
@@ -275,6 +304,27 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isFree]);
 
+  const showAiGate = useCallback(async (): Promise<void> => {
+    // Paid users, web, or no loaded ad → resolve immediately; NEVER block the
+    // AI feature on ad availability.
+    if (!adsSupported || !isFree) return;
+    const ad = interstitialRef.current;
+    if (!ad || !interstitialReadyRef.current) return;
+    const now = Date.now();
+    if (now - lastInterstitialAtRef.current < MIN_AI_GATE_GAP_MS) return;
+    if (aiGateRef.current) return; // a gate is already showing
+    lastInterstitialAtRef.current = now;
+    interstitialReadyRef.current = false;
+    await new Promise<void>((resolve) => {
+      aiGateRef.current = resolve;
+      Promise.resolve(ad.show()).catch(() => {
+        // Native show() rejected without CLOSED/ERROR — unblock + reload.
+        ad.load();
+        settleAiGate();
+      });
+    });
+  }, [isFree, settleAiGate]);
+
   const watchRewardedForBonus = useCallback(async (): Promise<RewardOutcome> => {
     if (!adsSupported || !isFree) return 'unavailable';
     const uid = userIdRef.current;
@@ -302,11 +352,12 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AdsContextValue>(
     () => ({
       maybeShowInterstitial,
+      showAiGate,
       watchRewardedForBonus,
       canOfferReward,
       rewardsRemaining,
     }),
-    [maybeShowInterstitial, watchRewardedForBonus, canOfferReward, rewardsRemaining],
+    [maybeShowInterstitial, showAiGate, watchRewardedForBonus, canOfferReward, rewardsRemaining],
   );
 
   return <AdsContext.Provider value={value}>{children}</AdsContext.Provider>;

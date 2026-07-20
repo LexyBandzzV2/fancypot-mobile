@@ -17,7 +17,7 @@ export function useAIAction() {
   const router = useRouter();
   const { ensureConsent } = useAIConsent();
   const { profile } = useAuth();
-  const { canOfferReward, watchRewardedForBonus } = useAds();
+  const { canOfferReward, watchRewardedForBonus, showAiGate } = useAds();
   const [running, setRunning] = useState(false);
 
   const run = useCallback(
@@ -39,6 +39,10 @@ export function useAIAction() {
       // the user's photos to third-party AI. No-op after the first grant.
       const consented = await ensureConsent();
       if (!consented) return null;
+      // Free-tier monetization: play a full-screen ad BEFORE the AI runs (each
+      // AI call costs us money). No-op for paid users / when no ad is loaded, so
+      // it never blocks the feature — the ad just gates it when available.
+      await showAiGate();
       setRunning(true);
       try {
         const result = await action();

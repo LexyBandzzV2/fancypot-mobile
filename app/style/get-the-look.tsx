@@ -32,7 +32,7 @@ export default function GetTheLookScreen() {
   const styles = useThemedStyles(makeStyles);
   const { fromLibrary, fromCamera } = useImagePicker();
   const { user } = useAuth();
-  const { maybeShowInterstitial } = useAds();
+  const { maybeShowInterstitial, showAiGate } = useAds();
   const [results, setResults] = useState<LookMatch[]>([]);
   const [index, setIndex] = useState(0);
   const [kept, setKept] = useState<LookMatch[]>([]);
@@ -45,6 +45,9 @@ export default function GetTheLookScreen() {
     const picked = source === 'camera' ? await fromCamera() : await fromLibrary();
     if (!picked) return;
 
+    // Free-tier monetization: play the full-screen ad before the search runs.
+    // No-op for paid users / when no ad is loaded.
+    await showAiGate();
     setSearching(true);
     let uploadedPath: string | null = null;
     try {
