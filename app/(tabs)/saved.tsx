@@ -6,12 +6,13 @@ import {
   RefreshControl,
   Pressable,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { openProductUrl } from '@/lib/affiliate';
+import { openLookSource } from '@/lib/affiliate';
 import {
   AppHeader,
   BottomSheet,
@@ -79,7 +80,7 @@ export default function SavedScreen() {
         <FlatList
           data={outfits}
           keyExtractor={(o) => o.id}
-          numColumns={2}
+          numColumns={NUM_COLUMNS}
           columnWrapperStyle={styles.column}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
@@ -138,18 +139,19 @@ export default function SavedScreen() {
             router.push({ pathname: '/style/try-on', params: id ? { outfitId: id } : {} });
           }}
         />
-        {/* Only shoppable looks (Get the Look matches) carry a source_url. */}
-        {selected?.source_url ? (
-          <SheetAction
-            label="Get the look"
-            icon={<Ionicons name="bag-handle-outline" size={22} color={colors.ink} />}
-            onPress={() => {
-              const url = selected.source_url;
-              setSelected(null);
-              openProductUrl(url);
-            }}
-          />
-        ) : null}
+        {/* Always offer "Get the look": open the exact product page when we
+            captured one (source_url), otherwise fall back to a Google search of
+            the look's name so the shop link is never missing. */}
+        <SheetAction
+          label="Get the look"
+          icon={<Ionicons name="bag-handle-outline" size={22} color={colors.ink} />}
+          onPress={() => {
+            const url = selected?.source_url;
+            const name = selected?.name;
+            setSelected(null);
+            openLookSource(url, name);
+          }}
+        />
         <SheetAction
           label="Delete outfit"
           destructive
@@ -161,7 +163,14 @@ export default function SavedScreen() {
   );
 }
 
+const NUM_COLUMNS = 2;
 const GAP = spacing.md;
+const H_PADDING = spacing.lg;
+// Fixed tile width (mirrors the Closet grid): with a computed half-width, a
+// lone last item stays a normal grid tile on the left instead of stretching
+// to fill the row (which `flex: 1` caused with an odd number of looks).
+const TILE_W =
+  (Dimensions.get('window').width - H_PADDING * 2 - GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 const GRID_CELL_SIZE = 45;
 const GRID_GAP = 12;
 const GRID_OPACITY = 0.15;
@@ -170,12 +179,14 @@ const makeStyles = (c: Colors) =>
   StyleSheet.create({
     root: { flex: 1, backgroundColor: c.cream },
     pad: { paddingHorizontal: spacing.lg },
-    list: { paddingHorizontal: spacing.lg, paddingBottom: 120 },
-    column: { gap: GAP },
+    list: { paddingHorizontal: H_PADDING, paddingBottom: 120 },
+    // flex-start keeps a lone last tile pinned to the left at its normal grid
+    // width rather than letting the row space it out.
+    column: { gap: GAP, justifyContent: 'flex-start' },
     // Editorial look card, matching the web saved grid: radius 24, blush-glow
     // border, soft rose shadow, 3:4 image with name + meta beneath.
     tile: {
-      flex: 1,
+      width: TILE_W,
       marginBottom: GAP,
       borderRadius: radius.lg,
       backgroundColor: c.white,

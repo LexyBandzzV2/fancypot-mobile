@@ -475,8 +475,10 @@ function StoreChipRow({
 }
 
 /**
- * Web feed's centered bottom "Refresh feed" pill: hot pink, up-arrow in a
- * translucent white circle, fading/sliding in past the scroll threshold.
+ * Compact "back to top & refresh" nudge, tucked into the bottom-RIGHT corner
+ * (above the floating tab bar) as a small hot-pink circle so it never covers
+ * the clothing in the middle of the feed. Fades/slides in past the scroll
+ * threshold.
  */
 function RefreshNudge({ visible, onPress }: { visible: boolean; onPress: () => void }) {
   const { colors } = useTheme();
@@ -505,15 +507,10 @@ function RefreshNudge({ visible, onPress }: { visible: boolean; onPress: () => v
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
-        accessibilityLabel="Back to top and refresh"
-        style={({ pressed }) => [styles.nudgePill, pressed && styles.pressedDim]}
+        accessibilityLabel="Back to top and refresh feed"
+        style={({ pressed }) => [styles.nudgeButton, pressed && styles.pressedDim]}
       >
-        <View style={styles.nudgeArrow}>
-          <Ionicons name="arrow-up" size={14} color={colors.white} />
-        </View>
-        <ThemedText variant="labelSmall" color={colors.white} style={styles.nudgeLabel}>
-          Refresh feed
-        </ThemedText>
+        <Ionicons name="arrow-up" size={22} color={colors.white} />
       </Pressable>
     </Animated.View>
   );
@@ -745,36 +742,25 @@ const makeStyles = (c: Colors) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
-    // Centered bottom "Refresh feed" pill, fixed above the floating tab bar.
+    // Compact circular "back to top & refresh" button, tucked into the
+    // bottom-right corner above the floating tab bar so it never covers the
+    // clothing in the feed.
     nudgeWrap: {
       position: 'absolute',
-      left: 0,
-      right: 0,
-      bottom: 108,
-      alignItems: 'center',
+      right: spacing.lg,
+      bottom: 120,
     },
-    nudgePill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: spacing.sm,
+    nudgeButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       backgroundColor: c.pinkWarm,
-      borderRadius: radius.pill,
-      paddingLeft: spacing.md,
-      paddingRight: spacing.lg,
-      paddingVertical: spacing.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
       shadowColor: c.pinkWarm,
       shadowOpacity: 0.35,
       shadowRadius: 14,
       shadowOffset: { width: 0, height: 8 },
       elevation: 6,
     },
-    nudgeArrow: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: `${c.white}33`, // primary-foreground/20
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    nudgeLabel: { fontFamily: fonts.sansMedium },
   });

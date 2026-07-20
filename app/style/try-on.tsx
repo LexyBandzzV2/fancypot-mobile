@@ -13,7 +13,7 @@ import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
 import { useAds } from '@/providers/AdsProvider';
 import { tryOn } from '@/lib/api';
-import { openProductUrl } from '@/lib/affiliate';
+import { openLookSource } from '@/lib/affiliate';
 
 export default function TryOnScreen() {
   const { colors } = useTheme();
@@ -71,12 +71,12 @@ export default function TryOnScreen() {
                 setResult(null);
               }}
             />
-            {outfit?.source_url ? (
-              <Pressable style={styles.shopLink} onPress={() => openProductUrl(outfit.source_url)}>
-                <Ionicons name="bag-handle-outline" size={18} color={colors.pinkWarm} />
+            {outfit ? (
+              <Pressable style={styles.shopLink} onPress={() => openLookSource(outfit.source_url, outfit.name)}>
                 <ThemedText variant="label" color={colors.pinkWarm}>
-                  Shop this look
+                  Get the look
                 </ThemedText>
+                <Ionicons name="open-outline" size={16} color={colors.pinkWarm} />
               </Pressable>
             ) : null}
           </View>
@@ -124,13 +124,15 @@ export default function TryOnScreen() {
               </ScrollView>
             )}
 
-            {/* Shoppable looks (Get the Look matches) carry a retailer link. */}
-            {outfit?.source_url ? (
-              <Pressable style={styles.shopLink} onPress={() => openProductUrl(outfit.source_url)}>
-                <Ionicons name="bag-handle-outline" size={18} color={colors.pinkWarm} />
+            {/* Once an outfit is picked, always offer "Get the look": the exact
+                retailer page when we have it (source_url), else a Google search
+                of the look's name (see openLookSource). */}
+            {outfit ? (
+              <Pressable style={styles.shopLink} onPress={() => openLookSource(outfit.source_url, outfit.name)}>
                 <ThemedText variant="label" color={colors.pinkWarm}>
-                  Shop this look
+                  Get the look
                 </ThemedText>
+                <Ionicons name="open-outline" size={16} color={colors.pinkWarm} />
               </Pressable>
             ) : null}
           </>
