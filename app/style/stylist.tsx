@@ -36,6 +36,7 @@ type PieceSuggestion = Awaited<ReturnType<typeof recommendPieces>>[number];
 
 interface GenerateParams {
   itemIds: string[];
+  items: string[];
   occasion: string;
   vibe: string;
 }
@@ -76,21 +77,34 @@ export default function StylistScreen() {
 
   const onTogglePiece = mode === 'pick' ? togglePick : toggleMulti;
 
+  // The backend styles from IMAGE refs (paths/URLs), which the web app sends;
+  // ids alone read server-side as "no items". Send both, mapped from the same
+  // pieces, so either contract works.
+  const withImages = (ids: string[]): GenerateParams => ({
+    itemIds: ids,
+    items: ids
+      .map((id) => items.find((i) => i.id === id)?.image_url)
+      .filter((u): u is string => !!u),
+    occasion,
+    vibe,
+  });
+
   const buildParams = (): GenerateParams => {
     if (mode === 'mix') {
-      return { itemIds: items.map((i) => i.id), occasion, vibe };
+      return withImages(items.map((i) => i.id));
     }
     if (mode === 'pick') {
-      return { itemIds: selected.slice(0, 1), occasion, vibe };
+      return withImages(selected.slice(0, 1));
     }
     if (mode === 'cook') {
       const shuffled = [...items].sort(() => Math.random() - 0.5);
       const count = Math.min(shuffled.length, 3 + Math.floor(Math.random() * 3)); // 3-5
       const randomVibe = VIBES[Math.floor(Math.random() * VIBES.length)];
-      return { itemIds: shuffled.slice(0, count).map((i) => i.id), occasion, vibe: randomVibe };
+      return { ...withImages(shuffled.slice(0, count).map((i) => i.id)), vibe: randomVibe };
     }
-    // mood
-    return { itemIds: selected, occasion, vibe };
+    // mood: picking pieces is optional — no selection means "style from my
+    // whole closet", not an error.
+    return withImages(selected.length > 0 ? selected : items.map((i) => i.id));
   };
 
   const canGenerate = (() => {

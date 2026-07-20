@@ -366,6 +366,9 @@ export async function getTheLookSearch(imageUrl: string): Promise<LookMatch[]> {
 
 export async function generateOutfit(params: {
   itemIds: string[];
+  /** Storage paths / URLs of the same pieces. The deployed function resolves
+   * image refs (the web app sends these); itemIds alone read as "no items". */
+  items?: string[];
   occasion?: string;
   vibe?: string;
 }): Promise<{ image_url: string }> {
