@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
-import { StackHeader, Button, ThemedText, EmptyState, Card, SectionLabel, UploadZone } from '@/components';
+import { StackHeader, Button, ThemedText, EmptyState, Card, SectionLabel, UploadZone, CookingLoader } from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
@@ -46,8 +46,15 @@ export default function TryOnScreen() {
 
   const onTryOn = async () => {
     if (!personBase64 || !outfit?.signedUrl) return;
+    // The picker returns RAW base64, but the backend's resolveImageToDataUrl
+    // treats an un-prefixed string as a bare storage path (and blows up with a
+    // giant error embedding the whole base64). A `data:` URL is passed through
+    // untouched, so the prefix is load-bearing. Picker encodes JPEG @ q0.8.
     const res = await run(() =>
-      tryOn({ personImage: personBase64, outfitImage: outfit.signedUrl! }),
+      tryOn({
+        personImage: `data:image/jpeg;base64,${personBase64}`,
+        outfitImage: outfit.signedUrl!,
+      }),
     );
     if (res?.image_url) setResult(res.image_url);
   };
@@ -153,8 +160,8 @@ export default function TryOnScreen() {
       ) : null}
 
       {running ? (
-        <View style={styles.overlay} pointerEvents="none">
-          <ActivityIndicator size="large" color={colors.pinkWarm} />
+        <View style={styles.overlay}>
+          <CookingLoader caption="Dressing you up…" subCaption="Fitting the look to your photo" />
         </View>
       ) : null}
     </View>
