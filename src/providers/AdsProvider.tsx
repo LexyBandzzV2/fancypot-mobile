@@ -31,10 +31,11 @@ import { rewardsRemainingToday, recordRewardWatched, REWARD_DAILY_CAP } from '@/
 const adsSupported = Platform.OS === 'ios' || Platform.OS === 'android';
 // Don't show interstitials back-to-back — feels janky and risks Apple rejection.
 const MIN_INTERSTITIAL_GAP_MS = 90 * 1000;
-// The pre-AI gate can fire more often than natural-break interstitials (each AI
-// call costs the operator money, so a free user pays it back with an ad), but a
-// short guard still blocks accidental double-taps / rapid re-generations.
-const MIN_AI_GATE_GAP_MS = 30 * 1000;
+// The pre-AI gate fires before EVERY generation (that's the free-tier deal —
+// each AI call is paid back with an ad). Only a small guard remains, purely to
+// stop two ads firing within seconds of each other (e.g. generate immediately
+// followed by try-on), which Apple rejects — not to skip normal generations.
+const MIN_AI_GATE_GAP_MS = 15 * 1000;
 // Back off before retrying a failed ad load so a persistent error can't spin.
 const AD_RETRY_MS = 30 * 1000;
 const AD_KEYWORDS = ['fashion', 'clothing', 'style', 'shopping', 'beauty'];
