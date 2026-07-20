@@ -42,6 +42,10 @@ export function useWardrobe() {
   const [items, setItems] = useState<WardrobeDisplayItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Ids with a styling call currently in flight. The tile UI otherwise derives
+  // entirely from the DB row, which still says failed/stalled while a retry
+  // runs — so without this, tapping "Tap to retry" gave no visible feedback.
+  const [processingIds, setProcessingIds] = useState<Set<string>>(new Set());
 
   const hydrate = useCallback(async (rows: WardrobeItem[]) => {
     const withUrls = await Promise.all(
@@ -91,6 +95,12 @@ export function useWardrobe() {
   // limit), and silently dropping that left items at "Styling…" forever.
   const kickProcessing = useCallback(
     (itemId: string) => {
+      setProcessingIds((prev) => {
+        if (prev.has(itemId)) return prev; // already in flight — ignore re-taps
+        const next = new Set(prev);
+        next.add(itemId);
+        return next;
+      });
       processWardrobeItem(itemId)
         .catch((e) => {
           const msg =
@@ -100,6 +110,11 @@ export function useWardrobe() {
           Alert.alert('Styling paused', msg);
         })
         .finally(() => {
+          setProcessingIds((prev) => {
+            const next = new Set(prev);
+            next.delete(itemId);
+            return next;
+          });
           // Backup for missed realtime events: pull the row's final status.
           load();
         });
@@ -149,5 +164,5 @@ export function useWardrobe() {
     [],
   );
 
-  return { items, loading, error, reload: load, add, remove, retryProcessing, update };
+  return { items, loading, error, processingIds, reload: load, add, remove, retryProcessing, update };
 }

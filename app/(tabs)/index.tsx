@@ -62,7 +62,7 @@ function isStalled(item: WardrobeDisplayItem): boolean {
 export default function ClosetScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { items, loading, add, remove, reload, retryProcessing, update } = useWardrobe();
+  const { items, loading, add, remove, reload, retryProcessing, update, processingIds } = useWardrobe();
   const { fromCamera, fromLibrary } = useImagePicker();
   const { tier } = useSubscription();
   const [addSheet, setAddSheet] = useState(false);
@@ -231,20 +231,25 @@ export default function ClosetScreen() {
                 body="Try a different search or category."
               />
             }
-            renderItem={({ item }) => (
-              <ClosetTile
-                item={item}
-                onPress={() => {
-                  // Stalled/failed pieces retry on tap; settled pieces open edit.
-                  if (isStalled(item) || isFailed(item)) {
-                    retryProcessing(item);
-                  } else if (!isProcessing(item)) {
-                    openEditor(item.id, item.name, item.category);
-                  }
-                }}
-                onLongPress={() => setSelected(item)}
-              />
-            )}
+            renderItem={({ item }) => {
+              const retrying = processingIds.has(item.id);
+              return (
+                <ClosetTile
+                  item={item}
+                  retrying={retrying}
+                  onPress={() => {
+                    if (retrying) return; // styling call already in flight
+                    // Stalled/failed pieces retry on tap; settled pieces open edit.
+                    if (isStalled(item) || isFailed(item)) {
+                      retryProcessing(item);
+                    } else if (!isProcessing(item)) {
+                      openEditor(item.id, item.name, item.category);
+                    }
+                  }}
+                  onLongPress={() => setSelected(item)}
+                />
+              );
+            }}
           />
         </>
       )}
@@ -339,18 +344,22 @@ export default function ClosetScreen() {
 
 function ClosetTile({
   item,
+  retrying,
   onPress,
   onLongPress,
 }: {
   item: WardrobeDisplayItem;
+  /** A styling call is in flight for this piece (e.g. after Tap to retry) —
+   * show "Styling…" immediately instead of the stale failed/stalled state. */
+  retrying?: boolean;
   onPress: () => void;
   onLongPress: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const stalled = isStalled(item);
-  const failed = isFailed(item);
-  const processing = isProcessing(item) && !stalled;
+  const stalled = !retrying && isStalled(item);
+  const failed = !retrying && isFailed(item);
+  const processing = retrying || (isProcessing(item) && !stalled);
   const category =
     item.category && item.category !== 'Uncategorized' ? item.category : null;
   return (
