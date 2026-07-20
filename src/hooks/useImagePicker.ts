@@ -9,13 +9,23 @@ export interface PickedImage {
   height: number;
 }
 
+export interface PickOptions {
+  /** Opens the native crop/resize UI before returning the image. Default false
+   * (wardrobe/outfit photos keep the original framing). Pass true for pickers
+   * where the user should control cropping, e.g. a profile picture. */
+  allowsEditing?: boolean;
+  /** Locked crop aspect ratio [width, height] — only meaningful with
+   * allowsEditing. e.g. [1, 1] for a square avatar. */
+  aspect?: [number, number];
+}
+
 /**
  * Presents a native camera/library picker (from a bottom action sheet the
  * caller triggers) and returns a resized base64 payload ready for upload or
  * for sending to an edge function.
  */
 export function useImagePicker() {
-  const fromLibrary = useCallback(async (): Promise<PickedImage | null> => {
+  const fromLibrary = useCallback(async (opts?: PickOptions): Promise<PickedImage | null> => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       Alert.alert('Photos access needed', 'Enable photo access in Settings to add pieces.');
@@ -25,12 +35,13 @@ export function useImagePicker() {
       mediaTypes: ['images'],
       quality: 0.8,
       base64: true,
-      allowsEditing: false,
+      allowsEditing: opts?.allowsEditing ?? false,
+      aspect: opts?.aspect,
     });
     return toPicked(res);
   }, []);
 
-  const fromCamera = useCallback(async (): Promise<PickedImage | null> => {
+  const fromCamera = useCallback(async (opts?: PickOptions): Promise<PickedImage | null> => {
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
       Alert.alert('Camera access needed', 'Enable camera access in Settings to snap pieces.');
@@ -40,7 +51,8 @@ export function useImagePicker() {
       const res = await ImagePicker.launchCameraAsync({
         quality: 0.8,
         base64: true,
-        allowsEditing: false,
+        allowsEditing: opts?.allowsEditing ?? false,
+        aspect: opts?.aspect,
       });
       return toPicked(res);
     } catch {

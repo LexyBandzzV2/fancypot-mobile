@@ -178,18 +178,21 @@ export default function FeedScreen() {
     }
   }, []);
 
+  // The skeleton only waits on curated + the scraped catalog — both are direct
+  // table reads and typically resolve in well under a second. `loadFresh` hits
+  // a LIVE Google Shopping search on a cache miss (a real external round-trip,
+  // 1-4+ seconds) — gating the skeleton on it made every cold-cache load feel
+  // slow even though most of the feed was already sitting in the catalog.
+  // Fire it in the background instead: freshLoading/freshProducts already
+  // stream its results into the feed reactively once they land, no skeleton
+  // needed.
   useEffect(() => {
     (async () => {
-      await Promise.all([loadCurated(), loadFresh(null)]);
+      await Promise.all([loadCurated(), loadScraped()]);
       setLoading(false);
     })();
-  }, [loadCurated, loadFresh]);
-
-  // Load the scraped catalog once on mount (loadScraped no longer depends on
-  // saved stores — it always fetches the full catalog, scoped client-side).
-  useEffect(() => {
-    loadScraped();
-  }, [loadScraped]);
+    loadFresh(null);
+  }, [loadCurated, loadScraped, loadFresh]);
 
   // Chip change → re-scope only the fresh source (curated is store-independent;
   // refetching it here would be wasted I/O). Skipped on mount — the effect
@@ -427,6 +430,13 @@ export default function FeedScreen() {
           showsVerticalScrollIndicator={false}
           onScroll={onScroll}
           scrollEventThrottle={64}
+          // Render just the first screen immediately instead of measuring/
+          // mounting the whole list up front — the rest streams in as the user
+          // scrolls, so the initial paint doesn't wait on off-screen rows.
+          initialNumToRender={6}
+          maxToRenderPerBatch={6}
+          windowSize={7}
+          removeClippedSubviews
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blushDeep} />
           }

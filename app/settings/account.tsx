@@ -69,7 +69,9 @@ export default function AccountScreen() {
 
   const pick = async (source: 'camera' | 'library') => {
     setAvatarSheet(false);
-    const picked = source === 'camera' ? await fromCamera() : await fromLibrary();
+    // Square crop UI so the user controls exactly how their avatar is framed.
+    const cropOpts = { allowsEditing: true, aspect: [1, 1] as [number, number] };
+    const picked = source === 'camera' ? await fromCamera(cropOpts) : await fromLibrary(cropOpts);
     if (!picked) return;
     setPickedUri(picked.uri);
     setPickedBase64(picked.base64);
@@ -135,21 +137,25 @@ export default function AccountScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Avatar */}
+        {/* Avatar. The circle clips the photo; the camera badge sits on a
+            non-clipping outer wrapper so it floats just outside the circle's
+            edge instead of overlapping the face. */}
         <View style={styles.avatarWrap}>
           <Pressable
             onPress={() => setAvatarSheet(true)}
-            style={({ pressed }) => [styles.avatar, pressed && styles.pressedDim]}
+            style={({ pressed }) => [styles.avatarOuter, pressed && styles.pressedDim]}
             accessibilityRole="button"
             accessibilityLabel="Change profile picture"
           >
-            {avatarDisplay ? (
-              <Image source={{ uri: avatarDisplay }} style={styles.avatarImg} contentFit="cover" transition={150} />
-            ) : (
-              <ThemedText variant="h1" color={colors.blushDeep}>
-                {initials}
-              </ThemedText>
-            )}
+            <View style={styles.avatar}>
+              {avatarDisplay ? (
+                <Image source={{ uri: avatarDisplay }} style={styles.avatarImg} contentFit="cover" transition={150} />
+              ) : (
+                <ThemedText variant="h1" color={colors.blushDeep}>
+                  {initials}
+                </ThemedText>
+              )}
+            </View>
             <View style={styles.avatarBadge}>
               <Ionicons name="camera" size={15} color={colors.white} />
             </View>
@@ -293,6 +299,12 @@ const makeStyles = (c: Colors) =>
     content: { padding: spacing.lg, paddingBottom: spacing.xxxl },
     pressedDim: { opacity: 0.8 },
     avatarWrap: { alignItems: 'center', marginBottom: spacing.lg, gap: spacing.sm },
+    // Unclipped positioning context — lets the badge float outside the
+    // circle's edge instead of being clipped by (or drawn over) the photo.
+    avatarOuter: {
+      width: 96,
+      height: 96,
+    },
     avatar: {
       width: 96,
       height: 96,
@@ -305,13 +317,14 @@ const makeStyles = (c: Colors) =>
       overflow: 'hidden',
     },
     avatarImg: { width: '100%', height: '100%' },
+    // Sits just outside the circle's bottom-right edge, not over the photo.
     avatarBadge: {
       position: 'absolute',
-      right: 2,
-      bottom: 2,
-      width: 30,
-      height: 30,
-      borderRadius: 15,
+      right: -6,
+      bottom: -6,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
       backgroundColor: c.pinkWarm,
       alignItems: 'center',
       justifyContent: 'center',
