@@ -93,6 +93,8 @@ function RootNavigator() {
       <Stack.Screen name="verify-phone" options={{ presentation: 'modal' }} />
       <Stack.Screen name="settings/manage-subscription" />
       <Stack.Screen name="settings/preferences" />
+      <Stack.Screen name="settings/account" />
+      <Stack.Screen name="settings/change-email" />
       <Stack.Screen name="settings/delete-account" options={{ presentation: 'modal' }} />
       <Stack.Screen name="legal/[doc]" options={{ presentation: 'modal' }} />
     </Stack>

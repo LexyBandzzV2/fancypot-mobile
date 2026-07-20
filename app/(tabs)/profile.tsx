@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Pressable, ScrollView, Linking } from 'react-native';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +12,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSubscription } from '@/providers/SubscriptionProvider';
 import { useNavDrawer } from '@/providers/NavDrawerProvider';
+import { useSignedAvatar } from '@/hooks/useSignedAvatar';
 
 const SUPPORT_EMAIL = 'support@fancypot.org';
 
@@ -27,6 +29,7 @@ export default function ProfileScreen() {
   const firstName = displayName.split(/[\s@]/)[0] || 'there';
   const initials = (displayName || 'F').slice(0, 1).toUpperCase();
   const isBusiness = tier.entitlement === 'business';
+  const avatarUrl = useSignedAvatar(profile?.avatar_url);
 
   return (
     <ScrollView
@@ -53,11 +56,20 @@ export default function ProfileScreen() {
             You look amazing today.
           </ThemedText>
         </View>
-        <View style={styles.avatar}>
-          <ThemedText variant="h3" color={colors.blushDeep}>
-            {initials}
-          </ThemedText>
-        </View>
+        <Pressable
+          onPress={() => router.push('/settings/account')}
+          style={({ pressed }) => [styles.avatar, pressed && styles.pressedDim]}
+          accessibilityRole="button"
+          accessibilityLabel="Edit your account"
+        >
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatarImg} contentFit="cover" transition={150} />
+          ) : (
+            <ThemedText variant="h3" color={colors.blushDeep}>
+              {initials}
+            </ThemedText>
+          )}
+        </Pressable>
       </View>
 
       {/* Plan card — blush gradient with the Upgrade / Manage pill */}
@@ -110,6 +122,12 @@ export default function ProfileScreen() {
       {/* Settings */}
       <SectionLabel>SETTINGS</SectionLabel>
       <SettingsGroup>
+        <SettingsRow
+          icon="person-circle-outline"
+          label="Account"
+          value="Name, photo, birthday"
+          onPress={() => router.push('/settings/account')}
+        />
         <SettingsRow
           icon="options-outline"
           label="Style preferences"
@@ -195,7 +213,9 @@ const makeStyles = (c: Colors) =>
       borderColor: c.blush,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
     },
+    avatarImg: { width: '100%', height: '100%' },
     planCard: {
       borderRadius: radius.lg,
       borderWidth: 1,

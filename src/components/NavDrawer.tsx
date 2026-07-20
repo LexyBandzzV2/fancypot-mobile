@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname, type Href } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -18,6 +19,7 @@ import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSubscription } from '@/providers/SubscriptionProvider';
+import { useSignedAvatar } from '@/hooks/useSignedAvatar';
 import { ThemedText } from './Typography';
 import { Glass } from './Glass';
 
@@ -48,6 +50,7 @@ const TOOLS: NavItem[] = [
 ];
 
 const ACCOUNT: NavItem[] = [
+  { icon: 'person-circle-outline', label: 'Account', href: '/settings/account' },
   { icon: 'options-outline', label: 'Style Preferences', href: '/settings/preferences' },
 ];
 
@@ -102,6 +105,13 @@ export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () 
 
   const isBusiness = tier.entitlement === 'business';
   const initials = (profile?.display_name ?? user?.email ?? 'F').slice(0, 1).toUpperCase();
+  const avatarUrl = useSignedAvatar(profile?.avatar_url);
+
+  const goToAccount = () => {
+    Haptics.selectionAsync().catch(() => {});
+    onClose();
+    router.push('/settings/account');
+  };
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
@@ -111,21 +121,33 @@ export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () 
         </Animated.View>
         <Animated.View style={[styles.panelWrap, { transform: [{ translateX }] }]}>
           <Glass style={[styles.panel, { paddingTop: insets.top + spacing.lg }]} intensity={60}>
-            {/* Account summary + close, like the web drawer header */}
+            {/* Account summary + close, like the web drawer header. Tapping the
+                avatar/name opens the account editor. */}
             <View style={styles.account}>
-              <View style={styles.avatar}>
-                <ThemedText variant="h3" color={colors.blushDeep}>
-                  {initials}
-                </ThemedText>
-              </View>
-              <View style={styles.accountInfo}>
-                <ThemedText variant="h3" numberOfLines={1}>
-                  {profile?.display_name ?? 'Your account'}
-                </ThemedText>
-                <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
-                  {tier.name} plan
-                </ThemedText>
-              </View>
+              <Pressable
+                style={styles.accountTap}
+                onPress={goToAccount}
+                accessibilityRole="button"
+                accessibilityLabel="Edit your account"
+              >
+                <View style={styles.avatar}>
+                  {avatarUrl ? (
+                    <Image source={{ uri: avatarUrl }} style={styles.avatarImg} contentFit="cover" transition={150} />
+                  ) : (
+                    <ThemedText variant="h3" color={colors.blushDeep}>
+                      {initials}
+                    </ThemedText>
+                  )}
+                </View>
+                <View style={styles.accountInfo}>
+                  <ThemedText variant="h3" numberOfLines={1}>
+                    {profile?.display_name ?? 'Your account'}
+                  </ThemedText>
+                  <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
+                    {tier.name} plan
+                  </ThemedText>
+                </View>
+              </Pressable>
               <Pressable
                 onPress={onClose}
                 hitSlop={8}
@@ -266,6 +288,12 @@ const makeStyles = (c: Colors) =>
       gap: spacing.md,
       paddingBottom: spacing.lg,
     },
+    accountTap: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
     avatar: {
       width: 44,
       height: 44,
@@ -275,7 +303,9 @@ const makeStyles = (c: Colors) =>
       borderColor: c.blush,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
     },
+    avatarImg: { width: '100%', height: '100%' },
     accountInfo: { flex: 1 },
     closeBtn: {
       width: 36,
