@@ -122,7 +122,8 @@
             "3qcr597p9d.skadnetwork"
           ]
         }
-      ]
+      ],
+      "./plugins/withDisableSentryUpload"
     ],
     "experiments": {
       "typedRoutes": true
