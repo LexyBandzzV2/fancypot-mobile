@@ -41,12 +41,16 @@ module.exports = function withDisableSentryUpload(config) {
         continue;
       }
 
-      // Only touch phases that invoke Sentry, and only once.
-      const touchesSentry =
+      // Anchor on the React Native bundle script (the phase that actually
+      // fails), which is present BOTH before and after Sentry wraps it — so
+      // this works regardless of whether we run before or after Sentry's mod.
+      // Also catch the standalone "Upload Debug Symbols to Sentry" phase.
+      const isSentryOrBundlePhase =
+        decoded.includes('react-native-xcode.sh') ||
         decoded.includes('sentry-xcode') ||
         decoded.toLowerCase().includes('sentry-cli') ||
-        decoded.includes('@sentry');
-      if (!touchesSentry) continue;
+        decoded.includes('@sentry/react-native');
+      if (!isSentryOrBundlePhase) continue;
       if (decoded.includes('SENTRY_DISABLE_AUTO_UPLOAD=true')) continue;
 
       phase.shellScript = JSON.stringify(`${EXPORT_LINE}\n${decoded}`);
