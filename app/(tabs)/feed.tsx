@@ -39,6 +39,7 @@ import {
 import { openProductUrl } from '@/lib/affiliate';
 import { brandsMatch, budgetTierAllowed, resolveSavedBudgets, STORES, BUDGETS } from '@/lib/brands';
 import { useAuth } from '@/providers/AuthProvider';
+import { useOutfits } from '@/hooks/useOutfits';
 
 // A session-only filter: explore price ranges / brands beyond the saved
 // profile for this browse, without touching persisted preferences. null when
@@ -52,6 +53,7 @@ export default function FeedScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { profile } = useAuth();
+  const { save: saveOutfit } = useOutfits();
   const router = useRouter();
   // The three sources are held separately: curated (feed-page) is
   // store-independent and only refetched on mount / pull-to-refresh; fresh
@@ -67,6 +69,10 @@ export default function FeedScreen() {
   const [freshLoading, setFreshLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [reactions, setReactions] = useState<Record<string, 'like' | 'dislike' | 'save'>>({});
+  // Feed pieces the user has saved to their Saved Looks this session (drives the
+  // filled-bookmark state). Independent of like/dislike so a piece can be both
+  // liked and saved.
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [activeStore, setActiveStore] = useState<string | null>(null);
   // Bumped on every refresh to reshuffle the visible order — the monthly
   // scrape rarely changes, so a fresh shuffle is what makes a pull-to-refresh
@@ -294,21 +300,52 @@ export default function FeedScreen() {
   }, []);
 
   const react = useCallback(
-    async (product: FeedProduct, reaction: 'like' | 'dislike' | 'save') => {
+    async (product: FeedProduct, reaction: 'like' | 'dislike') => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setReactions((prev) => ({ ...prev, [product.id]: reaction }));
-      try {
-        await reactToProduct(product.id, reaction);
-        if (reaction === 'dislike') {
-          setFreshProducts((prev) => prev.filter((p) => p.id !== product.id));
-          setScrapedProducts((prev) => prev.filter((p) => p.id !== product.id));
-          setCuratedProducts((prev) => prev.filter((p) => p.id !== product.id));
+      if (reaction === 'dislike') {
+        setFreshProducts((prev) => prev.filter((p) => p.id !== product.id));
+        setScrapedProducts((prev) => prev.filter((p) => p.id !== product.id));
+        setCuratedProducts((prev) => prev.filter((p) => p.id !== product.id));
+      }
+      // Synthetic (fresh-/scraped-) ids have no products row — the reaction
+      // can't persist, but the like/hide still works locally. Only real
+      // products record the reaction server-side.
+      if (!isSyntheticProduct(product.id)) {
+        try {
+          await reactToProduct(product.id, reaction);
+        } catch {
+          // ignore; optimistic
         }
-      } catch {
-        // ignore; optimistic
       }
     },
     [],
+  );
+
+  // Save a feed piece to Saved Looks. Works for EVERY item (including synthetic
+  // scraped/live results) because it writes a shoppable outfit row — the same
+  // mechanism as Get-the-Look — rather than a product reaction.
+  const saveToLooks = useCallback(
+    async (product: FeedProduct) => {
+      if (savedIds.has(product.id)) return; // already saved this session
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setSavedIds((prev) => new Set(prev).add(product.id));
+      try {
+        await saveOutfit({
+          name: product.name ?? product.brand ?? 'Saved piece',
+          image_url: product.image_url ?? '',
+          source_url: product.product_url ?? null,
+        });
+      } catch {
+        // Roll back the filled bookmark if the save didn't land.
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(product.id);
+          return next;
+        });
+      }
+    },
+    [savedIds, saveOutfit],
   );
 
   const filterCount = filter ? filter.budgets.length + filter.brands.length : 0;
@@ -441,7 +478,13 @@ export default function FeedScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blushDeep} />
           }
           renderItem={({ item }) => (
-            <ProductCard item={item} reaction={reactions[item.id]} onReact={react} />
+            <ProductCard
+              item={item}
+              reaction={reactions[item.id]}
+              saved={savedIds.has(item.id)}
+              onReact={react}
+              onSave={saveToLooks}
+            />
           )}
           ListEmptyComponent={
             // A chip/filter/search can narrow the current list to nothing while
@@ -637,18 +680,21 @@ function RefreshNudge({ visible, onPress }: { visible: boolean; onPress: () => v
 function ProductCard({
   item,
   reaction,
+  saved,
   onReact,
+  onSave,
 }: {
   item: FeedProduct;
   reaction?: 'like' | 'dislike' | 'save';
-  onReact: (p: FeedProduct, r: 'like' | 'dislike' | 'save') => void;
+  saved?: boolean;
+  onReact: (p: FeedProduct, r: 'like' | 'dislike') => void;
+  onSave: (p: FeedProduct) => void;
 }) {
-  // Fresh-feed items are synthetic (no products row), so like/save can't
-  // persist — hide those buttons rather than show a heart that lies. Dislike
-  // stays: it's an honest session-local "hide this" either way.
+  // Like/Save now work on EVERY card. Save always writes a Saved Look (works
+  // even for synthetic scraped/live items); Like persists server-side only for
+  // real products but still gives a local heart on synthetic ones.
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const synthetic = isSyntheticProduct(item.id);
   return (
     <View style={styles.card}>
       <View style={styles.cardImgWrap}>
@@ -660,22 +706,20 @@ function ProductCard({
           </View>
         )}
         {/* Floating like — web FeedCard's heart on a white/90 circle. */}
-        {!synthetic ? (
-          <Pressable
-            onPress={() => onReact(item, 'like')}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Like"
-            accessibilityState={{ selected: reaction === 'like' }}
-            style={styles.heartBtn}
-          >
-            <Ionicons
-              name={reaction === 'like' ? 'heart' : 'heart-outline'}
-              size={18}
-              color={colors.pinkWarm}
-            />
-          </Pressable>
-        ) : null}
+        <Pressable
+          onPress={() => onReact(item, 'like')}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Like"
+          accessibilityState={{ selected: reaction === 'like' }}
+          style={styles.heartBtn}
+        >
+          <Ionicons
+            name={reaction === 'like' ? 'heart' : 'heart-outline'}
+            size={18}
+            color={colors.pinkWarm}
+          />
+        </Pressable>
       </View>
       <View style={styles.cardFooter}>
         <View style={styles.cardInfo}>
@@ -692,15 +736,13 @@ function ProductCard({
           </ThemedText>
         </View>
         <View style={styles.actions}>
-          {!synthetic ? (
-            <CircleBtn
-              icon={reaction === 'save' ? 'bookmark' : 'bookmark-outline'}
-              color={colors.pinkWarm}
-              label="Save"
-              selected={reaction === 'save'}
-              onPress={() => onReact(item, 'save')}
-            />
-          ) : null}
+          <CircleBtn
+            icon={saved ? 'bookmark' : 'bookmark-outline'}
+            color={colors.pinkWarm}
+            label={saved ? 'Saved to your looks' : 'Save to your looks'}
+            selected={saved}
+            onPress={() => onSave(item)}
+          />
           <CircleBtn
             icon="close"
             color={colors.inkMuted}
