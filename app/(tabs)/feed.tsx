@@ -7,6 +7,8 @@ import {
   Pressable,
   ScrollView,
   Animated,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -78,6 +80,15 @@ export default function FeedScreen() {
   // Shown once the user has scrolled a few screens down: a compact "back to
   // top" nudge that also triggers a shuffle-refresh.
   const [showScrollTop, setShowScrollTop] = useState(false);
+  // Free-text search across ANY brand/category, independent of the saved
+  // budget + favorite-brand filters. `search` is the live query text;
+  // `searchFresh` holds live Google Shopping results fetched on submit so the
+  // search can reach brands beyond the loaded catalog.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [searchFresh, setSearchFresh] = useState<FeedProduct[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchReq = useRef(0);
   const listRef = useRef<FlatList<FeedProduct>>(null);
   // Monotonic sequence for fresh fetches: a slow older request that resolves
   // after a newer one must not clobber the newer results.
@@ -99,6 +110,20 @@ export default function FeedScreen() {
   );
 
   const visibleProducts = useMemo(() => {
+    // An active search overrides every saved/profile filter: match the query
+    // (all whitespace-separated tokens) against brand + name + category across
+    // the whole loaded catalog plus any live search results.
+    const q = search.trim().toLowerCase();
+    if (q) {
+      const tokens = q.split(/\s+/).filter(Boolean);
+      const pool = mergeFeeds(searchFresh, products);
+      const matched = pool.filter((p) => {
+        const hay = `${p.brand ?? ''} ${p.name ?? ''} ${p.category ?? ''}`.toLowerCase();
+        return tokens.every((t) => hay.includes(t));
+      });
+      return seededShuffle(matched, shuffleSeed);
+    }
+
     // Effective criteria: the session filter overrides the profile when active.
     // Budget/brand lists that are empty mean "no constraint — show all".
     const budgets = filter ? filter.budgets : savedBudgets;
@@ -118,7 +143,7 @@ export default function FeedScreen() {
     // across re-renders (and as async sources stream in) but reorders on every
     // refresh. Makes the feed feel fresh without re-scraping.
     return seededShuffle(list, shuffleSeed);
-  }, [products, activeStore, savedStores, savedBudgets, filter, shuffleSeed]);
+  }, [products, searchFresh, search, activeStore, savedStores, savedBudgets, filter, shuffleSeed]);
 
   const loadCurated = useCallback(async () => {
     try {
@@ -228,6 +253,35 @@ export default function FeedScreen() {
     setFilterOpen(false);
   }, []);
 
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    setSearch('');
+    setSearchFresh([]);
+    searchReq.current += 1; // cancel any in-flight live search
+    setSearchLoading(false);
+  }, []);
+
+  // On submit, pull live Google Shopping results for the query (reaching
+  // brands beyond the loaded catalog) and jump to the top. The catalog match
+  // in visibleProducts already updates live as the user types.
+  const submitSearch = useCallback(async () => {
+    const q = search.trim();
+    if (!q) return;
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    const seq = ++searchReq.current;
+    setSearchLoading(true);
+    try {
+      const rows = await getFreshFeed(q.slice(0, 40)); // feed-fresh caps at 40 chars
+      if (seq === searchReq.current) setSearchFresh(rows);
+    } catch {
+      // Keep the catalog matches even if the live search fails.
+    } finally {
+      if (seq === searchReq.current) setSearchLoading(false);
+    }
+  }, [search]);
+
   const toggleDraft = useCallback((key: keyof FeedFilter, value: string) => {
     setDraft((d) => {
       const list = d[key];
@@ -262,49 +316,90 @@ export default function FeedScreen() {
         title="Style Feed"
         subtitle="Fresh finds from the places you love"
         right={
-          // Web's circular search affordance — wired to the filter sheet (the
-          // nearest real "narrow the feed" function; there is no text search).
+          // Opens a free-text search over any brand/category (separate from the
+          // Filters sheet, which only narrows within saved preferences).
           <Pressable
-            onPress={openFilter}
+            onPress={openSearch}
             accessibilityRole="button"
-            accessibilityLabel="Filter the feed"
+            accessibilityLabel="Search the feed"
             style={({ pressed }) => [styles.searchBtn, pressed && styles.pressedDim]}
           >
             <Ionicons name="search" size={17} color={colors.pinkWarm} />
           </Pressable>
         }
       />
-      <View style={styles.controlsRow}>
-        <Pressable
-          onPress={openFilter}
-          accessibilityRole="button"
-          accessibilityLabel={filterCount > 0 ? `Filters, ${filterCount} active` : 'Filters'}
-          style={({ pressed }) => [styles.filterPill, pressed && styles.pressedDim]}
-        >
-          <Ionicons name="options-outline" size={16} color={colors.pinkWarm} />
-          <ThemedText variant="labelSmall">
-            {filterCount > 0 ? `Filters · ${filterCount}` : 'Filters'}
-          </ThemedText>
-        </Pressable>
-        {filter ? (
-          <Pressable onPress={clearFilter} hitSlop={8} style={styles.clearBtn} accessibilityRole="button">
-            <Ionicons name="close-circle" size={16} color={colors.inkMuted} />
-            <ThemedText variant="label" color={colors.inkMuted}>
-              Clear
+      {searchOpen ? (
+        <View style={styles.searchBar}>
+          <View style={styles.searchFieldWrap}>
+            <Ionicons name="search" size={18} color={colors.inkMuted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search any brand or category"
+              placeholderTextColor={colors.inkMuted}
+              value={search}
+              onChangeText={setSearch}
+              autoFocus
+              returnKeyType="search"
+              onSubmitEditing={submitSearch}
+              autoCorrect={false}
+              autoCapitalize="none"
+              accessibilityLabel="Search any brand or category"
+            />
+            {search.length > 0 ? (
+              <Pressable
+                onPress={() => setSearch('')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search text"
+              >
+                <Ionicons name="close-circle" size={18} color={colors.inkMuted} />
+              </Pressable>
+            ) : null}
+          </View>
+          <Pressable onPress={closeSearch} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close search">
+            <ThemedText variant="label" color={colors.pinkWarm}>
+              Cancel
             </ThemedText>
           </Pressable>
-        ) : null}
-      </View>
-      {/* The saved-store quick chips make sense only when the session filter
-          isn't overriding brand selection. */}
-      {!filter && savedStores.length > 0 ? (
-        <StoreChipRow stores={savedStores} active={activeStore} onChange={setActiveStore} />
-      ) : null}
+        </View>
+      ) : (
+        <>
+          <View style={styles.controlsRow}>
+            <Pressable
+              onPress={openFilter}
+              accessibilityRole="button"
+              accessibilityLabel={filterCount > 0 ? `Filters, ${filterCount} active` : 'Filters'}
+              style={({ pressed }) => [styles.filterPill, pressed && styles.pressedDim]}
+            >
+              <Ionicons name="options-outline" size={16} color={colors.pinkWarm} />
+              <ThemedText variant="labelSmall">
+                {filterCount > 0 ? `Filters · ${filterCount}` : 'Filters'}
+              </ThemedText>
+            </Pressable>
+            {filter ? (
+              <Pressable onPress={clearFilter} hitSlop={8} style={styles.clearBtn} accessibilityRole="button">
+                <Ionicons name="close-circle" size={16} color={colors.inkMuted} />
+                <ThemedText variant="label" color={colors.inkMuted}>
+                  Clear
+                </ThemedText>
+              </Pressable>
+            ) : null}
+          </View>
+          {/* The saved-store quick chips make sense only when the session filter
+              isn't overriding brand selection. */}
+          {!filter && savedStores.length > 0 ? (
+            <StoreChipRow stores={savedStores} active={activeStore} onChange={setActiveStore} />
+          ) : null}
+        </>
+      )}
       {loading ? (
         <View style={styles.pad}>
+          {/* A clean spinner over the image grid skeleton — the brand chips
+              above keep their normal shape while the feed loads. */}
+          <ActivityIndicator color={colors.pinkWarm} style={styles.loadingSpinner} />
           <SkeletonGrid count={4} />
         </View>
-      ) : products.length === 0 ? (
+      ) : products.length === 0 && !search.trim() ? (
         <>
           <EmptyState
             icon="sparkles-outline"
@@ -339,10 +434,16 @@ export default function FeedScreen() {
             <ProductCard item={item} reaction={reactions[item.id]} onReact={react} />
           )}
           ListEmptyComponent={
-            // A chip/filter can narrow the current list to nothing while its
-            // fresh fetch is still in flight — show a skeleton, not a false empty.
-            freshLoading ? (
+            // A chip/filter/search can narrow the current list to nothing while
+            // its fetch is still in flight — show a skeleton, not a false empty.
+            searchLoading || freshLoading ? (
               <SkeletonGrid count={2} />
+            ) : search.trim() ? (
+              <EmptyState
+                icon="search-outline"
+                title="No matches"
+                body={`Nothing found for "${search.trim()}". Try another brand or category.`}
+              />
             ) : filter ? (
               <EmptyState
                 icon="funnel-outline"
@@ -451,26 +552,33 @@ function StoreChipRow({
   onChange: (v: string | null) => void;
 }) {
   const styles = useThemedStyles(makeStyles);
+  // Wrapping the horizontal ScrollView in a plain View bounds its height to the
+  // chips' natural size. Without it, the ScrollView stretches to fill leftover
+  // vertical space during loading and the chips (pill-radius) balloon into tall
+  // ovals — matching the Closet's category chip row, which wraps for the same
+  // reason.
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.storeChips}
-    >
-      <Chip label="All" tone="accent" selected={active === null} onPress={() => onChange(null)} />
-      {stores.map((store) => {
-        const on = active === store;
-        return (
-          <Chip
-            key={store}
-            label={store}
-            tone="accent"
-            selected={on}
-            onPress={() => onChange(on ? null : store)}
-          />
-        );
-      })}
-    </ScrollView>
+    <View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.storeChips}
+      >
+        <Chip label="All" tone="accent" selected={active === null} onPress={() => onChange(null)} />
+        {stores.map((store) => {
+          const on = active === store;
+          return (
+            <Chip
+              key={store}
+              label={store}
+              tone="accent"
+              selected={on}
+              onPress={() => onChange(on ? null : store)}
+            />
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -653,6 +761,35 @@ const makeStyles = (c: Colors) =>
       paddingHorizontal: spacing.lg,
       paddingTop: spacing.sm,
     },
+    // Inline search bar: a rounded field + Cancel, shown in place of the
+    // filters row when the header search is tapped.
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.md,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.sm,
+    },
+    searchFieldWrap: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: c.white,
+      borderWidth: 1,
+      borderColor: c.pinkWarmGlow,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.lg,
+      minHeight: 40,
+    },
+    searchInput: {
+      flex: 1,
+      fontFamily: fonts.sans,
+      fontSize: 15,
+      color: c.ink,
+      paddingVertical: spacing.sm,
+    },
+    loadingSpinner: { marginTop: spacing.lg, marginBottom: spacing.md },
     // Web Filters pill: white card, pink-blush border, soft pink shadow.
     filterPill: {
       flexDirection: 'row',

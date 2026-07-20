@@ -66,31 +66,28 @@ export default function Preferences() {
     <View style={styles.root}>
       <StackHeader title="Style preferences" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SectionLabel
-          style={styles.firstLabel}
-          hint="Pick every price range you want to see — mix cheap and luxury freely. Leave all off to see everything."
-        >
-          BUDGET (PER PIECE)
-        </SectionLabel>
-        <OptionChips
-          options={BUDGETS}
-          selected={budgets}
-          onToggle={(v) => toggle(budgets, setBudgets, v)}
-        />
+        {/* Order runs shortest → longest so the long store list stays last:
+            Appearance, Your Styles, Budget, then Favorite Stores. */}
+        <SectionLabel style={styles.firstLabel}>APPEARANCE</SectionLabel>
+        <AppearanceSelector />
         <SectionLabel>YOUR STYLES</SectionLabel>
         <OptionChips
           options={STYLES}
           selected={styles_}
           onToggle={(v) => toggle(styles_, setStyles, v)}
         />
-        <SectionLabel>FAVORITE STORES (OPTIONAL)</SectionLabel>
+        <SectionLabel hint="Leave all off to see every price.">BUDGET</SectionLabel>
+        <OptionChips
+          options={BUDGETS}
+          selected={budgets}
+          onToggle={(v) => toggle(budgets, setBudgets, v)}
+        />
+        <SectionLabel hint="Optional.">FAVORITE STORES</SectionLabel>
         <OptionChips
           options={STORES}
           selected={stores}
           onToggle={(v) => toggle(stores, setStores, v)}
         />
-        <SectionLabel>APPEARANCE</SectionLabel>
-        <AppearanceSelector />
       </ScrollView>
       <View style={styles.footer}>
         <Button label="Save preferences" onPress={save} loading={saving} />

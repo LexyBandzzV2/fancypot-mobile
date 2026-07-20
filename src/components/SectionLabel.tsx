@@ -22,7 +22,9 @@ export function SectionLabel({
   const { colors } = useTheme();
   return (
     <>
-      <ThemedText variant="label" color={colors.inkMuted} style={[styles.label, style]}>
+      {/* Primary ink (warm cream-white in dark mode) so section titles read
+          crisply instead of blending into the background as muted gray. */}
+      <ThemedText variant="label" color={colors.ink} style={[styles.label, style]}>
         {children}
       </ThemedText>
       {hint ? (

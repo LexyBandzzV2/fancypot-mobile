@@ -42,7 +42,17 @@ export function Wordmark({ size = 52, color }: { size?: number; color?: string }
       adjustsFontSizeToFit
       style={[
         type.wordmark,
-        { fontSize: size, lineHeight: size * 1.14, color: color ?? colors.ink, maxWidth: '100%' },
+        {
+          fontSize: size,
+          // Great Vibes has tall capital swashes (the F and P flourishes) that
+          // clip against a tight line box. Give generous leading plus a little
+          // top padding so the tops of "Fancy Pot" are never cut off.
+          lineHeight: size * 1.45,
+          paddingTop: Math.ceil(size * 0.12),
+          includeFontPadding: true,
+          color: color ?? colors.ink,
+          maxWidth: '100%',
+        },
       ]}
     >
       Fancy Pot
