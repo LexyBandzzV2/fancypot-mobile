@@ -13,15 +13,14 @@ import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
+import { useAuth } from '@/providers/AuthProvider';
 import { useWardrobe } from '@/hooks/useWardrobe';
 import { useOutfits } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
 import { useAds } from '@/providers/AdsProvider';
-import { generateOutfit, recommendPieces } from '@/lib/api';
+import { generateOutfit, recommendPieces, type PiecePick } from '@/lib/api';
+import { OCCASIONS, VIBES } from '@/lib/brands';
 import { openProductUrl } from '@/lib/affiliate';
-
-const OCCASIONS = ['Everyday', 'Work', 'Date night', 'Party', 'Weekend', 'Formal'];
-const VIBES = ['Classic', 'Trendy', 'Cozy', 'Bold', 'Minimal', 'Romantic'];
 
 type Mode = 'mix' | 'pick' | 'mood' | 'cook';
 
@@ -31,8 +30,6 @@ const MODES: { key: Mode; label: string; icon: keyof typeof Ionicons.glyphMap }[
   { key: 'mood', label: 'Set the mood', icon: 'sparkles-outline' },
   { key: 'cook', label: 'Let it cook', icon: 'flame-outline' },
 ];
-
-type PieceSuggestion = Awaited<ReturnType<typeof recommendPieces>>[number];
 
 interface GenerateParams {
   itemIds: string[];
@@ -44,6 +41,7 @@ interface GenerateParams {
 export default function StylistScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const { profile } = useAuth();
   const { items, loading: closetLoading } = useWardrobe();
   const { save } = useOutfits();
   const { run, running } = useAIAction();
@@ -55,7 +53,15 @@ export default function StylistScreen() {
   const [result, setResult] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [lastParams, setLastParams] = useState<GenerateParams | null>(null);
-  const [suggestion, setSuggestion] = useState<PieceSuggestion | null>(null);
+  const [picks, setPicks] = useState<PiecePick[]>([]);
+
+  // Style preferences (favorite stores / styles / budget) sharpen the gap picks
+  // from recommend-pieces. Same jsonb shape the preferences editor writes.
+  const prefs = (profile?.preferences ?? {}) as {
+    styles?: string[];
+    stores?: string[];
+    budget?: string;
+  };
 
   // Distinguish "closet still loading" from "closet genuinely empty" — showing
   // the empty state during a slow load reads as pieces having vanished.
@@ -89,9 +95,20 @@ export default function StylistScreen() {
     vibe,
   });
 
+  // Pieces whose occasion/vibe tags intersect the chosen occasion+vibe. Falls
+  // back to the WHOLE closet when nothing matches or nothing is tagged yet, so
+  // an untagged closet still styles instead of coming up empty.
+  const tagMatchedIds = (): string[] => {
+    const matched = items.filter(
+      (it) => (it.occasions ?? []).includes(occasion) || (it.vibes ?? []).includes(vibe),
+    );
+    return (matched.length > 0 ? matched : items).map((i) => i.id);
+  };
+
   const buildParams = (): GenerateParams => {
     if (mode === 'mix') {
-      return withImages(items.map((i) => i.id));
+      // Style from pieces that fit the chosen occasion/vibe (else the whole closet).
+      return withImages(tagMatchedIds());
     }
     if (mode === 'pick') {
       return withImages(selected.slice(0, 1));
@@ -102,9 +119,9 @@ export default function StylistScreen() {
       const randomVibe = VIBES[Math.floor(Math.random() * VIBES.length)];
       return { ...withImages(shuffled.slice(0, count).map((i) => i.id)), vibe: randomVibe };
     }
-    // mood: picking pieces is optional — no selection means "style from my
-    // whole closet", not an error.
-    return withImages(selected.length > 0 ? selected : items.map((i) => i.id));
+    // mood: user-picked pieces win; with none picked, use the tag-matching
+    // subset (falling back to the whole closet). Picking pieces is optional.
+    return withImages(selected.length > 0 ? selected : tagMatchedIds());
   };
 
   const canGenerate = (() => {
@@ -123,12 +140,18 @@ export default function StylistScreen() {
           ? 'Let it cook'
           : 'Generate outfit';
 
-  const fetchSuggestion = async (imageUrl: string) => {
+  const fetchPicks = async (imageUrl: string, forOccasion: string) => {
     // Best-effort only: never surface an error here (over-limit, rate-limited,
-    // network failure, whatever) — the card just doesn't appear.
+    // network failure, whatever) — the cards just don't appear.
     try {
-      const recs = await recommendPieces(imageUrl);
-      if (recs && recs.length > 0) setSuggestion(recs[0]);
+      const recs = await recommendPieces({
+        outfitImage: imageUrl,
+        occasion: forOccasion,
+        stores: prefs.stores,
+        styles: prefs.styles,
+        budget: prefs.budget,
+      });
+      if (recs.length > 0) setPicks(recs.slice(0, 3));
     } catch {
       // swallow
     }
@@ -137,21 +160,41 @@ export default function StylistScreen() {
   const onGenerate = async () => {
     setResult(null);
     setSaved(false);
-    setSuggestion(null);
+    setPicks([]);
     const params = buildParams();
     const res = await run(() => generateOutfit(params));
     if (res?.image_url) {
       setResult(res.image_url);
       setLastParams(params);
-      fetchSuggestion(res.image_url);
+      fetchPicks(res.image_url, params.occasion);
     }
   };
 
   const onSave = async () => {
     if (!result) return;
     const p = lastParams ?? { itemIds: selected, occasion, vibe };
-    await save({ name: `${p.vibe} ${p.occasion}`, image_url: result, item_ids: p.itemIds, occasion: p.occasion });
+    await save({
+      name: `${p.vibe} ${p.occasion}`,
+      image_url: result,
+      item_ids: p.itemIds,
+      // Legacy single occasion + the Style Me v2 tag arrays.
+      occasion: p.occasion,
+      occasions: [p.occasion],
+      vibes: [p.vibe],
+    });
     setSaved(true);
+  };
+
+  // Saving a gap pick creates a Saved Look: the generated outfit image carrying
+  // the pick's store link, so it appears in Saved Looks with a working "Get the
+  // look" button.
+  const savePick = async (pick: PiecePick) => {
+    await save({
+      name: pick.name,
+      image_url: result,
+      source_url: pick.url,
+      occasion: lastParams?.occasion ?? occasion,
+    });
   };
 
   return (
@@ -164,8 +207,8 @@ export default function StylistScreen() {
               <Image source={{ uri: result }} style={styles.result} contentFit="cover" transition={250} />
             </View>
 
-            {suggestion ? (
-              <SuggestionCard suggestion={suggestion} onDismiss={() => setSuggestion(null)} />
+            {picks.length > 0 ? (
+              <RecommendCards picks={picks} onSavePick={savePick} />
             ) : null}
 
             <Card glass={false} style={styles.resultActions}>
@@ -342,51 +385,167 @@ function ChipRow({
   );
 }
 
-function SuggestionCard({
-  suggestion,
-  onDismiss,
+/**
+ * "Complete the look" gap picks: up to 3 shoppable suggestions under a
+ * generated outfit. Like/Save state is LOCAL and per-card (keyed by the pick's
+ * original index): Like is a subtle highlight only, Dislike removes the card
+ * from view, Save writes a real Saved Look via the parent's onSavePick.
+ */
+function RecommendCards({
+  picks,
+  onSavePick,
 }: {
-  suggestion: PieceSuggestion;
+  picks: PiecePick[];
+  onSavePick: (pick: PiecePick) => Promise<void>;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  const [dismissed, setDismissed] = useState<Set<number>>(new Set());
+  const [liked, setLiked] = useState<Set<number>>(new Set());
+  const [saved, setSaved] = useState<Set<number>>(new Set());
+
+  const dismiss = (i: number) =>
+    setDismissed((prev) => {
+      const next = new Set(prev);
+      next.add(i);
+      return next;
+    });
+
+  const toggleLike = (i: number) =>
+    setLiked((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+
+  const savePick = async (pick: PiecePick, i: number) => {
+    if (saved.has(i)) return;
+    try {
+      await onSavePick(pick);
+      setSaved((prev) => {
+        const next = new Set(prev);
+        next.add(i);
+        return next;
+      });
+    } catch {
+      // Leave the card unsaved so the user can retry.
+    }
+  };
+
+  // Keep original indices as stable keys so dismissing one card never reshuffles
+  // the like/save state of the others.
+  const visible = picks.map((pick, i) => ({ pick, i })).filter(({ i }) => !dismissed.has(i));
+  if (visible.length === 0) return null;
+
+  return (
+    <View style={styles.recWrap}>
+      <SectionLabel hint="Real pieces that would complete this look.">
+        COMPLETE THE LOOK
+      </SectionLabel>
+      {visible.map(({ pick, i }) => (
+        <PieceCard
+          key={i}
+          pick={pick}
+          liked={liked.has(i)}
+          saved={saved.has(i)}
+          onLike={() => toggleLike(i)}
+          onDismiss={() => dismiss(i)}
+          onSave={() => savePick(pick, i)}
+        />
+      ))}
+    </View>
+  );
+}
+
+function PieceCard({
+  pick,
+  liked,
+  saved,
+  onLike,
+  onDismiss,
+  onSave,
+}: {
+  pick: PiecePick;
+  liked: boolean;
+  saved: boolean;
+  onLike: () => void;
   onDismiss: () => void;
+  onSave: () => void;
 }) {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   return (
-    <Card style={styles.suggestCard}>
-      <Pressable onPress={onDismiss} hitSlop={8} style={styles.suggestClose}>
-        <Ionicons name="close" size={14} color={colors.inkMuted} />
+    <Card style={liked ? styles.recCardLiked : undefined}>
+      <Pressable
+        onPress={onDismiss}
+        hitSlop={8}
+        style={styles.recClose}
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss suggestion"
+      >
+        <Ionicons name="close" size={16} color={colors.inkMuted} />
       </Pressable>
-      <View style={styles.suggestRow}>
-        {suggestion.image_url ? (
-          <Image source={{ uri: suggestion.image_url }} style={styles.suggestThumb} contentFit="cover" />
-        ) : (
-          <View style={[styles.suggestThumb, styles.piecePh]}>
-            <Ionicons name="shirt-outline" size={18} color={colors.blushDeep} />
-          </View>
-        )}
-        <View style={styles.suggestInfo}>
-          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.suggestEyebrow}>
-            MISSING A PIECE?
+
+      <View style={styles.recBody}>
+        {pick.gap ? (
+          <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.recEyebrow}>
+            {pick.gap.toUpperCase()}
           </ThemedText>
-          <ThemedText variant="label" numberOfLines={1}>
-            {suggestion.name}
+        ) : null}
+        <ThemedText variant="label" numberOfLines={2} style={styles.recName}>
+          {pick.name}
+        </ThemedText>
+        {pick.reason ? (
+          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.recReason}>
+            {pick.reason}
           </ThemedText>
-          <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
-            {suggestion.store}
-            {typeof suggestion.price === 'number' ? `  ·  $${suggestion.price.toFixed(0)}` : ''}
+        ) : null}
+        <View style={styles.recStoreRow}>
+          <Ionicons name="storefront-outline" size={13} color={colors.inkMuted} />
+          <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1} style={styles.recStore}>
+            {pick.store}
           </ThemedText>
-          <View style={styles.suggestActions}>
-            <Pressable onPress={() => openProductUrl(suggestion.url)} hitSlop={6}>
-              <ThemedText variant="labelSmall" color={colors.pinkWarm}>
-                View
-              </ThemedText>
-            </Pressable>
-            <Pressable onPress={onDismiss} hitSlop={6} style={styles.suggestNotNow}>
-              <ThemedText variant="labelSmall" color={colors.inkMuted}>
-                Not now
-              </ThemedText>
-            </Pressable>
-          </View>
+        </View>
+      </View>
+
+      <View style={styles.recActions}>
+        <Button
+          label="Shop"
+          variant="accent"
+          fullWidth={false}
+          onPress={() => openProductUrl(pick.url)}
+          icon={<Ionicons name="bag-handle-outline" size={16} color={colors.white} />}
+          style={styles.recShop}
+        />
+        <View style={styles.recIconRow}>
+          <Pressable
+            onPress={onLike}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Like"
+            accessibilityState={{ selected: liked }}
+            style={[styles.recCircle, liked && styles.recCircleLiked]}
+          >
+            <Ionicons
+              name={liked ? 'heart' : 'heart-outline'}
+              size={18}
+              color={liked ? colors.white : colors.ink}
+            />
+          </Pressable>
+          <Pressable
+            onPress={onSave}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={saved ? 'Saved to looks' : 'Save to looks'}
+            accessibilityState={{ selected: saved }}
+            style={[styles.recCircle, saved && styles.recCircleSaved]}
+          >
+            <Ionicons
+              name={saved ? 'bookmark' : 'bookmark-outline'}
+              size={18}
+              color={saved ? colors.white : colors.ink}
+            />
+          </Pressable>
         </View>
       </View>
     </Card>
@@ -478,25 +637,50 @@ const makeStyles = (colors: Colors) =>
       justifyContent: 'center',
       backgroundColor: colors.glassScrim,
     },
-    suggestCard: {},
-    suggestClose: {
+    // "Complete the look" gap-pick cards.
+    recWrap: { gap: spacing.md },
+    recCardLiked: { borderWidth: 1.5, borderColor: colors.pinkWarm },
+    recClose: {
       position: 'absolute',
       top: spacing.sm,
       right: spacing.sm,
-      width: 22,
-      height: 22,
-      borderRadius: 11,
+      width: 26,
+      height: 26,
+      borderRadius: 13,
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.white,
+      borderWidth: 1,
+      borderColor: colors.border,
       zIndex: 1,
     },
-    suggestRow: { flexDirection: 'row', gap: spacing.md },
-    suggestThumb: { width: 48, height: 60, borderRadius: radius.sm, backgroundColor: colors.white },
-    suggestInfo: { flex: 1, paddingRight: spacing.xl, gap: 2 },
-    suggestEyebrow: { letterSpacing: 1, marginBottom: 2 },
-    suggestActions: { flexDirection: 'row', gap: spacing.lg, marginTop: spacing.xs },
-    suggestNotNow: {},
+    recBody: { paddingRight: spacing.xl, gap: 3 },
+    recEyebrow: { letterSpacing: 1 },
+    recName: { marginTop: 2 },
+    recReason: { marginTop: 2 },
+    recStoreRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
+    recStore: { flex: 1 },
+    recActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+      marginTop: spacing.md,
+    },
+    recShop: { paddingHorizontal: spacing.lg },
+    recIconRow: { flexDirection: 'row', gap: spacing.sm },
+    recCircle: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.borderStrong,
+      backgroundColor: colors.white,
+    },
+    recCircleLiked: { backgroundColor: colors.pinkWarm, borderColor: colors.pinkWarm },
+    recCircleSaved: { backgroundColor: colors.ink, borderColor: colors.ink },
   });
 
 type Styles = ReturnType<typeof makeStyles>;

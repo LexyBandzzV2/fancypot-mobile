@@ -162,6 +162,25 @@ export const STORES = [
 export const BUDGETS = ['Budget', 'Mid-range', 'Premium', 'Luxury'];
 
 /**
+ * Style Me v2 tagging vocabulary. These tag closet pieces
+ * (wardrobe_items.occasions/vibes) and saved outfits (outfits.occasions/vibes),
+ * and drive tag-aware selection in the stylist. Single source of truth — the
+ * closet edit sheet and the stylist both import these. Stored verbatim in the
+ * text[] columns, so never rename existing entries.
+ */
+export const OCCASIONS = [
+  'Everyday',
+  'Work',
+  'Date night',
+  'Party',
+  'Weekend',
+  'Formal',
+  'Vacation',
+];
+
+export const VIBES = ['Classic', 'Trendy', 'Cozy', 'Bold', 'Minimal', 'Romantic', 'Edgy'];
+
+/**
  * Whether an item in `itemTier` should appear for a user whose budget
  * preference is `userBudget`. Cheaper-or-equal tiers pass (a Premium shopper
  * still sees Mid-range pieces); pricier tiers are hidden. Unknown/missing

@@ -14,6 +14,10 @@ export interface WardrobeItem {
   image_url: string | null;
   category: string | null;
   name: string | null;
+  /** Style Me v2 tags (see OCCASIONS/VIBES in brands.ts). Additive text[]
+   * columns, default '{}'. Drive tag-aware selection in the stylist. */
+  occasions: string[] | null;
+  vibes: string[] | null;
   processing_status: string | null;
   processing_error: string | null;
   created_at: string;
@@ -26,7 +30,11 @@ export interface Outfit {
   category: string | null;
   image_url: string | null;
   item_ids: string[] | null;
+  /** Legacy single occasion — kept for older saved looks. New saves also write
+   * the `occasions`/`vibes` text[] arrays below (Style Me v2). */
   occasion: string | null;
+  occasions: string[] | null;
+  vibes: string[] | null;
   /**
    * Shoppable origin (the product page a Get-the-Look match came from). The
    * app uses `source_url`; it is persisted to / read from the `product_url`
@@ -157,10 +165,16 @@ export const WARDROBE_CATEGORIES = [
   'Other',
 ];
 
-/** User-editable fields on a closet piece (name it, re-bucket its category). */
+/** User-editable fields on a closet piece: name it, re-bucket its category, and
+ * tag it with occasions/vibes (Style Me v2) for tag-aware stylist selection. */
 export async function updateWardrobeItem(
   id: string,
-  fields: { name?: string | null; category?: string | null },
+  fields: {
+    name?: string | null;
+    category?: string | null;
+    occasions?: string[];
+    vibes?: string[];
+  },
 ): Promise<void> {
   const { error } = await supabase.from('wardrobe_items').update(fields).eq('id', id);
   if (error) throw error;
@@ -382,11 +396,32 @@ export async function tryOn(params: {
   return invokeAI<{ image_url: string }>('try-on', params);
 }
 
-export async function recommendPieces(outfitImage: string): Promise<
-  { name: string; store: string; url: string; image_url: string; price?: number }[]
-> {
-  const res = await invokeAI<{ recommendations: any[] }>('recommend-pieces', {
-    image: outfitImage,
-  });
-  return res.recommendations ?? [];
+/**
+ * A single "complete the look" gap pick from recommend-pieces. These are real
+ * missing-piece suggestions with a real store link — they carry NO image (the
+ * card renders text + a Shop button). `gap` is the wardrobe gap it fills (e.g.
+ * "Shoes"), `reason` is the one-line why, `searchQuery`/`url` are the shop link,
+ * and `sourcedLive`/`liveTitle` mark picks resolved against a live listing.
+ */
+export interface PiecePick {
+  name: string;
+  category: string;
+  gap: string;
+  store: string;
+  reason: string;
+  searchQuery: string;
+  url: string;
+  liveTitle?: string;
+  sourcedLive?: boolean;
+}
+
+export async function recommendPieces(params: {
+  outfitImage: string;
+  occasion?: string;
+  stores?: string[];
+  styles?: string[];
+  budget?: string;
+}): Promise<PiecePick[]> {
+  const res = await invokeAI<{ picks: PiecePick[] }>('recommend-pieces', params);
+  return res.picks ?? [];
 }

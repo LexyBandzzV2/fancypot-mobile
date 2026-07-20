@@ -34,7 +34,8 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useWardrobe, type WardrobeDisplayItem } from '@/hooks/useWardrobe';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useSubscription } from '@/providers/SubscriptionProvider';
-import { WARDROBE_CATEGORIES } from '@/lib/api';
+import { WARDROBE_CATEGORIES, type WardrobeItem } from '@/lib/api';
+import { OCCASIONS, VIBES } from '@/lib/brands';
 
 // A piece still 'pending' after this long is considered stalled — the styling
 // call was refused or died (the backend meters it and can decline). The tile
@@ -77,6 +78,8 @@ export default function ClosetScreen() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState<string | null>(null);
+  const [editOccasions, setEditOccasions] = useState<string[]>([]);
+  const [editVibes, setEditVibes] = useState<string[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
 
   const atLimit = items.length >= tier.limits.wardrobeItems;
@@ -90,17 +93,30 @@ export default function ClosetScreen() {
     });
   }, [items, query, category]);
 
-  const openEditor = (id: string, name: string | null, category: string | null) => {
-    setEditId(id);
-    setEditName(name ?? '');
-    setEditCategory(category && category !== 'Uncategorized' ? category : null);
+  const openEditor = (item: WardrobeItem) => {
+    setEditId(item.id);
+    setEditName(item.name ?? '');
+    setEditCategory(item.category && item.category !== 'Uncategorized' ? item.category : null);
+    // Load existing tags so editing shows what's already set.
+    setEditOccasions(item.occasions ?? []);
+    setEditVibes(item.vibes ?? []);
   };
 
   const closeEditor = () => {
     setEditId(null);
     setEditName('');
     setEditCategory(null);
+    setEditOccasions([]);
+    setEditVibes([]);
   };
+
+  const toggleTag = (
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+    value: string,
+  ) =>
+    setter((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
+    );
 
   const saveEdit = async () => {
     if (!editId) return;
@@ -110,6 +126,10 @@ export default function ClosetScreen() {
         // Empty name → null so the AI classifier's name (when it lands) wins.
         name: editName.trim() || null,
         ...(editCategory ? { category: editCategory } : {}),
+        // Always send the current tag selection — an empty array is a valid
+        // "cleared all tags" state we want to persist.
+        occasions: editOccasions,
+        vibes: editVibes,
       });
       closeEditor();
     } catch (e: any) {
@@ -130,7 +150,7 @@ export default function ClosetScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // Offer details right away (name / category). Skipping is fine — the AI
       // classifier fills category in the background either way.
-      if (row) openEditor(row.id, row.name, row.category);
+      if (row) openEditor(row);
     } catch (e: any) {
       Alert.alert('Could not add piece', e?.message ?? 'Please try again.');
     } finally {
@@ -243,7 +263,7 @@ export default function ClosetScreen() {
                     if (isStalled(item) || isFailed(item)) {
                       retryProcessing(item);
                     } else if (!isProcessing(item)) {
-                      openEditor(item.id, item.name, item.category);
+                      openEditor(item);
                     }
                   }}
                   onLongPress={() => setSelected(item)}
@@ -284,7 +304,7 @@ export default function ClosetScreen() {
           onPress={() => {
             const it = selected;
             setSelected(null);
-            if (it) openEditor(it.id, it.name, it.category);
+            if (it) openEditor(it);
           }}
         />
         {selected && (isStalled(selected) || isFailed(selected)) ? (
@@ -308,35 +328,67 @@ export default function ClosetScreen() {
 
       {/* Edit details: offered right after upload (skippable) and on demand. */}
       <BottomSheet visible={!!editId} onClose={closeEditor} title="Piece details">
-        {editingItem?.signedUrl ? (
-          <View style={styles.editPreviewWrap}>
-            <Image source={{ uri: editingItem.signedUrl }} style={styles.editPreview} contentFit="cover" />
+        <ScrollView
+          style={styles.editScroll}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {editingItem?.signedUrl ? (
+            <View style={styles.editPreviewWrap}>
+              <Image source={{ uri: editingItem.signedUrl }} style={styles.editPreview} contentFit="cover" />
+            </View>
+          ) : null}
+          <TextField
+            label="NAME"
+            placeholder="e.g. Black slip dress"
+            value={editName}
+            onChangeText={setEditName}
+            returnKeyType="done"
+          />
+          <SectionLabel hint="Leave unpicked and we'll sort it for you automatically.">
+            CATEGORY
+          </SectionLabel>
+          <ChipWrap>
+            {WARDROBE_CATEGORIES.map((c) => (
+              <Chip
+                key={c}
+                label={c}
+                selected={editCategory === c}
+                onPress={() => setEditCategory(editCategory === c ? null : c)}
+              />
+            ))}
+          </ChipWrap>
+          <SectionLabel hint="When would you wear this? Helps Style Me pick it.">
+            OCCASIONS
+          </SectionLabel>
+          <ChipWrap>
+            {OCCASIONS.map((o) => (
+              <Chip
+                key={o}
+                label={o}
+                selected={editOccasions.includes(o)}
+                onPress={() => toggleTag(setEditOccasions, o)}
+              />
+            ))}
+          </ChipWrap>
+          <SectionLabel hint="Optional — the mood this piece gives off.">
+            VIBES
+          </SectionLabel>
+          <ChipWrap>
+            {VIBES.map((v) => (
+              <Chip
+                key={v}
+                label={v}
+                selected={editVibes.includes(v)}
+                onPress={() => toggleTag(setEditVibes, v)}
+              />
+            ))}
+          </ChipWrap>
+          <View style={styles.editActions}>
+            <Button label="Skip" variant="ghost" fullWidth={false} onPress={closeEditor} />
+            <Button label="Save details" fullWidth={false} onPress={saveEdit} loading={savingEdit} />
           </View>
-        ) : null}
-        <TextField
-          label="NAME"
-          placeholder="e.g. Black slip dress"
-          value={editName}
-          onChangeText={setEditName}
-          returnKeyType="done"
-        />
-        <SectionLabel hint="Leave unpicked and we'll sort it for you automatically.">
-          CATEGORY
-        </SectionLabel>
-        <ChipWrap>
-          {WARDROBE_CATEGORIES.map((c) => (
-            <Chip
-              key={c}
-              label={c}
-              selected={editCategory === c}
-              onPress={() => setEditCategory(editCategory === c ? null : c)}
-            />
-          ))}
-        </ChipWrap>
-        <View style={styles.editActions}>
-          <Button label="Skip" variant="ghost" fullWidth={false} onPress={closeEditor} />
-          <Button label="Save details" fullWidth={false} onPress={saveEdit} loading={savingEdit} />
-        </View>
+        </ScrollView>
       </BottomSheet>
     </View>
   );
@@ -480,6 +532,9 @@ const makeStyles = (c: Colors) =>
     processingText: { marginTop: spacing.xs },
     tileMeta: { paddingHorizontal: spacing.xs, paddingTop: spacing.sm, paddingBottom: spacing.xs },
     tileCaption: { marginTop: 1 },
+    // Cap the edit form height so the extra tag sections never push Save/Skip
+    // off-screen — the form scrolls within the sheet on smaller devices.
+    editScroll: { maxHeight: Dimensions.get('window').height * 0.6 },
     editPreviewWrap: { alignItems: 'center', marginBottom: spacing.md },
     editPreview: {
       width: 88,

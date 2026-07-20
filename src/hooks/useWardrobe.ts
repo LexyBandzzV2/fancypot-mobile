@@ -146,9 +146,17 @@ export function useWardrobe() {
     [kickProcessing],
   );
 
-  /** Rename / re-categorize a piece and refresh the list. */
+  /** Rename / re-categorize / re-tag (occasions, vibes) a piece and refresh. */
   const update = useCallback(
-    async (id: string, fields: { name?: string | null; category?: string | null }) => {
+    async (
+      id: string,
+      fields: {
+        name?: string | null;
+        category?: string | null;
+        occasions?: string[];
+        vibes?: string[];
+      },
+    ) => {
       await updateWardrobeItem(id, fields);
       await load();
     },
