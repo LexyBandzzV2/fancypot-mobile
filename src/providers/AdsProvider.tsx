@@ -7,7 +7,8 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { AppState, Platform } from 'react-native';
+import { AppState, Platform, Modal, View, Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
   getTrackingPermissionsAsync,
   requestTrackingPermissionsAsync,
@@ -24,6 +25,8 @@ import mobileAds, {
 import { config } from '@/lib/config';
 import { useAuth } from './AuthProvider';
 import { useSubscription } from './SubscriptionProvider';
+import { useTheme } from './ThemeProvider';
+import { ThemedText } from '@/components/Typography';
 import { rewardsRemainingToday, recordRewardWatched, REWARD_DAILY_CAP } from '@/lib/ads/rewardCap';
 
 // Ads only run on the native iOS/Android builds. On web (the in-browser preview)
@@ -93,6 +96,10 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
   const [initialized, setInitialized] = useState(false);
   const [rewardedReady, setRewardedReady] = useState(false);
   const [rewardsRemaining, setRewardsRemaining] = useState(REWARD_DAILY_CAP);
+  // The branded pre-ad opt-out prompt (our aesthetic "Skip"; AdMob's own ad
+  // chrome can't be restyled, so the choice lives on a screen we control).
+  const [gatePromptVisible, setGatePromptVisible] = useState(false);
+  const gateChoiceRef = useRef<((watch: boolean) => void) | null>(null);
 
   const interstitialRef = useRef<InterstitialAd | null>(null);
   const rewardedRef = useRef<RewardedAd | null>(null);
@@ -312,8 +319,20 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     if (!ad || !interstitialReadyRef.current) return;
     const now = Date.now();
     if (now - lastInterstitialAtRef.current < MIN_AI_GATE_GAP_MS) return;
-    if (aiGateRef.current) return; // a gate is already showing
-    lastInterstitialAtRef.current = now;
+    if (aiGateRef.current || gateChoiceRef.current) return; // one gate at a time
+
+    // 1) Branded opt-out prompt. The user can Skip (proceed ad-free) or Watch.
+    const watch = await new Promise<boolean>((resolve) => {
+      gateChoiceRef.current = resolve;
+      setGatePromptVisible(true);
+    });
+    gateChoiceRef.current = null;
+    setGatePromptVisible(false);
+    if (!watch) return; // skipped — nothing enforced
+
+    // 2) They chose to watch: show the interstitial and resolve on dismissal.
+    if (!interstitialReadyRef.current) return; // ad vanished meanwhile
+    lastInterstitialAtRef.current = Date.now();
     interstitialReadyRef.current = false;
     await new Promise<void>((resolve) => {
       aiGateRef.current = resolve;
@@ -360,8 +379,117 @@ export function AdsProvider({ children }: { children: React.ReactNode }) {
     [maybeShowInterstitial, showAiGate, watchRewardedForBonus, canOfferReward, rewardsRemaining],
   );
 
-  return <AdsContext.Provider value={value}>{children}</AdsContext.Provider>;
+  return (
+    <AdsContext.Provider value={value}>
+      {children}
+      <AiGatePrompt
+        visible={gatePromptVisible}
+        onWatch={() => gateChoiceRef.current?.(true)}
+        onSkip={() => gateChoiceRef.current?.(false)}
+      />
+    </AdsContext.Provider>
+  );
 }
+
+/**
+ * Branded "watch a quick ad or skip" prompt shown before a free-tier AI action.
+ * The Skip button is ours (styled to the app) — nothing is enforced; watching
+ * is what actually earns, skipping just proceeds.
+ */
+function AiGatePrompt({
+  visible,
+  onWatch,
+  onSkip,
+}: {
+  visible: boolean;
+  onWatch: () => void;
+  onSkip: () => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onSkip}>
+      <View style={styles.gateBackdrop}>
+        <View style={[styles.gateCard, { backgroundColor: colors.cream, borderColor: colors.pinkWarmGlow }]}>
+          <View style={[styles.gateBadge, { backgroundColor: colors.pinkWarmGlow }]}>
+            <Ionicons name="sparkles" size={22} color={colors.pinkWarm} />
+          </View>
+          <ThemedText variant="h3" center>
+            Keep Fancy Pot free
+          </ThemedText>
+          <ThemedText variant="body" color={colors.inkMuted} center style={styles.gateBody}>
+            Watch a short ad so we can keep the styling free — or skip if you're in a hurry.
+          </ThemedText>
+          <Pressable
+            onPress={onWatch}
+            style={({ pressed }) => [styles.gateWatch, { backgroundColor: colors.pinkWarm }, pressed && styles.gatePressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Watch a short ad"
+          >
+            <Ionicons name="play" size={16} color={colors.white} />
+            <ThemedText variant="label" color={colors.white}>
+              Watch ad
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={onSkip}
+            style={({ pressed }) => [styles.gateSkip, pressed && styles.gatePressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Skip the ad"
+            hitSlop={8}
+          >
+            <ThemedText variant="label" color={colors.inkMuted}>
+              Skip
+            </ThemedText>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  gateBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  gateCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: 24,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: 'center',
+  },
+  gateBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  gateBody: { marginTop: 6, marginBottom: 20 },
+  gateWatch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    alignSelf: 'stretch',
+    minHeight: 50,
+    borderRadius: 999,
+  },
+  gateSkip: {
+    alignSelf: 'stretch',
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  gatePressed: { opacity: 0.85 },
+});
 
 export function useAds(): AdsContextValue {
   const ctx = useContext(AdsContext);
