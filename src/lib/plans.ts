@@ -37,9 +37,14 @@ export const TIERS: Record<EntitlementId, Tier> = {
     name: 'Free',
     priceLabel: '$0',
     rcPackageId: null,
-    limits: { outfitsPerMonth: 3, wardrobeItems: 20, tryOnsPerWeek: 2 },
+    // Tighter free allowance drives the ad economy: after these, a free user
+    // watches a rewarded ad to unlock another generation (see useAIAction's
+    // over-limit flow). MUST stay in sync with the server-side quota that
+    // actually enforces it (generate-outfit edge function).
+    limits: { outfitsPerMonth: 2, wardrobeItems: 20, tryOnsPerWeek: 2 },
     perks: [
-      '3 AI outfits / month',
+      '2 AI outfits / month',
+      'Watch an ad to unlock more',
       'Up to 20 closet items',
       '2 virtual try-ons / week',
       'Style feed & saved looks',
