@@ -67,21 +67,26 @@ async function invokeAI<T>(fn: string, body: Record<string, unknown>): Promise<T
     // FunctionsHttpError exposes the response for structured limit errors.
     const res: Response | undefined = (error as { context?: Response }).context;
     if (res && typeof res.json === 'function') {
+      let payload: { error?: unknown; code?: unknown } | null = null;
       try {
-        const payload = await res.json();
-        if (res.status === 429) {
-          throw new UsageLimitError(payload.error ?? 'Rate limited', 'rate_limited');
-        }
-        if (res.status === 402 || res.status === 403) {
-          throw new UsageLimitError(
-            payload.error ?? 'You have reached your plan limit.',
-            payload.code === 'ai_blocked' ? 'blocked' : 'over_limit',
-          );
-        }
-        if (payload?.error) throw new UsageLimitError(payload.error, 'unknown');
-      } catch (e) {
-        if (e instanceof UsageLimitError) throw e;
+        payload = await res.json();
+      } catch {
+        // Non-JSON body — fall through to the raw error below.
       }
+      const message = typeof payload?.error === 'string' ? payload.error : null;
+      if (res.status === 429) {
+        throw new UsageLimitError(message ?? 'Rate limited', 'rate_limited');
+      }
+      if (res.status === 402 || res.status === 403) {
+        throw new UsageLimitError(
+          message ?? 'You have reached your plan limit.',
+          payload?.code === 'ai_blocked' ? 'blocked' : 'over_limit',
+        );
+      }
+      // Any OTHER status (400 validation, 500 crash…) is NOT a plan limit —
+      // wrapping it as UsageLimitError made every backend error surface as
+      // "Plan limit reached" with an Upgrade button, hiding the real problem.
+      if (message) throw new Error(message);
     }
     throw error;
   }
