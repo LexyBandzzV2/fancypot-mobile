@@ -230,7 +230,13 @@ export default function GetTheLookScreen() {
               variant="outline"
               onPress={async () => {
                 await maybeShowInterstitial();
+                // Full reset back to the upload/start section. (The picked photo
+                // isn't held in state — it's uploaded then deleted — and errors
+                // surface via Alert, so results/index/kept are the whole state.)
                 setResults([]);
+                setIndex(0);
+                setKept([]);
+                position.setValue({ x: 0, y: 0 });
               }}
             />
           </View>

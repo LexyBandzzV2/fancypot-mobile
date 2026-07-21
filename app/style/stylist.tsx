@@ -87,6 +87,10 @@ export default function StylistScreen() {
   const [engaged, setEngaged] = useState(() => status === 'cooking');
   const [gating, setGating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  // "Save & go": briefly flip the button to a saved-confirmation state before
+  // dismissing the cooking overlay back to the form.
+  const [savedAndGo, setSavedAndGo] = useState(false);
+  const savedGoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch recs once per result; show the error alert once per error.
   const picksFor = useRef<string | null>(null);
@@ -261,14 +265,24 @@ export default function StylistScreen() {
     }
   };
 
-  // "Save & come back": leave now; the provider finishes + auto-saves in the
-  // background and toasts when the look is ready. Detach first to close the
-  // race where completion lands between the tap and the unmount.
-  const saveAndComeBack = () => {
-    detach();
-    if (router.canGoBack()) router.back();
-    else router.replace('/(tabs)/feed');
+  // "Save & go": confirm briefly, then dismiss the cooking overlay back to the
+  // MAIN form so the user can keep browsing. The provider keeps generating in
+  // the background and auto-saves to Saved → Outfits when done; detaching routes
+  // that completion to the global background toast instead of showing it inline.
+  const saveAndGo = () => {
+    if (savedAndGo) return;
+    setSavedAndGo(true);
+    savedGoTimer.current = setTimeout(() => {
+      detach();
+      setEngaged(false);
+      setSavedAndGo(false);
+    }, 1100);
   };
+
+  // Clear the pending flip timer if the screen unmounts mid-confirmation.
+  useEffect(() => () => {
+    if (savedGoTimer.current) clearTimeout(savedGoTimer.current);
+  }, []);
 
   const startOver = async () => {
     await maybeShowInterstitial();
@@ -307,9 +321,16 @@ export default function StylistScreen() {
                 Tap and we'll cook it up and drop it in your Saved → Outfits when it's ready.
               </ThemedText>
               <Button
-                label="Save & come back"
-                onPress={saveAndComeBack}
-                icon={<Ionicons name="time-outline" size={18} color={colors.cream} />}
+                label={savedAndGo ? 'Saved ✓ — you can keep browsing' : 'Save & go'}
+                onPress={saveAndGo}
+                disabled={savedAndGo}
+                icon={
+                  <Ionicons
+                    name={savedAndGo ? 'checkmark-circle' : 'time-outline'}
+                    size={18}
+                    color={colors.cream}
+                  />
+                }
               />
             </Card>
           </View>

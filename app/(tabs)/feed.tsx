@@ -774,9 +774,11 @@ function ProductCard({
               color={colors.pinkWarm}
             />
           </Pressable>
-          {/* Double-tap heart burst, centered over the product image. */}
+          {/* Double-tap heart burst, centered over the product image. Light
+              blush pink with a white glow so it reads on any photo (and in
+              dark mode, where the old `white` token is a dark plum). */}
           <Animated.View style={[styles.burst, burstStyle]} pointerEvents="none">
-            <Ionicons name="heart" size={96} color={colors.white} />
+            <Ionicons name="heart" size={96} color={colors.blush} style={styles.burstHeart} />
           </Animated.View>
         </View>
       </Pressable>
@@ -965,6 +967,12 @@ const makeStyles = (c: Colors) =>
       shadowOpacity: 0.35,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 4 },
+    },
+    // White glow around the blush heart so it stays legible over light photos.
+    burstHeart: {
+      textShadowColor: 'rgba(255, 255, 255, 0.95)',
+      textShadowOffset: { width: 0, height: 0 },
+      textShadowRadius: 16,
     },
     placeholder: { alignItems: 'center', justifyContent: 'center' },
     heartBtn: {
