@@ -12,19 +12,23 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { openLookSource } from '@/lib/affiliate';
+import { openLookSource, openProductUrl } from '@/lib/affiliate';
 import {
   AppHeader,
   BottomSheet,
   SheetAction,
   EmptyState,
   SkeletonGrid,
+  Toast,
 } from '@/components';
 import { ThemedText } from '@/components';
 import type { Colors } from '@/theme/colors';
 import { fonts, radius, spacing, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
+import { useAuth } from '@/providers/AuthProvider';
 import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
+import { useSavedItems } from '@/hooks/useSavedItems';
+import { addOutfitToCloset, type SavedItem } from '@/lib/api';
 
 type Tab = 'outfits' | 'items';
 
@@ -32,16 +36,51 @@ export default function SavedScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const router = useRouter();
+  const { user } = useAuth();
   const { outfits, loading, reload, remove } = useOutfits();
+  const {
+    items: savedItems,
+    loading: itemsLoading,
+    reload: reloadItems,
+    remove: removeItem,
+  } = useSavedItems();
   const [selected, setSelected] = useState<OutfitDisplay | null>(null);
+  const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null);
   const [tab, setTab] = useState<Tab>('outfits');
+  // Outfits added to the closet this session — drives the tile's checkmark and
+  // stops a second tap from creating a duplicate closet item.
+  const [addedToCloset, setAddedToCloset] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<string | null>(null);
 
-  // Two libraries in one tab: AI-generated looks (Style Me — no store link) vs
-  // shoppable pieces saved from the Feed / Get the Look (they carry a
-  // source_url). A saved recommendation pick is a piece, so it lands in Items.
-  const outfitLooks = outfits.filter((o) => !o.source_url);
-  const savedItems = outfits.filter((o) => !!o.source_url);
-  const active = tab === 'outfits' ? outfitLooks : savedItems;
+  // Outfits are the AI-composed looks (Style Me / Try-on). Items now come from
+  // the real saved_items table (feed / Get the Look), so the Outfits tab shows
+  // ALL outfits — no more source_url split.
+  const outfitLooks = outfits;
+
+  // Quick-tap: file a saved look straight into the closet, no questionnaire.
+  const addToCloset = async (o: OutfitDisplay) => {
+    if (!user || addedToCloset.has(o.id)) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setAddedToCloset((prev) => new Set(prev).add(o.id));
+    try {
+      await addOutfitToCloset(user.id, { image_url: o.image_url, name: o.name });
+      setToast('Added to closet');
+    } catch (e: any) {
+      // Roll back the optimistic checkmark and explain.
+      setAddedToCloset((prev) => {
+        const next = new Set(prev);
+        next.delete(o.id);
+        return next;
+      });
+      const msg = String(e?.message ?? '');
+      Alert.alert(
+        'Could not add to closet',
+        /limit|cap|maximum|full/i.test(msg)
+          ? 'Your closet is full. Upgrade for more space, or remove a few pieces.'
+          : 'Something went wrong adding this to your closet. Please try again.',
+      );
+    }
+  };
 
   const confirmDelete = (o: OutfitDisplay) => {
     setSelected(null);
@@ -51,10 +90,24 @@ export default function SavedScreen() {
     ]);
   };
 
+  const confirmDeleteItem = (i: SavedItem) => {
+    setSelectedItem(null);
+    Alert.alert('Remove item?', 'This removes it from your saved items.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => removeItem(i.id) },
+    ]);
+  };
+
   const countLabel =
-    loading && outfits.length === 0
-      ? 'Your saved library'
-      : `${active.length} saved ${tab === 'outfits' ? (active.length === 1 ? 'outfit' : 'outfits') : active.length === 1 ? 'item' : 'items'}`;
+    tab === 'outfits'
+      ? loading && outfits.length === 0
+        ? 'Your saved library'
+        : `${outfitLooks.length} saved ${outfitLooks.length === 1 ? 'outfit' : 'outfits'}`
+      : itemsLoading && savedItems.length === 0
+        ? 'Your saved library'
+        : `${savedItems.length} saved ${savedItems.length === 1 ? 'item' : 'items'}`;
+
+  const showOutfits = tab === 'outfits';
 
   return (
     <View style={styles.root}>
@@ -65,121 +118,170 @@ export default function SavedScreen() {
         <SegmentPill label="Outfits" count={outfitLooks.length} active={tab === 'outfits'} onPress={() => setTab('outfits')} />
         <SegmentPill label="Items" count={savedItems.length} active={tab === 'items'} onPress={() => setTab('items')} />
       </View>
-      {loading && outfits.length === 0 ? (
+
+      {showOutfits ? (
+        loading && outfits.length === 0 ? (
+          <View style={styles.pad}>
+            <SkeletonGrid count={4} />
+          </View>
+        ) : outfitLooks.length === 0 ? (
+          <EmptyLibrary styles={styles}>
+            <EmptyState
+              icon="sparkles-outline"
+              title="No outfits yet"
+              body="Generate your first look with Style Me"
+              actionLabel="Create an outfit"
+              onAction={() => router.push('/style/stylist')}
+            />
+          </EmptyLibrary>
+        ) : (
+          <FlatList
+            data={outfitLooks}
+            keyExtractor={(o) => o.id}
+            numColumns={NUM_COLUMNS}
+            columnWrapperStyle={styles.column}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={false} onRefresh={reload} tintColor={colors.blushDeep} />
+            }
+            renderItem={({ item }) => {
+              const added = addedToCloset.has(item.id);
+              const count = item.item_ids?.length ?? 0;
+              const meta =
+                count > 0 ? `${count} ${count === 1 ? 'piece' : 'pieces'}` : item.occasion;
+              return (
+                <Pressable
+                  style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+                  onPress={() =>
+                    router.push({ pathname: '/style/outfit/[id]', params: { id: item.id } })
+                  }
+                  onLongPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    setSelected(item);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.name ?? 'Saved look'}
+                  accessibilityHint="Opens the outfit with recommendations. Long press for more options."
+                >
+                  {item.signedUrl ? (
+                    <Image source={{ uri: item.signedUrl }} style={styles.img} contentFit="cover" transition={200} />
+                  ) : (
+                    <View style={[styles.img, styles.placeholder]}>
+                      <Ionicons name="image-outline" size={28} color={colors.blushDeep} />
+                    </View>
+                  )}
+                  {/* Quick-tap: add this look to the closet (no questionnaire). */}
+                  <Pressable
+                    style={[styles.addBtn, added && styles.addBtnOn]}
+                    hitSlop={8}
+                    disabled={added}
+                    onPress={() => addToCloset(item)}
+                    accessibilityRole="button"
+                    accessibilityLabel={added ? 'Added to closet' : 'Add to closet'}
+                  >
+                    <Ionicons
+                      name={added ? 'checkmark' : 'add'}
+                      size={16}
+                      color={added ? colors.white : colors.pinkWarm}
+                    />
+                  </Pressable>
+                  <View style={styles.label}>
+                    <ThemedText style={styles.lookName} numberOfLines={1}>
+                      {item.name ?? 'Saved look'}
+                    </ThemedText>
+                    {meta ? (
+                      <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
+                        {meta}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                </Pressable>
+              );
+            }}
+          />
+        )
+      ) : itemsLoading && savedItems.length === 0 ? (
         <View style={styles.pad}>
           <SkeletonGrid count={4} />
         </View>
-      ) : active.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          {/* Decorative faint pink grid background */}
-          <View style={styles.gridBackground} pointerEvents="none">
-            {[...Array(8)].map((_, rowIdx) => (
-              <View key={`row-${rowIdx}`} style={styles.gridRow}>
-                {[...Array(3)].map((_, colIdx) => (
-                  <View key={`cell-${rowIdx}-${colIdx}`} style={styles.gridCell} />
-                ))}
-              </View>
-            ))}
-          </View>
-          <View style={styles.emptyContent}>
-            {tab === 'outfits' ? (
-              <EmptyState
-                icon="sparkles-outline"
-                title="No outfits yet"
-                body="Generate your first look with Style Me"
-                actionLabel="Create an outfit"
-                onAction={() => router.push('/style/stylist')}
-              />
-            ) : (
-              <EmptyState
-                icon="bookmark-outline"
-                title="No saved items yet"
-                body="Tap the bookmark on any piece in the Feed or Get the Look to save it here"
-                actionLabel="Browse the feed"
-                onAction={() => router.push('/(tabs)/feed')}
-              />
-            )}
-          </View>
-        </View>
+      ) : savedItems.length === 0 ? (
+        <EmptyLibrary styles={styles}>
+          <EmptyState
+            icon="bookmark-outline"
+            title="No saved items yet"
+            body="Double-tap a piece in the Feed, or save from Get the Look, to keep it here"
+            actionLabel="Browse the feed"
+            onAction={() => router.push('/(tabs)/feed')}
+          />
+        </EmptyLibrary>
       ) : (
         <FlatList
-          data={active}
-          keyExtractor={(o) => o.id}
+          data={savedItems}
+          keyExtractor={(i) => i.id}
           numColumns={NUM_COLUMNS}
           columnWrapperStyle={styles.column}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={false} onRefresh={reload} tintColor={colors.blushDeep} />
+            <RefreshControl refreshing={false} onRefresh={reloadItems} tintColor={colors.blushDeep} />
           }
-          renderItem={({ item }) => {
-            const isOutfit = tab === 'outfits';
-            const count = item.item_ids?.length ?? 0;
-            const meta = isOutfit
-              ? count > 0
-                ? `${count} ${count === 1 ? 'piece' : 'pieces'}`
-                : item.occasion
-              : 'Tap to shop';
-            return (
-              <Pressable
-                style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
-                onPress={() =>
-                  isOutfit
-                    ? router.push({ pathname: '/style/outfit/[id]', params: { id: item.id } })
-                    : openLookSource(item.source_url, item.name)
-                }
-                onLongPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  setSelected(item);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={item.name ?? 'Saved look'}
-                accessibilityHint={
-                  isOutfit
-                    ? 'Opens the outfit with recommendations. Long press for more options.'
-                    : 'Opens the product to shop. Long press for more options.'
-                }
-              >
-                {item.signedUrl ? (
-                  <Image source={{ uri: item.signedUrl }} style={styles.img} contentFit="cover" transition={200} />
-                ) : (
-                  <View style={[styles.img, styles.placeholder]}>
-                    <Ionicons name="image-outline" size={28} color={colors.blushDeep} />
-                  </View>
-                )}
-                <View style={styles.label}>
-                  <ThemedText style={styles.lookName} numberOfLines={1}>
-                    {item.name ?? 'Saved look'}
-                  </ThemedText>
-                  {meta ? (
-                    <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
-                      {meta}
-                    </ThemedText>
-                  ) : null}
+          renderItem={({ item }) => (
+            <Pressable
+              style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+              onPress={() => item.product_url && openProductUrl(item.product_url)}
+              onLongPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setSelectedItem(item);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={item.name ?? 'Saved item'}
+              accessibilityHint="Opens the retailer product page. Long press for more options."
+            >
+              {item.image_url ? (
+                <Image source={{ uri: item.image_url }} style={styles.img} contentFit="cover" transition={200} />
+              ) : (
+                <View style={[styles.img, styles.placeholder]}>
+                  <Ionicons name="pricetag-outline" size={26} color={colors.blushDeep} />
                 </View>
-              </Pressable>
-            );
-          }}
+              )}
+              <View style={styles.label}>
+                {item.brand ? (
+                  <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
+                    {item.brand.toUpperCase()}
+                  </ThemedText>
+                ) : null}
+                <ThemedText style={styles.lookName} numberOfLines={1}>
+                  {item.name ?? 'Saved item'}
+                </ThemedText>
+                {item.price != null && String(item.price).length > 0 ? (
+                  <ThemedText variant="labelSmall" color={colors.ink}>
+                    {String(item.price).startsWith('$') || String(item.price).match(/[€£¥]/)
+                      ? String(item.price)
+                      : `$${item.price}`}
+                  </ThemedText>
+                ) : null}
+              </View>
+            </Pressable>
+          )}
         />
       )}
 
+      {/* Outfit actions. */}
       <BottomSheet
         visible={!!selected}
         onClose={() => setSelected(null)}
         title={selected?.name ?? undefined}
       >
-        {/* Try-on only makes sense for a generated outfit (a full look). */}
-        {selected && !selected.source_url ? (
-          <SheetAction
-            label="Try this on"
-            icon={<Ionicons name="body-outline" size={22} color={colors.ink} />}
-            onPress={() => {
-              const id = selected?.id;
-              setSelected(null);
-              router.push({ pathname: '/style/try-on', params: id ? { outfitId: id } : {} });
-            }}
-          />
-        ) : null}
+        <SheetAction
+          label="Try this on"
+          icon={<Ionicons name="body-outline" size={22} color={colors.ink} />}
+          onPress={() => {
+            const id = selected?.id;
+            setSelected(null);
+            router.push({ pathname: '/style/try-on', params: id ? { outfitId: id } : {} });
+          }}
+        />
         {/* Always offer "Get the look": open the exact product page when we
             captured one (source_url), otherwise fall back to a Google search of
             the look's name so the shop link is never missing. */}
@@ -200,6 +302,57 @@ export default function SavedScreen() {
           onPress={() => selected && confirmDelete(selected)}
         />
       </BottomSheet>
+
+      {/* Saved item actions. */}
+      <BottomSheet
+        visible={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        title={selectedItem?.name ?? undefined}
+      >
+        {selectedItem?.product_url ? (
+          <SheetAction
+            label="Shop this item"
+            icon={<Ionicons name="bag-handle-outline" size={22} color={colors.ink} />}
+            onPress={() => {
+              const url = selectedItem.product_url;
+              setSelectedItem(null);
+              if (url) openProductUrl(url);
+            }}
+          />
+        ) : null}
+        <SheetAction
+          label="Remove"
+          destructive
+          icon={<Ionicons name="trash-outline" size={22} color={colors.danger} />}
+          onPress={() => selectedItem && confirmDeleteItem(selectedItem)}
+        />
+      </BottomSheet>
+
+      <Toast message={toast} onHide={() => setToast(null)} />
+    </View>
+  );
+}
+
+/** Shared empty-state shell with the decorative faint pink grid background. */
+function EmptyLibrary({
+  children,
+  styles,
+}: {
+  children: React.ReactNode;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <View style={styles.emptyContainer}>
+      <View style={styles.gridBackground} pointerEvents="none">
+        {[...Array(8)].map((_, rowIdx) => (
+          <View key={`row-${rowIdx}`} style={styles.gridRow}>
+            {[...Array(3)].map((_, colIdx) => (
+              <View key={`cell-${rowIdx}-${colIdx}`} style={styles.gridCell} />
+            ))}
+          </View>
+        ))}
+      </View>
+      <View style={styles.emptyContent}>{children}</View>
     </View>
   );
 }
@@ -298,6 +451,21 @@ const makeStyles = (c: Colors) =>
     placeholder: { alignItems: 'center', justifyContent: 'center' },
     label: { paddingHorizontal: spacing.md, paddingVertical: 10 },
     lookName: { fontFamily: fonts.display, fontSize: 16, lineHeight: 22 },
+    // Floating quick-add-to-closet button on outfit tiles.
+    addBtn: {
+      position: 'absolute',
+      top: spacing.xs,
+      right: spacing.xs,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: c.white,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: c.pinkWarmGlow,
+    },
+    addBtnOn: { backgroundColor: c.pinkWarm, borderColor: c.pinkWarm },
     // Empty state styles
     emptyContainer: { flex: 1, backgroundColor: c.cream },
     gridBackground: {

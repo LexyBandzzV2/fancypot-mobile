@@ -80,3 +80,17 @@ export async function uploadWardrobeImage(
 export async function deleteWardrobeObject(path: string): Promise<void> {
   await supabase.storage.from(BUCKET).remove([path]);
 }
+
+/**
+ * Copy an existing wardrobe object to a fresh path in the same owner's folder,
+ * returning the new object path. Used when adding a saved look to the closet so
+ * the closet item owns an INDEPENDENT copy — removing that closet item later
+ * (which deletes its storage object) can't break the saved look's image.
+ */
+export async function copyWardrobeObject(userId: string, srcObjectPath: string): Promise<string> {
+  const ext = srcObjectPath.split('.').pop()?.toLowerCase() === 'png' ? 'png' : 'jpg';
+  const dest = `${userId}/${uniqueName(ext)}`;
+  const { error } = await supabase.storage.from(BUCKET).copy(srcObjectPath, dest);
+  if (error) throw error;
+  return dest;
+}

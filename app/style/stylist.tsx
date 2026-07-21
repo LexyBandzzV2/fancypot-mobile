@@ -21,6 +21,7 @@ import {
   SectionLabel,
   CookingLoader,
   RecommendCards,
+  Toast,
 } from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, useThemedStyles } from '@/theme';
@@ -85,10 +86,13 @@ export default function StylistScreen() {
   // when we arrive mid-cook so we re-attach to the in-flight look immediately.
   const [engaged, setEngaged] = useState(() => status === 'cooking');
   const [gating, setGating] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   // Fetch recs once per result; show the error alert once per error.
   const picksFor = useRef<string | null>(null);
   const errorShownFor = useRef<string | null>(null);
+  // Confirm the auto-save with a toast once per finished look.
+  const savedToastFor = useRef<string | null>(null);
 
   // Style preferences (favorite stores / styles / budget) sharpen the gap picks
   // from recommend-pieces. Same jsonb shape the preferences editor writes.
@@ -123,6 +127,16 @@ export default function StylistScreen() {
     fetchPicks(jobResult, jobMeta?.occasion ?? occasion);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engaged, status, jobResult]);
+
+  // Confirm the completed look landed in Saved → Outfits with a toast (the
+  // provider auto-saves it; useOutfits.save now uploads any base64 data-URL
+  // image to storage first so the Saved tile never renders blank).
+  useEffect(() => {
+    if (!engaged || status !== 'done' || !jobResult || !saved) return;
+    if (savedToastFor.current === jobResult) return;
+    savedToastFor.current = jobResult;
+    setToast('Added to Saved outfits');
+  }, [engaged, status, jobResult, saved]);
 
   // Surface a watched job's error once, then drop back to the form.
   useEffect(() => {
@@ -267,12 +281,15 @@ export default function StylistScreen() {
   // Saving a gap pick creates a Saved item: the generated outfit image carrying
   // the pick's store link, so it appears with a working "Get the look" button.
   const savePick = async (pick: PiecePick) => {
+    // useOutfits.save uploads a base64 data-URL image to storage first, so the
+    // saved tile renders instead of a blank (unsignable) data URL.
     await save({
       name: pick.name,
       image_url: jobResult ?? undefined,
       source_url: pick.url,
       occasion: jobMeta?.occasion ?? occasion,
     });
+    setToast('Added to Saved outfits');
   };
 
   return (
@@ -416,6 +433,8 @@ export default function StylistScreen() {
           />
         </Glass>
       ) : null}
+
+      <Toast message={toast} onHide={() => setToast(null)} />
     </View>
   );
 }

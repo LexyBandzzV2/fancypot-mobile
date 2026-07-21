@@ -26,7 +26,7 @@ import {
   ThemedText,
 } from '@/components';
 import type { Colors } from '@/theme/colors';
-import { fonts, radius, spacing, useThemedStyles } from '@/theme';
+import { fonts, radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import {
   getFeed,
@@ -34,12 +34,12 @@ import {
   getScrapedFeed,
   isSyntheticProduct,
   reactToProduct,
+  saveItem,
   type FeedProduct,
 } from '@/lib/api';
 import { openProductUrl } from '@/lib/affiliate';
 import { brandsMatch, budgetTierAllowed, resolveSavedBudgets, STORES, BUDGETS } from '@/lib/brands';
 import { useAuth } from '@/providers/AuthProvider';
-import { useOutfits } from '@/hooks/useOutfits';
 
 // A session-only filter: explore price ranges / brands beyond the saved
 // profile for this browse, without touching persisted preferences. null when
@@ -56,8 +56,7 @@ const INITIAL_SCRAPED_ROWS = 1000;
 export default function FeedScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { profile } = useAuth();
-  const { save: saveOutfit } = useOutfits();
+  const { profile, user } = useAuth();
   const router = useRouter();
   // The three sources are held separately: curated (feed-page) is
   // store-independent and only refetched on mount / pull-to-refresh; fresh
@@ -341,19 +340,23 @@ export default function FeedScreen() {
     [],
   );
 
-  // Save a feed piece to Saved Looks. Works for EVERY item (including synthetic
-  // scraped/live results) because it writes a shoppable outfit row — the same
-  // mechanism as Get-the-Look — rather than a product reaction.
-  const saveToLooks = useCallback(
+  // Save a feed piece to Saved Items. Works for EVERY source — including the
+  // synthetic scraped/fresh items that can't persist a product_reaction —
+  // because saved_items stores the product's own fields, not an FK to a
+  // products row.
+  const saveToItems = useCallback(
     async (product: FeedProduct) => {
-      if (savedIds.has(product.id)) return; // already saved this session
+      if (!user || savedIds.has(product.id)) return; // already saved this session
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       setSavedIds((prev) => new Set(prev).add(product.id));
       try {
-        await saveOutfit({
-          name: product.name ?? product.brand ?? 'Saved piece',
-          image_url: product.image_url ?? '',
-          source_url: product.product_url ?? null,
+        await saveItem(user.id, {
+          name: product.name,
+          brand: product.brand,
+          price: product.price,
+          image_url: product.image_url,
+          product_url: product.product_url,
+          source: 'feed',
         });
       } catch {
         // Roll back the filled bookmark if the save didn't land.
@@ -364,7 +367,7 @@ export default function FeedScreen() {
         });
       }
     },
-    [savedIds, saveOutfit],
+    [savedIds, user],
   );
 
   const filterCount = filter ? filter.budgets.length + filter.brands.length : 0;
@@ -502,7 +505,7 @@ export default function FeedScreen() {
               reaction={reactions[item.id]}
               saved={savedIds.has(item.id)}
               onReact={react}
-              onSave={saveToLooks}
+              onSave={saveToItems}
             />
           )}
           ListEmptyComponent={
@@ -709,37 +712,74 @@ function ProductCard({
   onReact: (p: FeedProduct, r: 'like' | 'dislike') => void;
   onSave: (p: FeedProduct) => void;
 }) {
-  // Like/Save now work on EVERY card. Save always writes a Saved Look (works
-  // even for synthetic scraped/live items); Like persists server-side only for
-  // real products but still gives a local heart on synthetic ones.
+  // Like/Save now work on EVERY card. Save writes to Saved Items (works even
+  // for synthetic scraped/live items); Like persists server-side only for real
+  // products but still gives a local heart on synthetic ones.
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // Double-tap-to-save: track the previous tap time; a second tap within the
+  // window saves the item to Saved Items and plays the heart burst. saved_items
+  // persists the product's own fields, so this works for synthetic scraped/
+  // fresh items too (unlike product_reactions, which needs a real products row).
+  const lastTap = useRef(0);
+  const burst = useRef(new Animated.Value(0)).current;
+
+  const playBurst = () => {
+    burst.setValue(0);
+    Animated.sequence([
+      Animated.spring(burst, { toValue: 1, useNativeDriver: true, friction: 4, tension: 90 }),
+      Animated.timing(burst, { toValue: 0, duration: 380, delay: 260, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const onImageTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 280) {
+      lastTap.current = 0;
+      onSave(item);
+      playBurst();
+    } else {
+      lastTap.current = now;
+    }
+  };
+
+  const burstStyle = {
+    opacity: burst.interpolate({ inputRange: [0, 1], outputRange: [0, 0.95] }),
+    transform: [{ scale: burst.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }],
+  };
+
   return (
     <View style={styles.card}>
-      <View style={styles.cardImgWrap}>
-        {item.image_url ? (
-          <Image source={{ uri: item.image_url }} style={styles.cardImg} contentFit="cover" transition={200} />
-        ) : (
-          <View style={[styles.cardImg, styles.placeholder]}>
-            <Ionicons name="pricetag-outline" size={30} color={colors.blushDeep} />
-          </View>
-        )}
-        {/* Floating like — web FeedCard's heart on a white/90 circle. */}
-        <Pressable
-          onPress={() => onReact(item, 'like')}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel="Like"
-          accessibilityState={{ selected: reaction === 'like' }}
-          style={styles.heartBtn}
-        >
-          <Ionicons
-            name={reaction === 'like' ? 'heart' : 'heart-outline'}
-            size={18}
-            color={colors.pinkWarm}
-          />
-        </Pressable>
-      </View>
+      <Pressable onPress={onImageTap} accessibilityLabel="Double-tap to save to your items">
+        <View style={styles.cardImgWrap}>
+          {item.image_url ? (
+            <Image source={{ uri: item.image_url }} style={styles.cardImg} contentFit="cover" transition={200} />
+          ) : (
+            <View style={[styles.cardImg, styles.placeholder]}>
+              <Ionicons name="pricetag-outline" size={30} color={colors.blushDeep} />
+            </View>
+          )}
+          {/* Floating like — web FeedCard's heart on a white/90 circle. */}
+          <Pressable
+            onPress={() => onReact(item, 'like')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Like"
+            accessibilityState={{ selected: reaction === 'like' }}
+            style={styles.heartBtn}
+          >
+            <Ionicons
+              name={reaction === 'like' ? 'heart' : 'heart-outline'}
+              size={18}
+              color={colors.pinkWarm}
+            />
+          </Pressable>
+          {/* Double-tap heart burst, centered over the product image. */}
+          <Animated.View style={[styles.burst, burstStyle]} pointerEvents="none">
+            <Ionicons name="heart" size={96} color={colors.white} />
+          </Animated.View>
+        </View>
+      </Pressable>
       <View style={styles.cardFooter}>
         <View style={styles.cardInfo}>
           <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.brand} numberOfLines={1}>
@@ -916,6 +956,16 @@ const makeStyles = (c: Colors) =>
     cardImgWrap: { backgroundColor: c.pinkWarmGlow },
     // Web: aspect-[3/4] editorial portrait.
     cardImg: { width: '100%', aspectRatio: 3 / 4 },
+    // Double-tap heart-burst, centered over the product image.
+    burst: {
+      ...fillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: c.ink,
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+    },
     placeholder: { alignItems: 'center', justifyContent: 'center' },
     heartBtn: {
       position: 'absolute',
