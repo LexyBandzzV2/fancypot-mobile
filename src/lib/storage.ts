@@ -51,3 +51,39 @@ export async function uploadWardrobeImage(
 export async function deleteWardrobeObject(path: string): Promise<void> {
   await supabase.storage.from(BUCKET).remove([path]);
 }
+
+/**
+ * Copy an existing wardrobe object to a fresh path in the same owner's folder,
+ * returning the new object path. Used when adding a saved look to the closet so
+ * the closet item owns an INDEPENDENT copy — removing that closet item later
+ * (which deletes its storage object) can't break the saved look's image.
+ */
+export async function copyWardrobeObject(userId: string, srcObjectPath: string): Promise<string> {
+  const ext = srcObjectPath.split('.').pop()?.toLowerCase() === 'png' ? 'png' : 'jpg';
+  const dest = `${userId}/${uniqueName(ext)}`;
+  const { error } = await supabase.storage.from(BUCKET).copy(srcObjectPath, dest);
+  if (error) throw error;
+  return dest;
+}
+
+/**
+ * Persist an AI-generated result image (Style Me / Virtual try-on) into the
+ * owner's wardrobe folder so it survives beyond the gateway's response and can
+ * be signed for display later.
+ *
+ * The Lovable AI gateway returns generated images as base64 `data:` URLs.
+ * Storing that multi-megabyte string directly in `outfits.image_url` is what
+ * broke saving — signWardrobeUrl can't sign a data: URL, so the tile rendered
+ * blank (and a large insert can fail outright). Here we strip the data URL and
+ * upload the bytes, returning the stored object path (userId/uuid.ext). A plain
+ * http(s) URL is already hosted, so it's returned unchanged.
+ */
+export async function persistGeneratedImage(
+  userId: string,
+  dataUrlOrUrl: string,
+): Promise<string> {
+  const m = dataUrlOrUrl.match(/^data:image\/([a-zA-Z0-9.+-]+);base64,(.+)$/s);
+  if (!m) return dataUrlOrUrl; // already a hosted URL (or unexpected shape)
+  const ext = m[1].toLowerCase() === 'png' ? 'png' : 'jpg';
+  return uploadWardrobeImage(userId, m[2], ext);
+}

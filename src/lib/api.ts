@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { normalizeBrand } from './brands';
+import { copyWardrobeObject } from './storage';
 
 /**
  * All AI features are invoked through Supabase Edge Functions. The mobile app
@@ -207,6 +208,90 @@ export async function saveOutfit(
 
 export async function deleteOutfit(id: string): Promise<void> {
   const { error } = await supabase.from('outfits').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/**
+ * Add a saved look/outfit to the user's closet (wardrobe_items) with a single
+ * tap — no questionnaire. The look's image is COPIED to its own storage object
+ * so the closet item is independent of the saved look. Inserted as already
+ * `completed` (no AI classification/background-removal on a full-look image).
+ * The DB's per-plan closet-limit trigger may reject the insert — that error is
+ * surfaced to the caller.
+ */
+export async function addOutfitToCloset(
+  userId: string,
+  outfit: { image_url: string | null; name: string | null },
+): Promise<void> {
+  if (!outfit.image_url) throw new Error('This look has no image to add.');
+  let imagePath = outfit.image_url;
+  // Our own storage objects get copied; a remote (retailer) URL is referenced
+  // as-is (it isn't ours to copy, and deleting the closet item no-ops on it).
+  const isRemote = /^https?:\/\//i.test(imagePath) && !imagePath.includes('/wardrobe/');
+  if (!isRemote) {
+    const m = imagePath.match(/\/wardrobe\/([^?]+)/);
+    const src = m ? decodeURIComponent(m[1]) : imagePath;
+    imagePath = await copyWardrobeObject(userId, src);
+  }
+  const { error } = await supabase.from('wardrobe_items').insert({
+    user_id: userId,
+    image_url: imagePath,
+    category: 'Outfit',
+    name: outfit.name ?? 'Saved look',
+    processing_status: 'completed',
+  });
+  if (error) throw error;
+}
+
+// ---- Saved items (one-off products saved from the feed / Get the Look) ----
+// Distinct from `outfits`: these are individual shoppable products the user
+// liked while browsing, not AI-composed looks. Backed by public.saved_items
+// (owner-scoped RLS, insert/delete only, deduped on user_id+product_url).
+export interface SavedItem {
+  id: string;
+  user_id: string;
+  name: string | null;
+  brand: string | null;
+  price: string | number | null;
+  image_url: string | null;
+  product_url: string | null;
+  source: string; // 'feed' | 'get_the_look'
+  created_at: string;
+}
+
+export async function listSavedItems(userId: string): Promise<SavedItem[]> {
+  const { data, error } = await supabase
+    .from('saved_items')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as SavedItem[];
+}
+
+export async function saveItem(
+  userId: string,
+  item: Partial<SavedItem>,
+): Promise<void> {
+  // Plain insert, tolerating the dedupe. The unique index on
+  // (user_id, product_url) is PARTIAL (WHERE product_url IS NOT NULL), which
+  // PostgREST can't use as an upsert conflict target (it omits the predicate),
+  // so re-saving a product surfaces as a 23505 unique violation — treat that as
+  // "already saved" and succeed instead of erroring.
+  const { error } = await supabase.from('saved_items').insert({
+    user_id: userId,
+    name: item.name ?? null,
+    brand: item.brand ?? null,
+    price: item.price != null ? String(item.price) : null,
+    image_url: item.image_url ?? null,
+    product_url: item.product_url ?? null,
+    source: item.source ?? 'feed',
+  });
+  if (error && error.code !== '23505') throw error;
+}
+
+export async function deleteSavedItem(id: string): Promise<void> {
+  const { error } = await supabase.from('saved_items').delete().eq('id', id);
   if (error) throw error;
 }
 

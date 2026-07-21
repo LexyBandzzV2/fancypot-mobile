@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
-import { StackHeader, Button, Chip, ThemedText, EmptyState, Card, SectionLabel } from '@/components';
+import { StackHeader, Button, Chip, ThemedText, EmptyState, Card, SectionLabel, Toast, CookingAnimation } from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
@@ -16,7 +17,9 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useWardrobe } from '@/hooks/useWardrobe';
 import { useOutfits } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
+import { useAuth } from '@/providers/AuthProvider';
 import { generateOutfit, recommendPieces } from '@/lib/api';
+import { persistGeneratedImage } from '@/lib/storage';
 import { openProductUrl } from '@/lib/affiliate';
 
 const OCCASIONS = ['Everyday', 'Work', 'Date night', 'Party', 'Weekend', 'Formal'];
@@ -44,13 +47,21 @@ export default function StylistScreen() {
   const styles = useThemedStyles(makeStyles);
   const { items, loading: closetLoading } = useWardrobe();
   const { save } = useOutfits();
+  const { user } = useAuth();
   const { run, running } = useAIAction();
   const [mode, setMode] = useState<Mode>('mood');
   const [selected, setSelected] = useState<string[]>([]);
   const [occasion, setOccasion] = useState<string>('Everyday');
   const [vibe, setVibe] = useState<string>('Classic');
   const [result, setResult] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  // "Save & wait" (cook in the background): pendingRef is read inside the async
+  // generate to decide whether to auto-save instead of showing the result;
+  // loaderDismissed hides the cooking overlay early so the user can leave.
+  const [pendingSave, setPendingSave] = useState(false);
+  const [loaderDismissed, setLoaderDismissed] = useState(false);
+  const pendingRef = useRef(false);
   const [lastParams, setLastParams] = useState<GenerateParams | null>(null);
   const [suggestion, setSuggestion] = useState<PieceSuggestion | null>(null);
 
@@ -120,22 +131,71 @@ export default function StylistScreen() {
 
   const onGenerate = async () => {
     setResult(null);
-    setSaved(false);
     setSuggestion(null);
+    setPendingSave(false);
+    setLoaderDismissed(false);
+    pendingRef.current = false;
     const params = buildParams();
     const res = await run(() => generateOutfit(params));
     if (res?.image_url) {
-      setResult(res.image_url);
-      setLastParams(params);
-      fetchSuggestion(res.image_url);
+      if (pendingRef.current) {
+        // "Save & wait": the user left while it cooked — auto-save and skip the
+        // result view. Best-effort: never surface an error to an absent user.
+        try {
+          if (user) {
+            const stored = await persistGeneratedImage(user.id, res.image_url);
+            await save({
+              name: `${params.vibe} ${params.occasion}`,
+              image_url: stored,
+              item_ids: params.itemIds,
+              occasion: params.occasion,
+            });
+            setToast('Added to Saved outfits');
+          }
+        } catch {
+          // swallow — the user has already moved on
+        }
+        resetToStart();
+      } else {
+        setResult(res.image_url);
+        setLastParams(params);
+        fetchSuggestion(res.image_url);
+      }
     }
+    pendingRef.current = false;
+    setPendingSave(false);
+    setLoaderDismissed(false);
+  };
+
+  // Return the screen to the start of the styling flow (clears the result and
+  // the picked pieces), keeping the occasion/vibe so the user can quickly make
+  // another look.
+  const resetToStart = () => {
+    setResult(null);
+    setSuggestion(null);
+    setLastParams(null);
+    setSelected([]);
   };
 
   const onSave = async () => {
-    if (!result) return;
-    const p = lastParams ?? { itemIds: selected, occasion, vibe };
-    await save({ name: `${p.vibe} ${p.occasion}`, image_url: result, item_ids: p.itemIds, occasion: p.occasion });
-    setSaved(true);
+    if (!result || !user || saving) return;
+    setSaving(true);
+    try {
+      const p = lastParams ?? { itemIds: selected, occasion, vibe };
+      // Persist the generated image to storage first — the gateway returns a
+      // base64 data URL that can't be stored/signed directly (that's what made
+      // "Save" silently fail before).
+      const stored = await persistGeneratedImage(user.id, result);
+      await save({ name: `${p.vibe} ${p.occasion}`, image_url: stored, item_ids: p.itemIds, occasion: p.occasion });
+      // Saved — snap back to the beginning of the style screen. The look now
+      // lives in Saved Looks.
+      resetToStart();
+      setToast('Added to Saved outfits');
+    } catch (e) {
+      Alert.alert('Could not save', 'We could not save this look. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -154,10 +214,10 @@ export default function StylistScreen() {
 
             <Card glass={false} style={styles.resultActions}>
               <Button
-                label={saved ? 'Saved to library' : 'Save to library'}
+                label={saving ? 'Saving…' : 'Save to library'}
                 onPress={onSave}
-                variant={saved ? 'outline' : 'primary'}
-                disabled={saved}
+                loading={saving}
+                disabled={saving}
               />
               <View style={{ height: spacing.sm }} />
               <Button label="Start over" variant="ghost" onPress={() => setResult(null)} />
@@ -261,11 +321,20 @@ export default function StylistScreen() {
         </Glass>
       ) : null}
 
-      {running ? (
-        <View style={styles.overlay} pointerEvents="none">
-          <ActivityIndicator size="large" color={colors.pinkWarm} />
-        </View>
-      ) : null}
+      <CookingAnimation
+        open={running && !loaderDismissed}
+        label="Stirring your closet, occasion & vibe together."
+        onSaveAndWait={() => {
+          pendingRef.current = true;
+          setPendingSave(true);
+          // Brief confirmation, then hide the loader so the user can leave; the
+          // generation finishes in the background and auto-saves.
+          setTimeout(() => setLoaderDismissed(true), 600);
+        }}
+        savedForLater={pendingSave}
+      />
+
+      <Toast message={toast} onHide={() => setToast(null)} />
     </View>
   );
 }

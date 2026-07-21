@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
-import { StackHeader, Button, ThemedText, EmptyState, Card, SectionLabel, UploadZone } from '@/components';
+import { StackHeader, Button, ThemedText, EmptyState, Card, SectionLabel, UploadZone, Toast, CookingAnimation } from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
@@ -11,20 +11,29 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
 import { useAIAction } from '@/hooks/useAIAction';
+import { useAuth } from '@/providers/AuthProvider';
 import { tryOn } from '@/lib/api';
+import { persistGeneratedImage } from '@/lib/storage';
 import { openProductUrl } from '@/lib/affiliate';
 
 export default function TryOnScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { fromCamera, fromLibrary } = useImagePicker();
-  const { outfits } = useOutfits();
+  const { outfits, save } = useOutfits();
+  const { user } = useAuth();
   const { run, running } = useAIAction();
   const { outfitId } = useLocalSearchParams<{ outfitId?: string }>();
   const [personImage, setPersonImage] = useState<string | null>(null);
   const [personBase64, setPersonBase64] = useState<string | null>(null);
   const [outfit, setOutfit] = useState<OutfitDisplay | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  // "Save & wait" during generation — see stylist.tsx for the same pattern.
+  const [pendingSave, setPendingSave] = useState(false);
+  const [loaderDismissed, setLoaderDismissed] = useState(false);
+  const pendingRef = useRef(false);
 
   // Preselect the look the user tapped through from (Saved Looks passes its id).
   // Only runs until something is selected, so a manual pick is never overridden.
@@ -44,10 +53,63 @@ export default function TryOnScreen() {
 
   const onTryOn = async () => {
     if (!personBase64 || !outfit?.signedUrl) return;
+    setPendingSave(false);
+    setLoaderDismissed(false);
+    pendingRef.current = false;
     const res = await run(() =>
       tryOn({ personImage: personBase64, outfitImage: outfit.signedUrl! }),
     );
-    if (res?.image_url) setResult(res.image_url);
+    if (res?.image_url) {
+      if (pendingRef.current) {
+        // "Save & wait": auto-save the try-on and skip the result view.
+        try {
+          if (user) {
+            const stored = await persistGeneratedImage(user.id, res.image_url);
+            await save({
+              name: outfit?.name ? `${outfit.name} · try-on` : 'Virtual try-on',
+              image_url: stored,
+              item_ids: outfit?.item_ids ?? [],
+              occasion: outfit?.occasion ?? null,
+              source_url: outfit?.source_url ?? null,
+            });
+            setToast('Added to Saved outfits');
+          }
+        } catch {
+          // swallow — the user has already moved on
+        }
+      } else {
+        setResult(res.image_url);
+      }
+    }
+    pendingRef.current = false;
+    setPendingSave(false);
+    setLoaderDismissed(false);
+  };
+
+  const onSave = async () => {
+    if (!result || !user || saving) return;
+    setSaving(true);
+    try {
+      // The gateway returns a base64 data URL — persist it to storage so it can
+      // be signed and shown in Saved Looks (a raw data URL can't be).
+      const stored = await persistGeneratedImage(user.id, result);
+      await save({
+        name: outfit?.name ? `${outfit.name} · try-on` : 'Virtual try-on',
+        image_url: stored,
+        item_ids: outfit?.item_ids ?? [],
+        occasion: outfit?.occasion ?? null,
+        // Preserve the retailer link so the saved try-on stays shoppable.
+        source_url: outfit?.source_url ?? null,
+      });
+      // Saved — snap back to the start of the try-on screen (photo + outfit stay
+      // selected so another try-on is one tap away). The look is now in Saved Looks.
+      setResult(null);
+      setToast('Added to Saved outfits');
+    } catch (e) {
+      Alert.alert('Could not save', 'We could not save this try-on. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const canRun = !!personBase64 && !!outfit;
@@ -61,6 +123,12 @@ export default function TryOnScreen() {
             <Card style={styles.resultCard} padded={false}>
               <Image source={{ uri: result }} style={styles.result} contentFit="cover" transition={250} />
             </Card>
+            <Button
+              label={saving ? 'Saving…' : 'Save to library'}
+              onPress={onSave}
+              loading={saving}
+              disabled={saving}
+            />
             <Button label="Try another" variant="outline" onPress={() => setResult(null)} />
             {outfit?.source_url ? (
               <Pressable style={styles.shopLink} onPress={() => openProductUrl(outfit.source_url)}>
@@ -141,11 +209,18 @@ export default function TryOnScreen() {
         </Glass>
       ) : null}
 
-      {running ? (
-        <View style={styles.overlay} pointerEvents="none">
-          <ActivityIndicator size="large" color={colors.pinkWarm} />
-        </View>
-      ) : null}
+      <CookingAnimation
+        open={running && !loaderDismissed}
+        label="Tailoring the fit to your photo & body proportions."
+        onSaveAndWait={() => {
+          pendingRef.current = true;
+          setPendingSave(true);
+          setTimeout(() => setLoaderDismissed(true), 600);
+        }}
+        savedForLater={pendingSave}
+      />
+
+      <Toast message={toast} onHide={() => setToast(null)} />
     </View>
   );
 }

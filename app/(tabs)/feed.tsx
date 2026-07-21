@@ -19,19 +19,20 @@ import {
   Chip,
   ChipWrap,
   EmptyState,
+  FeedLoading,
   SectionLabel,
   SkeletonGrid,
   ThemedText,
 } from '@/components';
 import type { Colors } from '@/theme/colors';
-import { fonts, radius, spacing, useThemedStyles } from '@/theme';
+import { fonts, radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import {
   getFeed,
   getFreshFeed,
   getScrapedFeed,
-  isSyntheticProduct,
   reactToProduct,
+  saveItem,
   type FeedProduct,
 } from '@/lib/api';
 import { openProductUrl } from '@/lib/affiliate';
@@ -49,7 +50,7 @@ interface FeedFilter {
 export default function FeedScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const router = useRouter();
   // The three sources are held separately: curated (feed-page) is
   // store-independent and only refetched on mount / pull-to-refresh; fresh
@@ -65,6 +66,10 @@ export default function FeedScreen() {
   const [freshLoading, setFreshLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [reactions, setReactions] = useState<Record<string, 'like' | 'dislike' | 'save'>>({});
+  // Product ids the user has saved to Saved Items (feed → double-tap / heart).
+  // Held at the list level so the filled state survives card remounts as the
+  // feed reshuffles.
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [activeStore, setActiveStore] = useState<string | null>(null);
   // Bumped on every refresh to reshuffle the visible order — the monthly
   // scrape rarely changes, so a fresh shuffle is what makes a pull-to-refresh
@@ -254,6 +259,34 @@ export default function FeedScreen() {
     [],
   );
 
+  // Save a feed product to Saved Items. Works for every source — including the
+  // synthetic scraped/fresh items that can't persist a product_reaction —
+  // because saved_items stores the product's own fields, not an FK.
+  const saveToItems = useCallback(
+    async (product: FeedProduct) => {
+      if (!user) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      setSavedIds((prev) => {
+        const next = new Set(prev);
+        next.add(product.id);
+        return next;
+      });
+      try {
+        await saveItem(user.id, {
+          name: product.name,
+          brand: product.brand,
+          price: product.price,
+          image_url: product.image_url,
+          product_url: product.product_url,
+          source: 'feed',
+        });
+      } catch {
+        // Optimistic — leave the heart filled even if the write hiccups.
+      }
+    },
+    [user],
+  );
+
   const filterCount = filter ? filter.budgets.length + filter.brands.length : 0;
 
   return (
@@ -301,9 +334,7 @@ export default function FeedScreen() {
         <StoreChipRow stores={savedStores} active={activeStore} onChange={setActiveStore} />
       ) : null}
       {loading ? (
-        <View style={styles.pad}>
-          <SkeletonGrid count={4} />
-        </View>
+        <FeedLoading />
       ) : products.length === 0 ? (
         <>
           <EmptyState
@@ -336,7 +367,12 @@ export default function FeedScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.blushDeep} />
           }
           renderItem={({ item }) => (
-            <ProductCard item={item} reaction={reactions[item.id]} onReact={react} />
+            <ProductCard
+              item={item}
+              onReact={react}
+              saved={savedIds.has(item.id)}
+              onSaveItem={saveToItems}
+            />
           )}
           ListEmptyComponent={
             // A chip/filter can narrow the current list to nothing while its
@@ -521,47 +557,77 @@ function RefreshNudge({ visible, onPress }: { visible: boolean; onPress: () => v
 
 function ProductCard({
   item,
-  reaction,
   onReact,
+  saved,
+  onSaveItem,
 }: {
   item: FeedProduct;
-  reaction?: 'like' | 'dislike' | 'save';
   onReact: (p: FeedProduct, r: 'like' | 'dislike' | 'save') => void;
+  saved: boolean;
+  onSaveItem: (p: FeedProduct) => void;
 }) {
-  // Fresh-feed items are synthetic (no products row), so like/save can't
-  // persist — hide those buttons rather than show a heart that lies. Dislike
-  // stays: it's an honest session-local "hide this" either way.
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const synthetic = isSyntheticProduct(item.id);
+  // Double-tap-to-save: track the previous tap time; a second tap within the
+  // window saves the item to Saved Items and plays the heart burst. saved_items
+  // persists the product's own fields, so this works for synthetic scraped/
+  // fresh items too (unlike product_reactions, which needs a real products row).
+  const lastTap = useRef(0);
+  const burst = useRef(new Animated.Value(0)).current;
+
+  const playBurst = () => {
+    burst.setValue(0);
+    Animated.sequence([
+      Animated.spring(burst, { toValue: 1, useNativeDriver: true, friction: 4, tension: 90 }),
+      Animated.timing(burst, { toValue: 0, duration: 380, delay: 260, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const onImageTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 280) {
+      lastTap.current = 0;
+      onSaveItem(item);
+      playBurst();
+    } else {
+      lastTap.current = now;
+    }
+  };
+
+  const burstStyle = {
+    opacity: burst.interpolate({ inputRange: [0, 1], outputRange: [0, 0.95] }),
+    transform: [{ scale: burst.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }],
+  };
+
   return (
     <View style={styles.card}>
-      <View style={styles.cardImgWrap}>
-        {item.image_url ? (
-          <Image source={{ uri: item.image_url }} style={styles.cardImg} contentFit="cover" transition={200} />
-        ) : (
-          <View style={[styles.cardImg, styles.placeholder]}>
-            <Ionicons name="pricetag-outline" size={30} color={colors.blushDeep} />
-          </View>
-        )}
-        {/* Floating like — web FeedCard's heart on a white/90 circle. */}
-        {!synthetic ? (
+      <Pressable onPress={onImageTap} accessibilityLabel="Double-tap to save to your items">
+        <View style={styles.cardImgWrap}>
+          {item.image_url ? (
+            <Image source={{ uri: item.image_url }} style={styles.cardImg} contentFit="cover" transition={200} />
+          ) : (
+            <View style={[styles.cardImg, styles.placeholder]}>
+              <Ionicons name="pricetag-outline" size={30} color={colors.blushDeep} />
+            </View>
+          )}
+          {/* Floating heart — save to Saved Items. Shown for every source
+              (synthetic scraped/fresh items included), since saved_items
+              persists the product's own fields rather than a row reference. */}
           <Pressable
-            onPress={() => onReact(item, 'like')}
+            onPress={() => onSaveItem(item)}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Like"
-            accessibilityState={{ selected: reaction === 'like' }}
+            accessibilityLabel="Save to your items"
+            accessibilityState={{ selected: saved }}
             style={styles.heartBtn}
           >
-            <Ionicons
-              name={reaction === 'like' ? 'heart' : 'heart-outline'}
-              size={18}
-              color={colors.pinkWarm}
-            />
+            <Ionicons name={saved ? 'heart' : 'heart-outline'} size={18} color={colors.pinkWarm} />
           </Pressable>
-        ) : null}
-      </View>
+          <Animated.View style={[styles.burst, burstStyle]} pointerEvents="none">
+            <Ionicons name="heart" size={96} color={colors.white} />
+          </Animated.View>
+        </View>
+      </Pressable>
       <View style={styles.cardFooter}>
         <View style={styles.cardInfo}>
           <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.brand} numberOfLines={1}>
@@ -577,15 +643,6 @@ function ProductCard({
           </ThemedText>
         </View>
         <View style={styles.actions}>
-          {!synthetic ? (
-            <CircleBtn
-              icon={reaction === 'save' ? 'bookmark' : 'bookmark-outline'}
-              color={colors.pinkWarm}
-              label="Save"
-              selected={reaction === 'save'}
-              onPress={() => onReact(item, 'save')}
-            />
-          ) : null}
           <CircleBtn
             icon="close"
             color={colors.inkMuted}
@@ -719,6 +776,16 @@ const makeStyles = (c: Colors) =>
       backgroundColor: `${c.white}E6`, // web: bg-card/90
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    // Double-tap heart-burst, centered over the product image.
+    burst: {
+      ...fillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: c.ink,
+      shadowOpacity: 0.35,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
     },
     cardFooter: {
       flexDirection: 'row',
