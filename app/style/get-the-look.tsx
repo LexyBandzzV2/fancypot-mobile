@@ -19,7 +19,7 @@ import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useAuth } from '@/providers/AuthProvider';
-import { getTheLookSearch, saveOutfit, UsageLimitError, type LookMatch } from '@/lib/api';
+import { getTheLookSearch, saveItem, UsageLimitError, type LookMatch } from '@/lib/api';
 import { uploadWardrobeImage, signWardrobeUrl, deleteWardrobeObject } from '@/lib/storage';
 import { openProductUrl } from '@/lib/affiliate';
 
@@ -90,12 +90,15 @@ export default function GetTheLookScreen() {
     if (keep && current && user) {
       setKept((prev) => [...prev, current]);
       try {
-        await saveOutfit(user.id, {
-          name: current.title ?? 'Saved look',
+        // Get the Look matches are one-off shoppable products, so they belong
+        // in Saved Items (not the composed-outfit library).
+        await saveItem(user.id, {
+          name: current.title,
+          brand: current.source,
+          price: current.price,
           image_url: current.thumbnail,
-          category: 'get_the_look',
-          // Keep the retailer link so Saved Looks / Try-on can shop the item.
-          source_url: current.link,
+          product_url: current.link,
+          source: 'get_the_look',
         });
       } catch {
         // Non-blocking: keep the swipe flow moving even if the save fails.
