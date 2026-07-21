@@ -65,7 +65,6 @@ export default function FeedScreen() {
   const [loading, setLoading] = useState(true);
   const [freshLoading, setFreshLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [reactions, setReactions] = useState<Record<string, 'like' | 'dislike' | 'save'>>({});
   // Product ids the user has saved to Saved Items (feed → double-tap / heart).
   // Held at the list level so the filled state survives card remounts as the
   // feed reshuffles.
@@ -244,7 +243,6 @@ export default function FeedScreen() {
   const react = useCallback(
     async (product: FeedProduct, reaction: 'like' | 'dislike' | 'save') => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setReactions((prev) => ({ ...prev, [product.id]: reaction }));
       try {
         await reactToProduct(product.id, reaction);
         if (reaction === 'dislike') {
