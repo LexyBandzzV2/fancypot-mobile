@@ -48,11 +48,13 @@ export const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false, // no URL-based session on native
-    // PKCE is the recommended OAuth flow for native apps: the code verifier
-    // never leaves the device, so an intercepted redirect can't be replayed.
-    // Also required for socialAuth's primary Google path — exchangeCodeForSession
-    // has no verifier to send without it, leaving only the implicit-flow
-    // fallback, which returns tokens in the URL fragment.
+    // PKCE is the required OAuth flow for native apps. Redirects carry only a
+    // one-time `?code=`, useless without the verifier held on this device — so
+    // nothing sensitive rides on the `fancypot://` scheme, which any malicious
+    // co-installed app could also register. It is also what makes
+    // exchangeCodeForSession work in socialAuth / useAuthDeepLinks: without a
+    // verifier there is no code to exchange, and the only remaining path would
+    // be the implicit flow, which returns raw tokens in the URL fragment.
     flowType: 'pkce',
     lock: processLock,
   },

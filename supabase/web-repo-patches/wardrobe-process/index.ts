@@ -26,8 +26,12 @@ async function processItem(itemId: string, userId: string) {
     if (itemErr || !item) return fail("item not found");
     if (item.user_id !== userId) return fail("forbidden");
 
-    const m = (item.image_url as string).match(/\/storage\/v1\/object\/(?:public|sign)\/wardrobe\/([^?]+)/);
-    const path = m ? m[1] : null;
+    // image_url normally holds a bare object path (userId/uuid.ext — see the
+    // mobile client's uploadWardrobeImage). Tolerate legacy rows that stored a
+    // full storage URL by extracting the path from it.
+    const rawImage = item.image_url as string;
+    const m = rawImage.match(/\/storage\/v1\/object\/(?:public|sign)\/wardrobe\/([^?]+)/);
+    const path = m ? m[1] : (rawImage.startsWith("http") ? null : rawImage);
     if (!path) return fail("bad image url");
     const { data: signed } = await admin.storage.from("wardrobe").createSignedUrl(path, 60 * 10);
     const imageUrl = signed?.signedUrl;
@@ -66,7 +70,7 @@ async function processItem(itemId: string, userId: string) {
     } catch (e) { console.error("classify failed", e); }
 
     // 2) Background removal via image model.
-    let cleanedUrl: string | null = null;
+    let cleanedPath: string | null = null;
     try {
       const bg = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -94,8 +98,11 @@ async function processItem(itemId: string, userId: string) {
           const { error: upErr } = await admin.storage.from("wardrobe")
             .upload(newPath, bytes, { contentType: mime, upsert: false });
           if (!upErr) {
-            const { data: pub } = admin.storage.from("wardrobe").getPublicUrl(newPath);
-            cleanedUrl = pub.publicUrl;
+            // Store the OBJECT PATH (userId/uuid.png), NOT a public URL: the
+            // wardrobe bucket is private, so clients sign paths on demand
+            // (mobile src/lib/storage.ts signWardrobeUrl). This matches how
+            // uploadWardrobeImage stores paths — no bucket prefix.
+            cleanedPath = newPath;
             await admin.storage.from("wardrobe").remove([path]);
           } else {
             console.warn("upload cleaned failed", upErr);
@@ -110,7 +117,7 @@ async function processItem(itemId: string, userId: string) {
 
     // 3) Update the row.
     const updates: Record<string, unknown> = { processing_status: "completed", processing_error: null };
-    if (cleanedUrl) updates.image_url = cleanedUrl;
+    if (cleanedPath) updates.image_url = cleanedPath;
     if (detectedCategory) updates.category = detectedCategory;
     if (detectedName && !item.name) updates.name = detectedName;
     await admin.from("wardrobe_items").update(updates).eq("id", itemId);

@@ -59,11 +59,13 @@ export async function signInWithApple(): Promise<{ userId: string } | null> {
 const redirectTo = AuthSession.makeRedirectUri({ scheme: 'fancypot', path: 'auth-callback' });
 
 /**
- * Browser-based Google OAuth via Supabase's hosted flow. We open Supabase's
- * authorize URL in an in-app browser and parse whatever comes back on the
- * `fancypot://auth-callback` redirect — either a PKCE `code` (exchanged for a
- * session) or, if the project is configured for the implicit flow, tokens in
- * the URL fragment.
+ * Browser-based Google OAuth via Supabase's hosted flow (PKCE only). We open
+ * Supabase's authorize URL in an in-app browser; the `fancypot://auth-callback`
+ * redirect carries a one-time `?code=` that we exchange for a session. The
+ * code is useless without the PKCE verifier stored on this device, so nothing
+ * sensitive rides on the custom-scheme redirect — unlike the implicit flow,
+ * where raw tokens in the URL fragment could be intercepted by a malicious
+ * co-installed app registering the same scheme.
  */
 export async function signInWithGoogle(): Promise<{ userId: string } | null> {
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -85,7 +87,8 @@ export async function signInWithGoogle(): Promise<{ userId: string } | null> {
 
   const url = new URL(result.url);
 
-  // PKCE flow: ?code=...
+  // PKCE: exchange the one-time code (paired with the locally stored verifier)
+  // for a session. No tokens ever appear in the redirect URL.
   const code = url.searchParams.get('code');
   if (code) {
     const { data: sessionData, error: exchangeError } =
@@ -94,23 +97,15 @@ export async function signInWithGoogle(): Promise<{ userId: string } | null> {
     return sessionData.user ? { userId: sessionData.user.id } : null;
   }
 
-  // Implicit flow: tokens land in the URL fragment (#access_token=...&refresh_token=...).
+  // No code — surface a provider error if one came back. Errors can still
+  // arrive in the URL fragment (or query), even though tokens never do.
   const fragment = url.hash?.startsWith('#') ? url.hash.slice(1) : url.hash;
   if (fragment) {
-    const params = new URLSearchParams(fragment);
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
-    if (accessToken && refreshToken) {
-      const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-      if (setSessionError) throw setSessionError;
-      return sessionData.user ? { userId: sessionData.user.id } : null;
-    }
-    const errorDescription = params.get('error_description');
+    const errorDescription = new URLSearchParams(fragment).get('error_description');
     if (errorDescription) throw new Error(errorDescription);
   }
+  const queryErrorDescription = url.searchParams.get('error_description');
+  if (queryErrorDescription) throw new Error(queryErrorDescription);
 
   throw new Error('Google sign-in did not return a session. Try again.');
 }

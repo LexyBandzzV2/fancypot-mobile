@@ -5,16 +5,21 @@ import { supabase } from '@/lib/supabase';
 
 /**
  * Handles Supabase auth deep links on native (detectSessionInUrl is off there).
- * Password-reset emails redirect to `fancypot://reset-password#access_token=…`;
- * we parse the fragment, establish the recovery session, and open the
- * set-new-password screen. Also covers magic-link style tokens generally.
+ * With PKCE flow enabled, password-reset emails redirect to
+ * `fancypot://reset-password?code=…` — a one-time code that is useless without
+ * the verifier this install stored when the reset was requested. We exchange
+ * it for a recovery session and open the set-new-password screen. Raw tokens
+ * never appear in the link (that was the implicit flow, removed for security).
  */
-function parseFragment(url: string) {
-  const frag = url.includes('#') ? url.split('#')[1] : url.split('?')[1] ?? '';
-  const params = new URLSearchParams(frag);
+function parseAuthLink(url: string) {
+  // PKCE params arrive in the query string; strip any fragment first.
+  const [withoutFragment] = url.split('#');
+  const query = withoutFragment.includes('?')
+    ? withoutFragment.slice(withoutFragment.indexOf('?') + 1)
+    : '';
+  const params = new URLSearchParams(query);
   return {
-    access_token: params.get('access_token'),
-    refresh_token: params.get('refresh_token'),
+    code: params.get('code'),
     type: params.get('type'),
   };
 }
@@ -25,11 +30,18 @@ export function useAuthDeepLinks() {
   useEffect(() => {
     const handle = async (url: string | null) => {
       if (!url) return;
-      const { access_token, refresh_token, type } = parseFragment(url);
-      if (access_token && refresh_token) {
+      // The Google OAuth redirect (fancypot://auth-callback?code=…) is owned
+      // by signInWithGoogle's in-app browser session — don't consume its
+      // one-time code here or the pending exchange there would fail.
+      if (url.includes('auth-callback')) return;
+      const { code, type } = parseAuthLink(url);
+      if (code) {
         try {
-          await supabase.auth.setSession({ access_token, refresh_token });
-          if (type === 'recovery') router.push('/reset-password');
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) return; // expired/replayed/malformed link — ignore
+          if (type === 'recovery' || url.includes('reset-password')) {
+            router.push('/reset-password');
+          }
         } catch {
           // ignore malformed links
         }

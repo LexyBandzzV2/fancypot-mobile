@@ -24,6 +24,27 @@ const ENTITLEMENT_TO_PLAN: Record<string, string> = {
   business: 'ultimate',
 };
 
+/**
+ * Constant-time string comparison for the shared webhook secret.
+ *
+ * A plain `!==` short-circuits at the first differing character, so response
+ * timing leaks how many leading characters of the secret an attacker has
+ * guessed correctly. This version always walks max(len a, len b) bytes and
+ * accumulates differences with bitwise OR, so runtime is independent of WHERE
+ * the strings differ. (Length inequality still fails via the initial XOR.)
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  let diff = ab.length ^ bb.length;
+  const len = Math.max(ab.length, bb.length);
+  for (let i = 0; i < len; i++) {
+    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 type RCEvent = {
   event?: {
     type?: string;
@@ -41,7 +62,7 @@ Deno.serve(async (req) => {
   // Shared-secret auth: RevenueCat sends the Authorization header you configure.
   const expected = Deno.env.get('REVENUECAT_WEBHOOK_SECRET');
   const got = req.headers.get('Authorization');
-  if (!expected || got !== expected) {
+  if (!expected || !got || !timingSafeEqual(got, expected)) {
     return new Response('Unauthorized', { status: 401 });
   }
 

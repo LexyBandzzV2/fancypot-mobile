@@ -72,6 +72,24 @@ import { corsHeaders, jsonResponse, requireUser, chargeAiSpend } from "../_share
 
 This matches `analyze-outfit`'s idiom exactly (`if (auth instanceof Response) return auth;` then `if (capped) return capped;`) — `chargeAiSpend` does NOT throw, it returns a `Response | null` that the handler must check and return itself.
 
+**3. Store the object path, not a public URL** — after uploading the
+background-removed image, the function used to call
+`admin.storage.from("wardrobe").getPublicUrl(newPath)` and write the resulting
+public URL into `wardrobe_items.image_url`. The `wardrobe` bucket is private,
+so a "public" URL is both non-functional and inconsistent with the mobile
+client, which stores bare object paths (`userId/uuid.ext`, no bucket prefix —
+see `src/lib/storage.ts::uploadWardrobeImage`) and signs them on demand
+(`signWardrobeUrl`). The patched function now writes `newPath` directly:
+
+```ts
+cleanedPath = newPath; // object path, e.g. "userId/uuid.png" — no getPublicUrl
+...
+if (cleanedPath) updates.image_url = cleanedPath;
+```
+
+It also tolerates `image_url` holding either a bare object path (the new
+convention) or a legacy full storage URL when resolving the source image.
+
 ### Deploy
 
 ```bash
