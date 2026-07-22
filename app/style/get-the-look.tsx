@@ -3,7 +3,6 @@ import {
   View,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   Animated,
   PanResponder,
   Dimensions,
@@ -12,7 +11,7 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { StackHeader, Button, ThemedText, EmptyState, Card, UploadZone } from '@/components';
+import { StackHeader, Button, ThemedText, EmptyState, Card, UploadZone, CookingLoader } from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
@@ -325,10 +324,7 @@ export default function GetTheLookScreen() {
 
       {searching ? (
         <View style={styles.overlay}>
-          <ActivityIndicator size="large" color={colors.pinkWarm} />
-          <ThemedText variant="body" color={colors.inkMuted} style={{ marginTop: spacing.md }}>
-            Finding the look…
-          </ThemedText>
+          <CookingLoader caption="Finding your look…" subCaption="Scanning for shoppable matches" />
         </View>
       ) : null}
     </View>
