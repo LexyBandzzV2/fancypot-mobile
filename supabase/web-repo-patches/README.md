@@ -6,6 +6,8 @@
 > web repo** — this copy predates `ai_unlimited` and would regress it. Everything
 > below is retained as historical reference for the wardrobe-process work.
 
+*[← README](../../README.md) · See also: [../PATCH-wardrobe-process.md](../PATCH-wardrobe-process.md) (the diff and rationale) · [../../ADS_SETUP.md](../../ADS_SETUP.md) (the rewarded-ad backend referenced below)*
+
 # Patched web-repo edge functions (ready to copy)
 
 These are the **fully patched** versions of two files from the web repo

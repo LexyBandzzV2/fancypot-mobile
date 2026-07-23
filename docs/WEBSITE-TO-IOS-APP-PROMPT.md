@@ -1,5 +1,7 @@
 # Grand Prompt — Turn a Website into a Store-Ready iOS + Android App
 
+*[← README](../README.md) · Distilled from: [COMPLIANCE.md](../COMPLIANCE.md), [STORE-SUBMISSION.md](../STORE-SUBMISSION.md), `eas.json`, `app.json`, and the backend patches under [supabase/](../supabase/)*
+
 Copy everything in the fenced block below into a fresh AI coding agent
 (Claude Code / Cursor / etc.) that has access to BOTH your website repo and an
 empty mobile repo. Fill in the `<<...>>` placeholders at the top first.

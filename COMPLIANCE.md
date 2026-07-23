@@ -1,5 +1,7 @@
 # App Store & Google Play Compliance Audit
 
+*[← README](./README.md) · See also: [STORE-SUBMISSION.md](./STORE-SUBMISSION.md) (the actual checklist) · [docs/WEBSITE-TO-IOS-APP-PROMPT.md](./docs/WEBSITE-TO-IOS-APP-PROMPT.md) (repeatable process for the next app)*
+
 Status of the Fancy Pot mobile app against the guidelines reviewers actually
 enforce. Legend: ✅ done in code · 🟡 needs a user action (asset, account, or
 dashboard/hosting step — code side is ready) · ⛔ blocker if skipped.
@@ -62,7 +64,7 @@ dashboard/hosting step — code side is ready) · ⛔ blocker if skipped.
 
 | Requirement | Status | Notes |
 | --- | --- | --- |
-| Bundle identifiers | ✅ | iOS + Android both `org.fancypot.app` in `app.json`. |
+| Bundle identifiers | ✅ | iOS `com.gfly.fancypot` (confirmed against App Store Connect — Apple ID `6790611276`, permanent, cannot be changed). Android `package` is still `org.fancypot.app` as a placeholder; Android isn't being built yet, so this is a deliberate open decision, not a bug — pick and lock in a real value before the first Android build, since Play package names are also permanent once published. |
 | Branded app icon | ✅ | On-brand coat-hanger icon on cream generated into `assets/` (icon, adaptive foreground, monochrome, splash, favicon). Swap for a designer version anytime. |
 | Splash screen in brand color | ✅ | Cream `#FAF3E7` splash via `expo-splash-screen`. |
 | No crashes / white screens | ✅ | Root `ErrorBoundary` + `+not-found` route added; a render error shows a recoverable native screen. |

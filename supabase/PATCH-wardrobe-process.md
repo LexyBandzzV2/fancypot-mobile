@@ -1,5 +1,7 @@
 # Backend patch: rate-limit `wardrobe-process`
 
+*[← README](../README.md) · See also: [../COMPLIANCE.md](../COMPLIANCE.md) § D (AI safety & security) · [web-repo-patches/README.md](./web-repo-patches/README.md) (deploy status)*
+
 During the audit, `supabase/functions/wardrobe-process/index.ts` (in the
 `closet-conjurer-app` web repo) was the **only** AI edge function that called AI
 models (classification + background removal) **without** going through

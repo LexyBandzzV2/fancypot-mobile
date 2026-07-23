@@ -1,5 +1,7 @@
 # Ads setup & deploy checklist (AdMob)
 
+*[← README](./README.md) · See also: [STORE-SUBMISSION.md](./STORE-SUBMISSION.md) § App Store Connect (IDFA questionnaire) · [supabase/web-repo-patches/README.md](./supabase/web-repo-patches/README.md) (backend deploy status for this feature)*
+
 Free-tier monetization: full-screen **interstitials** + opt-in **rewarded ads**
 (watch an ad → one bonus AI action, capped 3/day). Paid tiers see **no ads**.
 

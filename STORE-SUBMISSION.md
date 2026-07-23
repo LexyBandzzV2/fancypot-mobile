@@ -1,6 +1,8 @@
 # App Store & Google Play Submission Checklist
 
-Fancy Pot mobile · bundle id `org.fancypot.app`
+*[← README](./README.md) · See also: [COMPLIANCE.md](./COMPLIANCE.md) (why each item exists) · [ADS_SETUP.md](./ADS_SETUP.md) (AdMob, if monetizing free tier with ads)*
+
+Fancy Pot mobile · iOS bundle id `com.gfly.fancypot` (confirmed in App Store Connect, Apple ID `6790611276`)
 
 ## 0. Prerequisites
 

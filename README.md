@@ -18,7 +18,18 @@ usage history and subscription tier are identical across web, iOS and Android.
 6. [Subscriptions (RevenueCat)](#subscriptions-revenuecat)
 7. [Security model](#security-model)
 8. [EAS builds & store submission](#eas-builds--store-submission)
-9. [App Store / Play Store checklist](./STORE-SUBMISSION.md)
+
+## All project docs
+
+| Doc | What's in it |
+| --- | --- |
+| **README.md** (this file) | Architecture, local setup, env vars, backend/RevenueCat wiring, security model, build & submit commands |
+| [COMPLIANCE.md](./COMPLIANCE.md) | Requirement-by-requirement Apple/Google review audit — what's done in code vs. what still needs a dashboard action |
+| [STORE-SUBMISSION.md](./STORE-SUBMISSION.md) | The actual submission checklist — IAP setup, assets, listing copy, legal URLs, build/upload commands, review notes |
+| [ADS_SETUP.md](./ADS_SETUP.md) | AdMob rewarded/interstitial ad setup for the free tier (test units ship by default; this is only needed for real ad revenue) |
+| [docs/WEBSITE-TO-IOS-APP-PROMPT.md](./docs/WEBSITE-TO-IOS-APP-PROMPT.md) | Copy-paste prompt distilling this whole build into a repeatable process for turning another website into a store-ready app |
+| [supabase/PATCH-wardrobe-process.md](./supabase/PATCH-wardrobe-process.md) | The one backend rate-limit gap found in audit, and its exact patch |
+| [supabase/web-repo-patches/README.md](./supabase/web-repo-patches/README.md) | Status of patched edge-function copies staged here vs. what's actually deployed via the web repo |
 
 ---
 
