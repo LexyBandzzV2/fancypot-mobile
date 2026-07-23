@@ -27,7 +27,7 @@ dashboard/hosting step — code side is ready) · ⛔ blocker if skipped.
 | Permission usage strings | ✅ | Camera + Photos strings set in `app.json` (`NSCameraUsageDescription`, `NSPhotoLibraryUsageDescription`, Android `CAMERA` / `READ_MEDIA_IMAGES`). |
 | Encrypted session storage | ✅ | `expo-secure-store` on device (localStorage only in the browser-preview build). |
 | Private user data (RLS) | ✅ | Closet/outfits owner-scoped; images served via short-lived signed URLs from a private bucket. |
-| Reviewer **demo account** | ✅ 🟡 | `fancypot.testreview@gmail.com` / `FancyPotReview2026!`. Now granted **Pro** and marked **phone-verified** directly in the DB (so reviewers skip the phone gate), and its closet is **seeded with 7 items** across tops/bottoms/dresses/outerwear/shoes. Remaining: paste these credentials into App Review notes. |
+| Reviewer **demo account** | ✅ | `fancypot.testreview@gmail.com`, granted **Pro** and marked **phone-verified** directly in the DB (so reviewers skip the phone gate), closet **seeded with 7 items** across tops/bottoms/dresses/outerwear/shoes. Password is not stored in this repo — it lives only in App Store Connect → App Review Information → Sign-In Information. |
 
 ## C. Subscriptions & payments — Apple 3.1.1 / 3.1.2 / Play Billing
 
