@@ -46,7 +46,7 @@ export default function SavedScreen() {
   } = useSavedItems();
   const [selected, setSelected] = useState<OutfitDisplay | null>(null);
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null);
-  const [tab, setTab] = useState<Tab>('outfits');
+  const [tab, setTab] = useState<Tab>('items');
   // Outfits added to the closet this session — drives the tile's checkmark and
   // stops a second tap from creating a duplicate closet item.
   const [addedToCloset, setAddedToCloset] = useState<Set<string>>(new Set());
@@ -115,8 +115,8 @@ export default function SavedScreen() {
 
       {/* Segmented toggle between the two libraries. */}
       <View style={styles.segment}>
-        <SegmentPill label="Outfits" count={outfitLooks.length} active={tab === 'outfits'} onPress={() => setTab('outfits')} />
         <SegmentPill label="Items" count={savedItems.length} active={tab === 'items'} onPress={() => setTab('items')} />
+        <SegmentPill label="Outfits" count={outfitLooks.length} active={tab === 'outfits'} onPress={() => setTab('outfits')} />
       </View>
 
       {showOutfits ? (
@@ -129,7 +129,7 @@ export default function SavedScreen() {
             <EmptyState
               icon="sparkles-outline"
               title="No outfits yet"
-              body="Generate your first look with Style Me"
+              body="Generate an outfit in Style Me and save the ones you love."
               actionLabel="Create an outfit"
               onAction={() => router.push('/style/stylist')}
             />
@@ -209,10 +209,10 @@ export default function SavedScreen() {
         <EmptyLibrary styles={styles}>
           <EmptyState
             icon="bookmark-outline"
-            title="No saved items yet"
-            body="Double-tap a piece in the Feed, or save from Get the Look, to keep it here"
-            actionLabel="Browse the feed"
-            onAction={() => router.push('/(tabs)/feed')}
+            title="Nothing saved yet"
+            body="Browse the Style Feed or swipe looks in Get the Look — pieces you love land here."
+            actionLabel="Get the look"
+            onAction={() => router.push('/style/get-the-look')}
           />
         </EmptyLibrary>
       ) : (

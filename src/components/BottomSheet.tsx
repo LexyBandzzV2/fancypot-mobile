@@ -29,8 +29,17 @@ export function BottomSheet({
   children: React.ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const { scheme } = useTheme();
   const translateY = useRef(new Animated.Value(600)).current;
   const backdrop = useRef(new Animated.Value(0)).current;
+
+  // LIGHT MODE ONLY: the sheet's Glass blur sits over the dark backdrop below,
+  // and expo-blur's light tint over that reads as a washed-out gray instead of
+  // the warm cream/blush surfaces everywhere else. Force a nearly opaque warm
+  // tint to kill the gray (same fix as NavDrawer's panel). Dark mode passes
+  // undefined so Glass falls back to its theme-driven `glassFill`, leaving
+  // dark visuals untouched.
+  const sheetTint = scheme === 'light' ? 'rgba(255, 246, 247, 0.97)' : undefined;
 
   useEffect(() => {
     if (visible) {
@@ -59,6 +68,7 @@ export function BottomSheet({
           <Glass
             style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}
             intensity={45}
+            tintColor={sheetTint}
           >
             <Handle />
             {title ? (

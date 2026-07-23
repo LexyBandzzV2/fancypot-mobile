@@ -41,7 +41,7 @@ export default function Welcome() {
           Fancy{'\n'}Pot
         </Text>
         <ThemedText variant="bodyItalic" style={styles.tagline}>
-          Your AI stylist.{'\n'}Always in your corner.
+          Your personal stylist.{'\n'}Always in your corner.
         </ThemedText>
 
         <Pressable

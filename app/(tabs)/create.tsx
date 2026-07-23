@@ -15,7 +15,7 @@ const TOOLS = [
     href: '/style/stylist',
     icon: 'color-wand-outline',
     title: 'Style me',
-    body: 'Pick pieces and let your AI stylist build the perfect outfit.',
+    body: 'Pick pieces and let Fancy Pot build the perfect outfit.',
   },
   {
     key: 'get-the-look',

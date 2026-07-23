@@ -20,6 +20,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useSubscription } from '@/providers/SubscriptionProvider';
 import { useSignedAvatar } from '@/hooks/useSignedAvatar';
+import { parseBirthDate, zodiacFor } from '@/lib/zodiac';
 import { ThemedText } from './Typography';
 import { Glass } from './Glass';
 
@@ -44,7 +45,7 @@ const PRIMARY: NavItem[] = [
 ];
 
 const TOOLS: NavItem[] = [
-  { icon: 'color-wand-outline', label: 'AI Stylist', href: '/style/stylist' },
+  { icon: 'color-wand-outline', label: 'Stylist', href: '/style/stylist' },
   { icon: 'camera-outline', label: 'Get the Look', href: '/style/get-the-look' },
   { icon: 'body-outline', label: 'Virtual Try-on', href: '/style/try-on' },
 ];
@@ -70,12 +71,28 @@ function hrefPath(href: Href): string {
 
 export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const styles = useThemedStyles(makeStyles);
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const pathname = usePathname();
   const { user, profile, signOut } = useAuth();
   const { tier } = useSubscription();
+
+  // LIGHT MODE ONLY: the panel's Glass blur sits over the dark `scrim` backdrop,
+  // and expo-blur's light tint over that reads as a washed-out gray instead of
+  // the warm cream/blush surfaces everywhere else. Force a nearly opaque warm
+  // tint to kill the gray. Dark mode passes undefined so Glass falls back to
+  // its normal theme-driven `glassFill`, leaving dark visuals untouched.
+  const panelTint = scheme === 'light' ? 'rgba(255, 246, 247, 0.97)' : undefined;
+
+  const prefs = (profile?.preferences ?? {}) as {
+    bio?: string;
+    birth_date?: string;
+    show_zodiac?: boolean;
+  };
+  const birthDate = parseBirthDate(prefs.birth_date);
+  const zodiacSign = birthDate ? zodiacFor(birthDate.month, birthDate.day) : null;
+  const showZodiac = prefs.show_zodiac !== false;
 
   const translateX = useRef(new Animated.Value(-PANEL_WIDTH)).current;
   const backdrop = useRef(new Animated.Value(0)).current;
@@ -120,7 +137,11 @@ export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () 
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close menu" />
         </Animated.View>
         <Animated.View style={[styles.panelWrap, { transform: [{ translateX }] }]}>
-          <Glass style={[styles.panel, { paddingTop: insets.top + spacing.lg }]} intensity={60}>
+          <Glass
+            style={[styles.panel, { paddingTop: insets.top + spacing.lg }]}
+            intensity={60}
+            tintColor={panelTint}
+          >
             {/* Account summary + close, like the web drawer header. Tapping the
                 avatar/name opens the account editor. */}
             <View style={styles.account}>
@@ -145,6 +166,7 @@ export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () 
                   </ThemedText>
                   <ThemedText variant="labelSmall" color={colors.inkMuted} numberOfLines={1}>
                     {tier.name} plan
+                    {showZodiac && zodiacSign ? ` · ${zodiacSign.symbol} ${zodiacSign.name}` : ''}
                   </ThemedText>
                 </View>
               </Pressable>
@@ -158,6 +180,17 @@ export function NavDrawer({ visible, onClose }: { visible: boolean; onClose: () 
                 <Ionicons name="close" size={18} color={colors.inkMuted} />
               </Pressable>
             </View>
+
+            {prefs.bio ? (
+              <ThemedText
+                variant="labelSmall"
+                color={colors.inkMuted}
+                numberOfLines={2}
+                style={styles.bio}
+              >
+                {prefs.bio}
+              </ThemedText>
+            ) : null}
 
             <ScrollView
               style={styles.scroll}
@@ -307,6 +340,7 @@ const makeStyles = (c: Colors) =>
     },
     avatarImg: { width: '100%', height: '100%' },
     accountInfo: { flex: 1 },
+    bio: { paddingBottom: spacing.md },
     closeBtn: {
       width: 36,
       height: 36,

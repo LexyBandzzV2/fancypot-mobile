@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, TextInput, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, TextInput, Alert, Switch } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,7 +37,11 @@ export default function AccountScreen() {
   const { user, profile, refreshProfile } = useAuth();
   const { fromCamera, fromLibrary } = useImagePicker();
 
-  const prefs = (profile?.preferences ?? {}) as { bio?: string; birth_date?: string };
+  const prefs = (profile?.preferences ?? {}) as {
+    bio?: string;
+    birth_date?: string;
+    show_zodiac?: boolean;
+  };
   const initialDate = parseBirthDate(prefs.birth_date);
 
   const [name, setName] = useState(profile?.display_name ?? '');
@@ -45,6 +49,8 @@ export default function AccountScreen() {
   const [mm, setMm] = useState(initialDate ? String(initialDate.month) : '');
   const [dd, setDd] = useState(initialDate ? String(initialDate.day) : '');
   const [yyyy, setYyyy] = useState(initialDate ? String(initialDate.year) : '');
+  // Default ON — absence of the key means "show".
+  const [showZodiac, setShowZodiac] = useState(prefs.show_zodiac !== false);
   const [pickedUri, setPickedUri] = useState<string | null>(null);
   const [pickedBase64, setPickedBase64] = useState<string | null>(null);
   const [removeAvatar, setRemoveAvatar] = useState(false);
@@ -110,6 +116,8 @@ export default function AccountScreen() {
       else delete nextPrefs.bio;
       if (birthday.iso) nextPrefs.birth_date = birthday.iso;
       else delete nextPrefs.birth_date;
+      if (showZodiac) nextPrefs.show_zodiac = true;
+      else nextPrefs.show_zodiac = false;
 
       const { error } = await supabase
         .from('profiles')
@@ -202,6 +210,19 @@ export default function AccountScreen() {
             <ThemedText variant="label" color={colors.pinkWarm}>
               {birthday.zodiac.symbol} {birthday.zodiac.name}
             </ThemedText>
+          </View>
+        ) : null}
+
+        {/* Only meaningful once there's a zodiac to show. */}
+        {birthday.zodiac ? (
+          <View style={styles.zodiacToggleRow}>
+            <ThemedText variant="label">Show zodiac sign</ThemedText>
+            <Switch
+              value={showZodiac}
+              onValueChange={setShowZodiac}
+              trackColor={{ false: colors.border, true: colors.pinkWarm }}
+              thumbColor={colors.white}
+            />
           </View>
         ) : null}
 
@@ -358,6 +379,12 @@ const makeStyles = (c: Colors) =>
       borderRadius: radius.pill,
       paddingHorizontal: spacing.md,
       paddingVertical: spacing.xs,
+      marginBottom: spacing.sm,
+    },
+    zodiacToggleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
       marginBottom: spacing.sm,
     },
     footer: { padding: spacing.lg, borderTopWidth: 1, borderTopColor: c.border },

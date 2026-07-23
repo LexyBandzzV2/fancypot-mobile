@@ -13,6 +13,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useSubscription } from '@/providers/SubscriptionProvider';
 import { useNavDrawer } from '@/providers/NavDrawerProvider';
 import { useSignedAvatar } from '@/hooks/useSignedAvatar';
+import { parseBirthDate, zodiacFor } from '@/lib/zodiac';
 
 const SUPPORT_EMAIL = 'support@fancypot.org';
 
@@ -30,6 +31,12 @@ export default function ProfileScreen() {
   const initials = (displayName || 'F').slice(0, 1).toUpperCase();
   const isBusiness = tier.entitlement === 'business';
   const avatarUrl = useSignedAvatar(profile?.avatar_url);
+
+  // Zodiac badge — only when a birthday is saved and the user hasn't hidden it.
+  const prefs = (profile?.preferences ?? {}) as { birth_date?: string; show_zodiac?: boolean };
+  const birthDate = parseBirthDate(prefs.birth_date);
+  const zodiac = birthDate ? zodiacFor(birthDate.month, birthDate.day) : null;
+  const showZodiac = !!zodiac && prefs.show_zodiac !== false;
 
   return (
     <ScrollView
@@ -55,6 +62,11 @@ export default function ProfileScreen() {
           <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.greetingSub}>
             You look amazing today.
           </ThemedText>
+          {showZodiac && zodiac ? (
+            <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.zodiacBadge}>
+              {zodiac.symbol} {zodiac.name}
+            </ThemedText>
+          ) : null}
         </View>
         <Pressable
           onPress={() => router.push('/settings/account')}
@@ -204,6 +216,7 @@ const makeStyles = (c: Colors) =>
     },
     greeting: { flex: 1 },
     greetingSub: { marginTop: 2 },
+    zodiacBadge: { marginTop: 2 },
     avatar: {
       width: 56,
       height: 56,
