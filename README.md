@@ -79,7 +79,7 @@ supabase/
 ## Run locally
 
 ```bash
-npm install --legacy-peer-deps      # legacy flag: Expo pins react vs react-dom peer
+npm install                          # .npmrc sets legacy-peer-deps (Expo pins react vs react-dom peer)
 cp .env.example .env                 # then fill in values (see below)
 
 npx expo start                       # dev server; press i / a, or scan in Expo Go*
