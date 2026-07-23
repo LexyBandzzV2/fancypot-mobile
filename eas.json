@@ -58,7 +58,6 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "contact@fancypot.org",
         "ascAppId": "6790611276",
         "appleTeamId": "789XUXSG47"
       },

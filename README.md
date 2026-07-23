@@ -203,6 +203,13 @@ eas submit --profile production --platform ios       # → App Store Connect
 eas submit --profile production --platform android   # → Play Console
 ```
 
-Fill the `REPLACE_WITH_*` placeholders in [`eas.json`](./eas.json) (Apple ID, ASC app id,
-team id) before submitting. Full step-by-step in
-[**STORE-SUBMISSION.md**](./STORE-SUBMISSION.md).
+Fill the `REPLACE_WITH_*` placeholders in [`eas.json`](./eas.json) before submitting.
+The Apple ID login isn't stored in `eas.json` (avoids putting an Apple account
+email in a public repo) — export it in your shell before running `eas submit`:
+
+```bash
+export EXPO_APPLE_ID=your-apple-id@example.com   # eas submit reads this env var
+eas submit --profile production --platform ios
+```
+
+Full step-by-step in [**STORE-SUBMISSION.md**](./STORE-SUBMISSION.md).
