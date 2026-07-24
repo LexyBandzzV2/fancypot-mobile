@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Button, Screen, TextField, ThemedText } from '@/components';
+import { Button, ResponsiveContent, Screen, TextField, ThemedText } from '@/components';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { spacing } from '@/theme';
@@ -67,49 +67,51 @@ export default function VerifyPhone() {
 
   return (
     <Screen scroll edgeTop>
-      <Pressable onPress={() => router.back()} hitSlop={12} style={styles.close}>
-        <Ionicons name="close" size={26} color={colors.ink} />
-      </Pressable>
-      <ThemedText variant="h1" style={styles.title}>
-        Verify your phone
-      </ThemedText>
-      <ThemedText variant="body" color={colors.inkMuted} style={styles.body}>
-        {step === 'phone'
-          ? 'We use this to keep AI features fair and secure.'
-          : `Enter the code we sent to ${phone}.`}
-      </ThemedText>
+      <ResponsiveContent maxWidth={520}>
+        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.close}>
+          <Ionicons name="close" size={26} color={colors.ink} />
+        </Pressable>
+        <ThemedText variant="h1" style={styles.title}>
+          Verify your phone
+        </ThemedText>
+        <ThemedText variant="body" color={colors.inkMuted} style={styles.body}>
+          {step === 'phone'
+            ? 'We use this to keep AI features fair and secure.'
+            : `Enter the code we sent to ${phone}.`}
+        </ThemedText>
 
-      {step === 'phone' ? (
-        <>
-          <TextField
-            label="Phone number"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            placeholder="+1 555 000 0000"
-            error={error}
-          />
-          <Button label="Send code" onPress={sendCode} loading={loading} />
-        </>
-      ) : (
-        <>
-          <TextField
-            label="6-digit code"
-            value={code}
-            onChangeText={setCode}
-            keyboardType="number-pad"
-            placeholder="123456"
-            maxLength={6}
-            error={error}
-          />
-          <Button label="Verify" onPress={verify} loading={loading} />
-          <Pressable onPress={() => setStep('phone')} style={styles.resend} hitSlop={8}>
-            <ThemedText variant="label" color={colors.blushDeep}>
-              Change number
-            </ThemedText>
-          </Pressable>
-        </>
-      )}
+        {step === 'phone' ? (
+          <>
+            <TextField
+              label="Phone number"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              placeholder="+1 555 000 0000"
+              error={error}
+            />
+            <Button label="Send code" onPress={sendCode} loading={loading} />
+          </>
+        ) : (
+          <>
+            <TextField
+              label="6-digit code"
+              value={code}
+              onChangeText={setCode}
+              keyboardType="number-pad"
+              placeholder="123456"
+              maxLength={6}
+              error={error}
+            />
+            <Button label="Verify" onPress={verify} loading={loading} />
+            <Pressable onPress={() => setStep('phone')} style={styles.resend} hitSlop={8}>
+              <ThemedText variant="label" color={colors.blushDeep}>
+                Change number
+              </ThemedText>
+            </Pressable>
+          </>
+        )}
+      </ResponsiveContent>
     </Screen>
   );
 }

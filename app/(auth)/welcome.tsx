@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { ThemedText } from '@/components';
+import { ResponsiveContent, ThemedText } from '@/components';
 import { fonts, radius, spacing, type, TAP_TARGET, fillObject } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 
@@ -33,48 +33,50 @@ export default function Welcome() {
         pointerEvents="none"
       />
       <View style={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}>
-        <Text
-          style={[styles.wordmark, { color: colors.pinkWarm }]}
-          accessibilityRole="header"
-          accessibilityLabel="Fancy Pot"
-        >
-          Fancy{'\n'}Pot
-        </Text>
-        <ThemedText variant="bodyItalic" style={styles.tagline}>
-          Your personal stylist.{'\n'}Always in your corner.
-        </ThemedText>
-
-        <Pressable
-          onPress={getStarted}
-          accessibilityRole="button"
-          accessibilityLabel="Get Started"
-          style={({ pressed }) => [styles.ctaWrap, pressed && styles.pressed]}
-        >
-          <LinearGradient
-            colors={[colors.pinkWarm, colors.pinkWarmSoft]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={[styles.cta, { shadowColor: colors.pinkWarm }]}
+        <ResponsiveContent maxWidth={520}>
+          <Text
+            style={[styles.wordmark, { color: colors.pinkWarm }]}
+            accessibilityRole="header"
+            accessibilityLabel="Fancy Pot"
           >
-            <Text style={[styles.ctaLabel, { color: colors.white }]}>Get Started</Text>
-          </LinearGradient>
-        </Pressable>
-
-        <View style={styles.loginRow}>
-          <ThemedText variant="labelSmall" color={colors.inkMuted}>
-            Already have an account?{' '}
+            Fancy{'\n'}Pot
+          </Text>
+          <ThemedText variant="bodyItalic" style={styles.tagline}>
+            Your personal stylist.{'\n'}Always in your corner.
           </ThemedText>
+
           <Pressable
-            onPress={() => router.push('/(auth)/sign-in')}
-            hitSlop={8}
-            accessibilityRole="link"
-            accessibilityLabel="Log in"
+            onPress={getStarted}
+            accessibilityRole="button"
+            accessibilityLabel="Get Started"
+            style={({ pressed }) => [styles.ctaWrap, pressed && styles.pressed]}
           >
-            <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.loginLink}>
-              Log in
-            </ThemedText>
+            <LinearGradient
+              colors={[colors.pinkWarm, colors.pinkWarmSoft]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.cta, { shadowColor: colors.pinkWarm }]}
+            >
+              <Text style={[styles.ctaLabel, { color: colors.white }]}>Get Started</Text>
+            </LinearGradient>
           </Pressable>
-        </View>
+
+          <View style={styles.loginRow}>
+            <ThemedText variant="labelSmall" color={colors.inkMuted}>
+              Already have an account?{' '}
+            </ThemedText>
+            <Pressable
+              onPress={() => router.push('/(auth)/sign-in')}
+              hitSlop={8}
+              accessibilityRole="link"
+              accessibilityLabel="Log in"
+            >
+              <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.loginLink}>
+                Log in
+              </ThemedText>
+            </Pressable>
+          </View>
+        </ResponsiveContent>
       </View>
     </View>
   );

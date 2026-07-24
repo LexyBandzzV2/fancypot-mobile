@@ -10,7 +10,15 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Screen, SocialAuthButtons, TextField, ThemedText, Wordmark } from '@/components';
+import {
+  Button,
+  ResponsiveContent,
+  Screen,
+  SocialAuthButtons,
+  TextField,
+  ThemedText,
+  Wordmark,
+} from '@/components';
 import { useAuth } from '@/providers/AuthProvider';
 import { signInWithApple, signInWithGoogle } from '@/lib/socialAuth';
 import { spacing } from '@/theme';
@@ -73,77 +81,79 @@ export default function SignIn() {
   return (
     <Screen scroll edgeTop>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={[styles.back, { marginTop: insets.top ? 0 : spacing.md }]}
-        >
-          <Ionicons name="chevron-back" size={26} color={colors.ink} />
-        </Pressable>
+        <ResponsiveContent maxWidth={520}>
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={12}
+            style={[styles.back, { marginTop: insets.top ? 0 : spacing.md }]}
+          >
+            <Ionicons name="chevron-back" size={26} color={colors.ink} />
+          </Pressable>
 
-        <View style={styles.header}>
-          <Wordmark size={44} />
-          <ThemedText variant="h3" color={colors.inkMuted} center style={styles.sub}>
-            Welcome back
-          </ThemedText>
-        </View>
+          <View style={styles.header}>
+            <Wordmark size={44} />
+            <ThemedText variant="h3" color={colors.inkMuted} center style={styles.sub}>
+              Welcome back
+            </ThemedText>
+          </View>
 
-        <TextField
-          label="Email"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          autoComplete="email"
-          textContentType="emailAddress"
-          placeholder="you@email.com"
-        />
-        <TextField
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          secure
-          autoComplete="password"
-          textContentType="password"
-          placeholder="Your password"
-          error={error}
-        />
+          <TextField
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+            textContentType="emailAddress"
+            placeholder="you@email.com"
+          />
+          <TextField
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secure
+            autoComplete="password"
+            textContentType="password"
+            placeholder="Your password"
+            error={error}
+          />
 
-        <Pressable
-          onPress={() => router.push('/(auth)/forgot-password')}
-          style={styles.forgot}
-          hitSlop={8}
-        >
-          <ThemedText variant="label" color={colors.blushDeep}>
-            Forgot password?
-          </ThemedText>
-        </Pressable>
-
-        <Button
-          label="Sign in"
-          onPress={onSubmit}
-          loading={loading}
-          disabled={socialLoading !== null}
-        />
-
-        <SocialAuthButtons
-          mode="sign-in"
-          onApple={onAppleSignIn}
-          onGoogle={onGoogleSignIn}
-          loading={loading || socialLoading !== null}
-          loadingProvider={socialLoading}
-        />
-
-        <View style={styles.footer}>
-          <ThemedText variant="body" color={colors.inkMuted}>
-            New here?{' '}
-          </ThemedText>
-          <Pressable onPress={() => router.replace('/(auth)/sign-up')} hitSlop={8}>
-            <ThemedText variant="body" color={colors.pinkWarm}>
-              Create an account
+          <Pressable
+            onPress={() => router.push('/(auth)/forgot-password')}
+            style={styles.forgot}
+            hitSlop={8}
+          >
+            <ThemedText variant="label" color={colors.blushDeep}>
+              Forgot password?
             </ThemedText>
           </Pressable>
-        </View>
+
+          <Button
+            label="Sign in"
+            onPress={onSubmit}
+            loading={loading}
+            disabled={socialLoading !== null}
+          />
+
+          <SocialAuthButtons
+            mode="sign-in"
+            onApple={onAppleSignIn}
+            onGoogle={onGoogleSignIn}
+            loading={loading || socialLoading !== null}
+            loadingProvider={socialLoading}
+          />
+
+          <View style={styles.footer}>
+            <ThemedText variant="body" color={colors.inkMuted}>
+              New here?{' '}
+            </ThemedText>
+            <Pressable onPress={() => router.replace('/(auth)/sign-up')} hitSlop={8}>
+              <ThemedText variant="body" color={colors.pinkWarm}>
+                Create an account
+              </ThemedText>
+            </Pressable>
+          </View>
+        </ResponsiveContent>
       </KeyboardAvoidingView>
     </Screen>
   );

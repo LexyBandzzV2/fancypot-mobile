@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable, ScrollView, Alert } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
-import { StackHeader, Button, ThemedText, EmptyState, Card, SectionLabel, UploadZone, CookingLoader } from '@/components';
+import { StackHeader, Button, ThemedText, EmptyState, Card, ResponsiveContent, SectionLabel, UploadZone, CookingLoader } from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
@@ -198,6 +198,10 @@ export default function TryOnScreen() {
     <View style={styles.root}>
       <StackHeader title="Virtual try-on" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* ResponsiveContent centers + caps this single-column flow on tablet
+            (a no-op on phone, where contentMaxWidth equals the screen width)
+            so the photo/outfit picker and result don't span the whole iPad. */}
+        <ResponsiveContent>
         {result ? (
           <View style={styles.resultWrap}>
             <Card style={styles.resultCard} padded={false}>
@@ -285,41 +289,46 @@ export default function TryOnScreen() {
             ) : null}
           </>
         )}
+        </ResponsiveContent>
       </ScrollView>
 
       {!result ? (
         <Glass intensity={50} style={styles.footer}>
-          <Button
-            label={running && !detached ? 'Dressing you up…' : 'Try it on'}
-            onPress={onTryOn}
-            loading={running && !detached}
-            disabled={!canRun || detached}
-            icon={!(running && !detached) ? <Ionicons name="sparkles" size={18} color={colors.cream} /> : undefined}
-            style={styles.tryOnBtn}
-          />
+          <ResponsiveContent>
+            <Button
+              label={running && !detached ? 'Dressing you up…' : 'Try it on'}
+              onPress={onTryOn}
+              loading={running && !detached}
+              disabled={!canRun || detached}
+              icon={!(running && !detached) ? <Ionicons name="sparkles" size={18} color={colors.cream} /> : undefined}
+              style={styles.tryOnBtn}
+            />
+          </ResponsiveContent>
         </Glass>
       ) : null}
 
       {running && !detached ? (
         <View style={styles.overlay}>
           <CookingLoader caption="Dressing you up…" subCaption="Fitting the look to your photo" />
-          <Card glass={false} style={styles.cookingCard}>
-            <ThemedText variant="body" color={colors.inkMuted} center style={styles.cookingHint}>
-              We'll finish the fit and drop it in your Saved → Outfits when it's ready.
-            </ThemedText>
-            <Button
-              label={savePending ? 'Saved ✓ — you can keep browsing' : 'Save & go'}
-              onPress={saveAndGo}
-              disabled={savePending}
-              icon={
-                <Ionicons
-                  name={savePending ? 'checkmark-circle' : 'time-outline'}
-                  size={18}
-                  color={colors.cream}
-                />
-              }
-            />
-          </Card>
+          <ResponsiveContent>
+            <Card glass={false} style={styles.cookingCard}>
+              <ThemedText variant="body" color={colors.inkMuted} center style={styles.cookingHint}>
+                We'll finish the fit and drop it in your Saved → Outfits when it's ready.
+              </ThemedText>
+              <Button
+                label={savePending ? 'Saved ✓ — you can keep browsing' : 'Save & go'}
+                onPress={saveAndGo}
+                disabled={savePending}
+                icon={
+                  <Ionicons
+                    name={savePending ? 'checkmark-circle' : 'time-outline'}
+                    size={18}
+                    color={colors.cream}
+                  />
+                }
+              />
+            </Card>
+          </ResponsiveContent>
         </View>
       ) : null}
     </View>

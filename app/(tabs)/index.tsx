@@ -33,6 +33,7 @@ import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useWardrobe, type WardrobeDisplayItem } from '@/hooks/useWardrobe';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useResponsive } from '@/hooks/useResponsive';
 import { useSubscription } from '@/providers/SubscriptionProvider';
 import { WARDROBE_CATEGORIES, type WardrobeItem } from '@/lib/api';
 import { OCCASIONS, VIBES } from '@/lib/brands';
@@ -66,6 +67,14 @@ export default function ClosetScreen() {
   const { items, loading, add, remove, reload, retryProcessing, update, processingIds } = useWardrobe();
   const { fromCamera, fromLibrary } = useImagePicker();
   const { tier } = useSubscription();
+  const { columns, width, contentMaxWidth } = useResponsive();
+  // Column count + tile width are derived from the live window width (via
+  // useResponsive) instead of a module-level Dimensions.get() snapshot, so the
+  // grid reacts to rotation/split-view and scales up on iPad (2/3/4 columns).
+  const tileWidth = useMemo(
+    () => (width - H_PADDING * 2 - GAP * (columns - 1)) / columns,
+    [width, columns],
+  );
   const [addSheet, setAddSheet] = useState(false);
   const [selected, setSelected] = useState<WardrobeDisplayItem | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -235,11 +244,20 @@ export default function ClosetScreen() {
             </ScrollView>
           </View>
           <FlatList
+            // FlatList requires a fresh key when numColumns changes at runtime
+            // (e.g. rotating into/out of tablet column counts) or it throws.
+            key={`grid-${columns}`}
             data={visibleItems}
             keyExtractor={(i) => i.id}
-            numColumns={NUM_COLUMNS}
+            numColumns={columns}
             columnWrapperStyle={styles.column}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[
+              styles.list,
+              // Caps the grid's overall width on large iPad so 4 columns don't
+              // stretch edge-to-edge; on phone contentMaxWidth === width, so
+              // this is a no-op.
+              { maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' },
+            ]}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl refreshing={false} onRefresh={reload} tintColor={colors.blushDeep} />
@@ -256,6 +274,7 @@ export default function ClosetScreen() {
               return (
                 <ClosetTile
                   item={item}
+                  tileWidth={tileWidth}
                   retrying={retrying}
                   onPress={() => {
                     if (retrying) return; // styling call already in flight
@@ -396,11 +415,15 @@ export default function ClosetScreen() {
 
 function ClosetTile({
   item,
+  tileWidth,
   retrying,
   onPress,
   onLongPress,
 }: {
   item: WardrobeDisplayItem;
+  /** Live tile width from useResponsive (2/3/4 columns), not a module-level
+   * constant, so it reacts to rotation and scales on tablet. */
+  tileWidth: number;
   /** A styling call is in flight for this piece (e.g. after Tap to retry) —
    * show "Styling…" immediately instead of the stale failed/stalled state. */
   retrying?: boolean;
@@ -423,7 +446,7 @@ function ClosetTile({
       }}
       accessibilityRole="button"
       accessibilityLabel={item.name ?? 'Closet piece'}
-      style={({ pressed }) => [styles.tile, pressed && styles.pressedDim]}
+      style={({ pressed }) => [styles.tile, { width: tileWidth }, pressed && styles.pressedDim]}
     >
       <View style={styles.tileImgWrap}>
         {item.signedUrl ? (
@@ -463,12 +486,11 @@ function ClosetTile({
   );
 }
 
-// Web closet grid: two editorial columns of white rounded cards.
-const NUM_COLUMNS = 2;
+// Web closet grid: editorial columns of white rounded cards — 2 on phone,
+// 3/4 on tablet via useResponsive (column count + tile width are computed
+// inside the component so they react to rotation; see ClosetScreen above).
 const H_PADDING = spacing.lg;
 const GAP = spacing.md;
-const TILE_W =
-  (Dimensions.get('window').width - H_PADDING * 2 - GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 
 const makeStyles = (c: Colors) =>
   StyleSheet.create({
@@ -501,7 +523,8 @@ const makeStyles = (c: Colors) =>
     // Web garment card: rounded-3xl white, pink-blush border, inner padding,
     // soft pink shadow.
     tile: {
-      width: TILE_W,
+      // width is applied inline (see ClosetTile) since it depends on the live
+      // window width / column count, not just the theme.
       borderRadius: radius.lg,
       backgroundColor: c.white,
       borderWidth: 1,

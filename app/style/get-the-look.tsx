@@ -11,7 +11,16 @@ import {
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { StackHeader, Button, ThemedText, EmptyState, Card, UploadZone, CookingLoader } from '@/components';
+import {
+  StackHeader,
+  Button,
+  ThemedText,
+  EmptyState,
+  Card,
+  UploadZone,
+  CookingLoader,
+  ResponsiveContent,
+} from '@/components';
 import { Glass } from '@/components/Glass';
 import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
@@ -159,7 +168,10 @@ export default function GetTheLookScreen() {
   return (
     <View style={styles.root}>
       <StackHeader title="Get the look" />
-      <View style={styles.content}>
+      {/* Caps the upload/swipe/results content width on large iPad so the
+          swipe card and kept-looks grid don't stretch edge-to-edge; on phone
+          contentMaxWidth === width, so this is a transparent no-op. */}
+      <ResponsiveContent style={styles.content}>
         {results.length === 0 ? (
           <View style={styles.start}>
             {/* Web upload.tsx: soft-pink circle with the camera glyph. */}
@@ -320,7 +332,7 @@ export default function GetTheLookScreen() {
             </View>
           </View>
         )}
-      </View>
+      </ResponsiveContent>
 
       {searching ? (
         <View style={styles.overlay}>

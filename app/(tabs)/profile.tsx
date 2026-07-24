@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ThemedText, SectionLabel, SettingsGroup, SettingsRow } from '@/components';
+import { ResponsiveContent, ThemedText, SectionLabel, SettingsGroup, SettingsRow } from '@/components';
 import type { Colors } from '@/theme/colors';
 import { fonts, radius, spacing, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -44,6 +44,7 @@ export default function ProfileScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}
       showsVerticalScrollIndicator={false}
     >
+      <ResponsiveContent>
       {/* Greeting header — menu, "Hi, <name> ♥", avatar */}
       <View style={styles.header}>
         <Pressable
@@ -197,6 +198,7 @@ export default function ProfileScreen() {
           </ThemedText>
         </Pressable>
       </View>
+      </ResponsiveContent>
     </ScrollView>
   );
 }

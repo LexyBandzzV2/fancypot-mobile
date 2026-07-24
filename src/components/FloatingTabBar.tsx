@@ -6,11 +6,15 @@ import * as Haptics from 'expo-haptics';
 import { fonts, spacing, radius, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
+import { useResponsive } from '@/hooks/useResponsive';
 import { Glass } from './Glass';
 import { ThemedText } from './Typography';
 
 const BAR_HEIGHT = 64;
 const CENTER_SIZE = 44;
+// Tablet cap: on a 13" iPad the full-width bar would stretch to ~960+pt; this
+// keeps it a comfortable, centered pill instead. Phone ignores this entirely.
+const TABLET_BAR_MAX_WIDTH = 500;
 
 /**
  * Space the floating bar occupies above the bottom safe-area inset. Screens
@@ -67,6 +71,7 @@ export function FloatingTabBar({ state, navigation }: FloatingTabBarProps) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const { isTablet } = useResponsive();
 
   const go = (route: TabRoute, focused: boolean) => {
     Haptics.selectionAsync().catch(() => {});
@@ -77,9 +82,16 @@ export function FloatingTabBar({ state, navigation }: FloatingTabBarProps) {
   const barBottom = insets.bottom + spacing.sm;
 
   return (
-    <View style={[styles.root, { paddingBottom: barBottom }]} pointerEvents="box-none">
+    <View
+      style={[styles.root, isTablet && styles.rootTablet, { paddingBottom: barBottom }]}
+      pointerEvents="box-none"
+    >
       {/* ~95% white over blur — the web bar's bg-card/95 + backdrop-blur. */}
-      <Glass intensity={60} tintColor={`${colors.white}F2`} style={styles.bar}>
+      <Glass
+        intensity={60}
+        tintColor={`${colors.white}F2`}
+        style={[styles.bar, isTablet && styles.barTablet]}
+      >
         {state.routes.map((route, i) => {
           const cfg = TABS[route.name];
           if (!cfg) return null;
@@ -135,6 +147,12 @@ const makeStyles = (c: Colors) =>
       // Web: mx-4 (16) insets around the floating card.
       paddingHorizontal: spacing.lg,
     },
+    // Tablet: root still spans the full width (so `bottom`/insets still work),
+    // but centers its child instead of the default stretch so the capped bar
+    // below floats in the middle rather than hugging the edges.
+    rootTablet: {
+      alignItems: 'center',
+    },
     bar: {
       flexDirection: 'row',
       height: BAR_HEIGHT,
@@ -150,6 +168,11 @@ const makeStyles = (c: Colors) =>
       shadowRadius: 15,
       shadowOffset: { width: 0, height: 10 },
       elevation: 8,
+    },
+    barTablet: {
+      width: '100%',
+      maxWidth: TABLET_BAR_MAX_WIDTH,
+      alignSelf: 'center',
     },
     slot: {
       flex: 1,

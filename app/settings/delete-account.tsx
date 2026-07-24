@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { StackHeader, Button, TextField, ThemedText, Card } from '@/components';
+import { StackHeader, Button, ResponsiveContent, TextField, ThemedText, Card } from '@/components';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
 import { spacing, useThemedStyles } from '@/theme';
@@ -41,33 +41,35 @@ export default function DeleteAccount() {
     <View style={styles.root}>
       <StackHeader title="Delete account" />
       <View style={styles.content}>
-        <Card>
-          <ThemedText variant="h3" color={colors.danger}>
-            This can't be undone
-          </ThemedText>
-          <ThemedText variant="body" color={colors.inkMuted} style={styles.body}>
-            Deleting your account permanently removes your closet, saved outfits, preferences,
-            and history from Fancy Pot. Any active subscription must be cancelled separately in
-            your App Store / Google Play account.
-          </ThemedText>
-        </Card>
+        <ResponsiveContent maxWidth={520}>
+          <Card>
+            <ThemedText variant="h3" color={colors.danger}>
+              This can't be undone
+            </ThemedText>
+            <ThemedText variant="body" color={colors.inkMuted} style={styles.body}>
+              Deleting your account permanently removes your closet, saved outfits, preferences,
+              and history from Fancy Pot. Any active subscription must be cancelled separately in
+              your App Store / Google Play account.
+            </ThemedText>
+          </Card>
 
-        <View style={styles.confirm}>
-          <TextField
-            label="Type DELETE to confirm"
-            value={confirm}
-            onChangeText={setConfirm}
-            autoCapitalize="characters"
-            placeholder="DELETE"
-          />
-          <Button
-            label="Permanently delete my account"
-            variant="primary"
-            onPress={onDelete}
-            loading={loading}
-            style={{ backgroundColor: colors.danger, borderColor: colors.danger }}
-          />
-        </View>
+          <View style={styles.confirm}>
+            <TextField
+              label="Type DELETE to confirm"
+              value={confirm}
+              onChangeText={setConfirm}
+              autoCapitalize="characters"
+              placeholder="DELETE"
+            />
+            <Button
+              label="Permanently delete my account"
+              variant="primary"
+              onPress={onDelete}
+              loading={loading}
+              style={{ backgroundColor: colors.danger, borderColor: colors.danger }}
+            />
+          </View>
+        </ResponsiveContent>
       </View>
     </View>
   );

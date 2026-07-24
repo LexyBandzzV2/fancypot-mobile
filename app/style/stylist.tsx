@@ -18,6 +18,7 @@ import {
   ThemedText,
   EmptyState,
   Card,
+  ResponsiveContent,
   SectionLabel,
   CookingLoader,
   RecommendCards,
@@ -310,6 +311,10 @@ export default function StylistScreen() {
     <View style={styles.root}>
       <StackHeader title="Style me" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* ResponsiveContent centers + caps this single-column flow on tablet
+            (a no-op on phone, where contentMaxWidth equals the screen width)
+            so the pieces grid / result don't span the whole iPad. */}
+        <ResponsiveContent>
         {cooking ? (
           <View style={styles.cookingWrap}>
             <CookingLoader
@@ -440,18 +445,21 @@ export default function StylistScreen() {
             )}
           </>
         )}
+      </ResponsiveContent>
       </ScrollView>
 
       {showForm ? (
         <Glass intensity={50} style={styles.footer}>
-          <Button
-            label={generateLabel}
-            onPress={onGenerate}
-            loading={gating}
-            disabled={!canGenerate || gating}
-            icon={!gating ? <Ionicons name="sparkles" size={18} color={colors.cream} /> : undefined}
-            style={styles.generateBtn}
-          />
+          <ResponsiveContent>
+            <Button
+              label={generateLabel}
+              onPress={onGenerate}
+              loading={gating}
+              disabled={!canGenerate || gating}
+              icon={!gating ? <Ionicons name="sparkles" size={18} color={colors.cream} /> : undefined}
+              style={styles.generateBtn}
+            />
+          </ResponsiveContent>
         </Glass>
       ) : null}
 

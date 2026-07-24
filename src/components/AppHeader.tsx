@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useNavDrawer } from '@/providers/NavDrawerProvider';
+import { useResponsive } from '@/hooks/useResponsive';
 import { ThemedText } from './Typography';
 import { Glass } from './Glass';
 
@@ -27,9 +28,15 @@ export function AppHeader({
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { openDrawer } = useNavDrawer();
+  const { isTablet, contentMaxWidth } = useResponsive();
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + spacing.sm, backgroundColor: colors.cream }]}>
-      <View style={styles.row}>
+      <View
+        style={[
+          styles.row,
+          isTablet && { alignSelf: 'center', width: '100%', maxWidth: contentMaxWidth },
+        ]}
+      >
         {menu ? (
           <Pressable
             onPress={openDrawer}

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Platform, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { StackHeader, Card, Button, ThemedText } from '@/components';
+import { StackHeader, Card, Button, ResponsiveContent, ThemedText } from '@/components';
 import { spacing, radius, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -34,6 +34,7 @@ export default function ManageSubscription() {
     <View style={styles.root}>
       <StackHeader title="Manage subscription" />
       <View style={styles.content}>
+        <ResponsiveContent>
         <Card style={styles.hero}>
           <View style={styles.heroTop}>
             <ThemedText variant="eyebrow" color={colors.pinkWarm}>
@@ -80,6 +81,7 @@ export default function ManageSubscription() {
           <View style={{ height: spacing.sm }} />
           <Button label="Restore purchases" variant="ghost" onPress={() => restore()} />
         </View>
+        </ResponsiveContent>
       </View>
     </View>
   );

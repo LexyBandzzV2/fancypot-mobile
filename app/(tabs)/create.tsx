@@ -3,7 +3,7 @@ import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card, ThemedText, Wordmark } from '@/components';
+import { Card, ResponsiveContent, ThemedText, Wordmark } from '@/components';
 import { radius, spacing, type } from '@/theme';
 import { useSubscription } from '@/providers/SubscriptionProvider';
 import { useNavDrawer } from '@/providers/NavDrawerProvider';
@@ -46,59 +46,64 @@ export default function CreateScreen() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}
       showsVerticalScrollIndicator={false}
     >
-      <Pressable
-        onPress={openDrawer}
-        hitSlop={12}
-        style={styles.menuBtn}
-        accessibilityRole="button"
-        accessibilityLabel="Open menu"
-      >
-        <Ionicons name="menu" size={26} color={colors.ink} />
-      </Pressable>
-      <ThemedText style={type.eyebrow} color={colors.blushDeep}>
-        Create with
-      </ThemedText>
-      <Wordmark size={44} />
-      <ThemedText variant="bodyItalic" color={colors.inkMuted} style={styles.intro}>
-        Your private stylist, in your pocket. You're on the {tier.name} plan.
-      </ThemedText>
+      {/* ResponsiveContent centers + caps this whole column on tablet (a
+          no-op on phone, where contentMaxWidth equals the screen width) so
+          the tool cards and upsell card don't stretch across a 13" iPad. */}
+      <ResponsiveContent>
+        <Pressable
+          onPress={openDrawer}
+          hitSlop={12}
+          style={styles.menuBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+        >
+          <Ionicons name="menu" size={26} color={colors.ink} />
+        </Pressable>
+        <ThemedText style={type.eyebrow} color={colors.blushDeep}>
+          Create with
+        </ThemedText>
+        <Wordmark size={44} />
+        <ThemedText variant="bodyItalic" color={colors.inkMuted} style={styles.intro}>
+          Your private stylist, in your pocket. You're on the {tier.name} plan.
+        </ThemedText>
 
-      <View style={styles.tools}>
-        {TOOLS.map((t) => (
-          <Pressable key={t.key} onPress={() => router.push(t.href as any)}>
-            <Card style={styles.tool}>
-              <View style={[styles.toolIcon, { backgroundColor: colors.pinkWarmGlow }]}>
-                <Ionicons name={t.icon as any} size={26} color={colors.ink} />
-              </View>
-              <View style={styles.toolText}>
-                <ThemedText variant="h3">{t.title}</ThemedText>
-                <ThemedText variant="labelSmall" color={colors.inkMuted}>
-                  {t.body}
-                </ThemedText>
-              </View>
-              <Ionicons name="chevron-forward" size={22} color={colors.blushDeep} />
-            </Card>
-          </Pressable>
-        ))}
-      </View>
+        <View style={styles.tools}>
+          {TOOLS.map((t) => (
+            <Pressable key={t.key} onPress={() => router.push(t.href as any)}>
+              <Card style={styles.tool}>
+                <View style={[styles.toolIcon, { backgroundColor: colors.pinkWarmGlow }]}>
+                  <Ionicons name={t.icon as any} size={26} color={colors.ink} />
+                </View>
+                <View style={styles.toolText}>
+                  <ThemedText variant="h3">{t.title}</ThemedText>
+                  <ThemedText variant="labelSmall" color={colors.inkMuted}>
+                    {t.body}
+                  </ThemedText>
+                </View>
+                <Ionicons name="chevron-forward" size={22} color={colors.blushDeep} />
+              </Card>
+            </Pressable>
+          ))}
+        </View>
 
-      <Pressable onPress={() => router.push('/paywall')}>
-        <Card glass style={styles.upsell} padded={false}>
-          <View style={styles.upsellRow}>
-            <Ionicons name="star" size={18} color={colors.pinkWarm} />
-            <ThemedText variant="label" color={colors.ink} style={styles.upsellText}>
-              {tier.entitlement === 'business'
-                ? "You're on our top plan — enjoy!"
-                : 'Unlock more outfits & try-ons'}
-            </ThemedText>
-            {tier.entitlement !== 'business' ? (
-              <ThemedText variant="label" color={colors.pinkWarm}>
-                Upgrade
+        <Pressable onPress={() => router.push('/paywall')}>
+          <Card glass style={styles.upsell} padded={false}>
+            <View style={styles.upsellRow}>
+              <Ionicons name="star" size={18} color={colors.pinkWarm} />
+              <ThemedText variant="label" color={colors.ink} style={styles.upsellText}>
+                {tier.entitlement === 'business'
+                  ? "You're on our top plan — enjoy!"
+                  : 'Unlock more outfits & try-ons'}
               </ThemedText>
-            ) : null}
-          </View>
-        </Card>
-      </Pressable>
+              {tier.entitlement !== 'business' ? (
+                <ThemedText variant="label" color={colors.pinkWarm}>
+                  Upgrade
+                </ThemedText>
+              ) : null}
+            </View>
+          </Card>
+        </Pressable>
+      </ResponsiveContent>
     </ScrollView>
   );
 }

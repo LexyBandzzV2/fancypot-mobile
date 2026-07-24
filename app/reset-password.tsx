@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Button, Screen, TextField, ThemedText, Wordmark } from '@/components';
+import { Button, ResponsiveContent, Screen, TextField, ThemedText, Wordmark } from '@/components';
 import { supabase } from '@/lib/supabase';
 import { spacing } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -43,29 +43,31 @@ export default function ResetPassword() {
 
   return (
     <Screen scroll edgeTop>
-      <View style={styles.header}>
-        <Wordmark size={40} />
-        <ThemedText variant="h3" color={colors.inkMuted} center style={styles.sub}>
-          Set a new password
-        </ThemedText>
-      </View>
-      <TextField
-        label="New password"
-        value={password}
-        onChangeText={setPassword}
-        secure
-        textContentType="newPassword"
-        placeholder="At least 6 characters"
-      />
-      <TextField
-        label="Confirm password"
-        value={confirm}
-        onChangeText={setConfirm}
-        secure
-        placeholder="Re-enter password"
-        error={error}
-      />
-      <Button label="Update password" onPress={onSubmit} loading={loading} />
+      <ResponsiveContent maxWidth={520}>
+        <View style={styles.header}>
+          <Wordmark size={40} />
+          <ThemedText variant="h3" color={colors.inkMuted} center style={styles.sub}>
+            Set a new password
+          </ThemedText>
+        </View>
+        <TextField
+          label="New password"
+          value={password}
+          onChangeText={setPassword}
+          secure
+          textContentType="newPassword"
+          placeholder="At least 6 characters"
+        />
+        <TextField
+          label="Confirm password"
+          value={confirm}
+          onChangeText={setConfirm}
+          secure
+          placeholder="Re-enter password"
+          error={error}
+        />
+        <Button label="Update password" onPress={onSubmit} loading={loading} />
+      </ResponsiveContent>
     </Screen>
   );
 }

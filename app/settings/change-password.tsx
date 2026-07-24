@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { StackHeader, Button, TextField, ThemedText } from '@/components';
+import { StackHeader, Button, ResponsiveContent, TextField, ThemedText } from '@/components';
 import { spacing, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -49,32 +49,36 @@ export default function ChangePassword() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <ThemedText variant="body" color={colors.inkMuted} style={styles.intro}>
-          Pick a new password of at least 8 characters. You'll stay signed in on this device.
-        </ThemedText>
-        <TextField
-          label="New password"
-          secure
-          value={password}
-          onChangeText={setPassword}
-          error={tooShort ? 'At least 8 characters.' : undefined}
-          autoCapitalize="none"
-          autoComplete="new-password"
-          textContentType="newPassword"
-        />
-        <TextField
-          label="Confirm new password"
-          secure
-          value={confirm}
-          onChangeText={setConfirm}
-          error={mismatch ? "Passwords don't match." : undefined}
-          autoCapitalize="none"
-          autoComplete="new-password"
-          textContentType="newPassword"
-        />
+        <ResponsiveContent maxWidth={520}>
+          <ThemedText variant="body" color={colors.inkMuted} style={styles.intro}>
+            Pick a new password of at least 8 characters. You'll stay signed in on this device.
+          </ThemedText>
+          <TextField
+            label="New password"
+            secure
+            value={password}
+            onChangeText={setPassword}
+            error={tooShort ? 'At least 8 characters.' : undefined}
+            autoCapitalize="none"
+            autoComplete="new-password"
+            textContentType="newPassword"
+          />
+          <TextField
+            label="Confirm new password"
+            secure
+            value={confirm}
+            onChangeText={setConfirm}
+            error={mismatch ? "Passwords don't match." : undefined}
+            autoCapitalize="none"
+            autoComplete="new-password"
+            textContentType="newPassword"
+          />
+        </ResponsiveContent>
       </ScrollView>
       <View style={styles.footer}>
-        <Button label="Update password" onPress={save} loading={saving} disabled={!canSave} />
+        <ResponsiveContent maxWidth={520}>
+          <Button label="Update password" onPress={save} loading={saving} disabled={!canSave} />
+        </ResponsiveContent>
       </View>
     </View>
   );

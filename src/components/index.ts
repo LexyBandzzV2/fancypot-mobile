@@ -21,3 +21,4 @@ export { ErrorScreen } from './ErrorScreen';
 export { SocialAuthButtons } from './SocialAuthButtons';
 export { Glass } from './Glass';
 export { Toast } from './Toast';
+export { ResponsiveContent } from './ResponsiveContent';

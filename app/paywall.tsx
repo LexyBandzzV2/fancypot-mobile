@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Card, ThemedText, Wordmark } from '@/components';
+import { Button, Card, ResponsiveContent, ThemedText, Wordmark } from '@/components';
 import { Glass } from '@/components/Glass';
 import { spacing, radius, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -48,6 +48,7 @@ export default function Paywall() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}
         showsVerticalScrollIndicator={false}
       >
+        <ResponsiveContent>
         {/* Header row — title centered, close on the right (modal context) */}
         <View style={styles.headerRow}>
           <View style={styles.headerSpacer} />
@@ -161,42 +162,45 @@ export default function Paywall() {
           auto-renew unless turned off at least 24 hours before the period ends. Manage
           or cancel anytime in your store account settings. Prices may vary by region.
         </ThemedText>
+        </ResponsiveContent>
       </ScrollView>
 
       <Glass intensity={50} style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <View style={styles.ctaGlow}>
-          <Button
-            label={
-              selected.entitlement === currentTier.entitlement
-                ? 'Your current plan'
-                : `Continue with ${selected.name}`
-            }
-            onPress={onSubscribe}
-            loading={busy}
-            disabled={!selected.rcPackageId || selected.entitlement === currentTier.entitlement}
-            variant="primary"
-            icon={<Ionicons name="sparkles" size={16} color={colors.cream} />}
-          />
-        </View>
-        {/* Apple 3.1.2 / Google Play: functional Terms + Privacy links on the purchase screen. */}
-        <View style={styles.legalLinks}>
-          <ThemedText variant="labelSmall" color={colors.inkMuted}>
-            By continuing, you agree to our{' '}
-          </ThemedText>
-          <Pressable onPress={() => router.push('/legal/terms')} hitSlop={8} accessibilityRole="link">
-            <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.legalLink}>
-              Terms
+        <ResponsiveContent>
+          <View style={styles.ctaGlow}>
+            <Button
+              label={
+                selected.entitlement === currentTier.entitlement
+                  ? 'Your current plan'
+                  : `Continue with ${selected.name}`
+              }
+              onPress={onSubscribe}
+              loading={busy}
+              disabled={!selected.rcPackageId || selected.entitlement === currentTier.entitlement}
+              variant="primary"
+              icon={<Ionicons name="sparkles" size={16} color={colors.cream} />}
+            />
+          </View>
+          {/* Apple 3.1.2 / Google Play: functional Terms + Privacy links on the purchase screen. */}
+          <View style={styles.legalLinks}>
+            <ThemedText variant="labelSmall" color={colors.inkMuted}>
+              By continuing, you agree to our{' '}
             </ThemedText>
-          </Pressable>
-          <ThemedText variant="labelSmall" color={colors.inkMuted}>
-            {' '}and{' '}
-          </ThemedText>
-          <Pressable onPress={() => router.push('/legal/privacy')} hitSlop={8} accessibilityRole="link">
-            <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.legalLink}>
-              Privacy Policy
+            <Pressable onPress={() => router.push('/legal/terms')} hitSlop={8} accessibilityRole="link">
+              <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.legalLink}>
+                Terms
+              </ThemedText>
+            </Pressable>
+            <ThemedText variant="labelSmall" color={colors.inkMuted}>
+              {' '}and{' '}
             </ThemedText>
-          </Pressable>
-        </View>
+            <Pressable onPress={() => router.push('/legal/privacy')} hitSlop={8} accessibilityRole="link">
+              <ThemedText variant="labelSmall" color={colors.pinkWarm} style={styles.legalLink}>
+                Privacy Policy
+              </ThemedText>
+            </Pressable>
+          </View>
+        </ResponsiveContent>
       </Glass>
     </View>
   );

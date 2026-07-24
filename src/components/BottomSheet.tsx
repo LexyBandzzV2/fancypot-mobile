@@ -10,8 +10,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { radius, spacing, fillObject } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
+import { useResponsive } from '@/hooks/useResponsive';
 import { ThemedText } from './Typography';
 import { Glass } from './Glass';
+
+// Tablet cap: a full-bleed sheet on a 13" iPad reads like a slab. Cap the
+// panel to a comfortable width and center it; phone keeps the full-width
+// slide-up sheet untouched.
+const TABLET_SHEET_MAX_WIDTH = 640;
 
 /**
  * Native-feeling bottom sheet: slides up from the bottom over a dimmed backdrop,
@@ -30,6 +36,7 @@ export function BottomSheet({
 }) {
   const insets = useSafeAreaInsets();
   const { scheme } = useTheme();
+  const { isTablet } = useResponsive();
   const translateY = useRef(new Animated.Value(600)).current;
   const backdrop = useRef(new Animated.Value(0)).current;
 
@@ -60,11 +67,13 @@ export function BottomSheet({
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <View style={styles.root}>
+      <View style={[styles.root, isTablet && styles.rootTablet]}>
         <Animated.View style={[styles.backdrop, { opacity: backdrop }]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
-        <Animated.View style={[styles.sheetWrap, { transform: [{ translateY }] }]}>
+        <Animated.View
+          style={[styles.sheetWrap, isTablet && styles.sheetWrapTablet, { transform: [{ translateY }] }]}
+        >
           <Glass
             style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]}
             intensity={45}
@@ -118,11 +127,15 @@ export function SheetAction({
 
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
+  // Tablet: center the (now width-capped) sheet horizontally instead of
+  // letting it stretch edge to edge.
+  rootTablet: { alignItems: 'center' },
   // Darker than `colors.overlay` — a glass sheet needs more backdrop contrast
   // to read clearly against busy content behind it. Mirrors colors.scrim
   // (static here because this StyleSheet is module-level, not themed).
   backdrop: { ...fillObject, backgroundColor: 'rgba(0, 0, 0, 0.55)' },
   sheetWrap: { borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg },
+  sheetWrapTablet: { width: '100%', maxWidth: TABLET_SHEET_MAX_WIDTH },
   sheet: {
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,

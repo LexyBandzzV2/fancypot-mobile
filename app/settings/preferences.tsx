@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { StackHeader, Button, ThemedText, Chip, ChipWrap, SectionLabel } from '@/components';
+import { StackHeader, Button, ResponsiveContent, ThemedText, Chip, ChipWrap, SectionLabel } from '@/components';
 import { radius, spacing, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme, type ThemePreference } from '@/providers/ThemeProvider';
@@ -66,32 +66,36 @@ export default function Preferences() {
     <View style={styles.root}>
       <StackHeader title="Style preferences" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Order runs shortest → longest so the long store list stays last:
-            Appearance, Your Styles, Budget, then Favorite Stores. Everything is
-            center-aligned for the editorial "mean girl" look. */}
-        <SectionLabel center style={styles.firstLabel}>APPEARANCE</SectionLabel>
-        <AppearanceSelector />
-        <SectionLabel center>YOUR STYLES</SectionLabel>
-        <OptionChips
-          options={STYLES}
-          selected={styles_}
-          onToggle={(v) => toggle(styles_, setStyles, v)}
-        />
-        <SectionLabel center hint="Leave all off to see every price.">BUDGET</SectionLabel>
-        <OptionChips
-          options={BUDGETS}
-          selected={budgets}
-          onToggle={(v) => toggle(budgets, setBudgets, v)}
-        />
-        <SectionLabel center hint="Optional.">FAVORITE STORES</SectionLabel>
-        <OptionChips
-          options={STORES}
-          selected={stores}
-          onToggle={(v) => toggle(stores, setStores, v)}
-        />
+        <ResponsiveContent>
+          {/* Order runs shortest → longest so the long store list stays last:
+              Appearance, Your Styles, Budget, then Favorite Stores. Everything is
+              center-aligned for the editorial "mean girl" look. */}
+          <SectionLabel center style={styles.firstLabel}>APPEARANCE</SectionLabel>
+          <AppearanceSelector />
+          <SectionLabel center>YOUR STYLES</SectionLabel>
+          <OptionChips
+            options={STYLES}
+            selected={styles_}
+            onToggle={(v) => toggle(styles_, setStyles, v)}
+          />
+          <SectionLabel center hint="Leave all off to see every price.">BUDGET</SectionLabel>
+          <OptionChips
+            options={BUDGETS}
+            selected={budgets}
+            onToggle={(v) => toggle(budgets, setBudgets, v)}
+          />
+          <SectionLabel center hint="Optional.">FAVORITE STORES</SectionLabel>
+          <OptionChips
+            options={STORES}
+            selected={stores}
+            onToggle={(v) => toggle(stores, setStores, v)}
+          />
+        </ResponsiveContent>
       </ScrollView>
       <View style={styles.footer}>
-        <Button label="Save preferences" onPress={save} loading={saving} />
+        <ResponsiveContent>
+          <Button label="Save preferences" onPress={save} loading={saving} />
+        </ResponsiveContent>
       </View>
     </View>
   );

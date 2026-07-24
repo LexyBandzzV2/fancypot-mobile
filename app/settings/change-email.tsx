@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { StackHeader, Button, TextField, ThemedText } from '@/components';
+import { StackHeader, Button, ResponsiveContent, TextField, ThemedText } from '@/components';
 import { spacing, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -60,31 +60,35 @@ export default function ChangeEmail() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <ThemedText variant="body" color={colors.inkMuted} style={styles.intro}>
-          {current
-            ? `You're signed in as ${current}. Enter a new email and we'll send a confirmation link to it.`
-            : "Enter a new email and we'll send a confirmation link to it."}
-        </ThemedText>
-        <TextField
-          label="New email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          textContentType="emailAddress"
-          placeholder="you@example.com"
-          error={
-            showFormatError
-              ? 'Enter a valid email.'
-              : showSameError
-                ? "That's already your email."
-                : undefined
-          }
-        />
+        <ResponsiveContent maxWidth={520}>
+          <ThemedText variant="body" color={colors.inkMuted} style={styles.intro}>
+            {current
+              ? `You're signed in as ${current}. Enter a new email and we'll send a confirmation link to it.`
+              : "Enter a new email and we'll send a confirmation link to it."}
+          </ThemedText>
+          <TextField
+            label="New email"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            textContentType="emailAddress"
+            placeholder="you@example.com"
+            error={
+              showFormatError
+                ? 'Enter a valid email.'
+                : showSameError
+                  ? "That's already your email."
+                  : undefined
+            }
+          />
+        </ResponsiveContent>
       </ScrollView>
       <View style={styles.footer}>
-        <Button label="Send confirmation link" onPress={save} loading={saving} disabled={!valid || saving} />
+        <ResponsiveContent maxWidth={520}>
+          <Button label="Send confirmation link" onPress={save} loading={saving} disabled={!valid || saving} />
+        </ResponsiveContent>
       </View>
     </View>
   );

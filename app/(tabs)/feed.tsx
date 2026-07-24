@@ -21,6 +21,7 @@ import {
   Chip,
   ChipWrap,
   EmptyState,
+  ResponsiveContent,
   SectionLabel,
   SkeletonGrid,
   ThemedText,
@@ -28,6 +29,7 @@ import {
 import type { Colors } from '@/theme/colors';
 import { fonts, radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
+import { useResponsive } from '@/hooks/useResponsive';
 import {
   getFeed,
   getFreshFeed,
@@ -56,6 +58,7 @@ const INITIAL_SCRAPED_ROWS = 1000;
 export default function FeedScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const { contentMaxWidth } = useResponsive();
   const { profile, user } = useAuth();
   const router = useRouter();
   // The three sources are held separately: curated (feed-page) is
@@ -390,70 +393,75 @@ export default function FeedScreen() {
           </Pressable>
         }
       />
-      {searchOpen ? (
-        <View style={styles.searchBar}>
-          <View style={styles.searchFieldWrap}>
-            <Ionicons name="search" size={18} color={colors.inkMuted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search any brand or category"
-              placeholderTextColor={colors.inkMuted}
-              value={search}
-              onChangeText={setSearch}
-              autoFocus
-              returnKeyType="search"
-              onSubmitEditing={submitSearch}
-              autoCorrect={false}
-              autoCapitalize="none"
-              accessibilityLabel="Search any brand or category"
-            />
-            {search.length > 0 ? (
-              <Pressable
-                onPress={() => setSearch('')}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Clear search text"
-              >
-                <Ionicons name="close-circle" size={18} color={colors.inkMuted} />
-              </Pressable>
-            ) : null}
-          </View>
-          <Pressable onPress={closeSearch} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close search">
-            <ThemedText variant="label" color={colors.pinkWarm}>
-              Cancel
-            </ThemedText>
-          </Pressable>
-        </View>
-      ) : (
-        <>
-          <View style={styles.controlsRow}>
-            <Pressable
-              onPress={openFilter}
-              accessibilityRole="button"
-              accessibilityLabel={filterCount > 0 ? `Filters, ${filterCount} active` : 'Filters'}
-              style={({ pressed }) => [styles.filterPill, pressed && styles.pressedDim]}
-            >
-              <Ionicons name="options-outline" size={16} color={colors.pinkWarm} />
-              <ThemedText variant="labelSmall">
-                {filterCount > 0 ? `Filters · ${filterCount}` : 'Filters'}
+      {/* Capped + centered on tablet (contentMaxWidth === screen width on
+          phone, so this is a no-op there) — keeps the filter/search controls
+          aligned with the feed grid below instead of stretching edge-to-edge. */}
+      <ResponsiveContent>
+        {searchOpen ? (
+          <View style={styles.searchBar}>
+            <View style={styles.searchFieldWrap}>
+              <Ionicons name="search" size={18} color={colors.inkMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search any brand or category"
+                placeholderTextColor={colors.inkMuted}
+                value={search}
+                onChangeText={setSearch}
+                autoFocus
+                returnKeyType="search"
+                onSubmitEditing={submitSearch}
+                autoCorrect={false}
+                autoCapitalize="none"
+                accessibilityLabel="Search any brand or category"
+              />
+              {search.length > 0 ? (
+                <Pressable
+                  onPress={() => setSearch('')}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search text"
+                >
+                  <Ionicons name="close-circle" size={18} color={colors.inkMuted} />
+                </Pressable>
+              ) : null}
+            </View>
+            <Pressable onPress={closeSearch} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close search">
+              <ThemedText variant="label" color={colors.pinkWarm}>
+                Cancel
               </ThemedText>
             </Pressable>
-            {filter ? (
-              <Pressable onPress={clearFilter} hitSlop={8} style={styles.clearBtn} accessibilityRole="button">
-                <Ionicons name="close-circle" size={16} color={colors.inkMuted} />
-                <ThemedText variant="label" color={colors.inkMuted}>
-                  Clear
+          </View>
+        ) : (
+          <>
+            <View style={styles.controlsRow}>
+              <Pressable
+                onPress={openFilter}
+                accessibilityRole="button"
+                accessibilityLabel={filterCount > 0 ? `Filters, ${filterCount} active` : 'Filters'}
+                style={({ pressed }) => [styles.filterPill, pressed && styles.pressedDim]}
+              >
+                <Ionicons name="options-outline" size={16} color={colors.pinkWarm} />
+                <ThemedText variant="labelSmall">
+                  {filterCount > 0 ? `Filters · ${filterCount}` : 'Filters'}
                 </ThemedText>
               </Pressable>
+              {filter ? (
+                <Pressable onPress={clearFilter} hitSlop={8} style={styles.clearBtn} accessibilityRole="button">
+                  <Ionicons name="close-circle" size={16} color={colors.inkMuted} />
+                  <ThemedText variant="label" color={colors.inkMuted}>
+                    Clear
+                  </ThemedText>
+                </Pressable>
+              ) : null}
+            </View>
+            {/* The saved-store quick chips make sense only when the session filter
+                isn't overriding brand selection. */}
+            {!filter && savedStores.length > 0 ? (
+              <StoreChipRow stores={savedStores} active={activeStore} onChange={setActiveStore} />
             ) : null}
-          </View>
-          {/* The saved-store quick chips make sense only when the session filter
-              isn't overriding brand selection. */}
-          {!filter && savedStores.length > 0 ? (
-            <StoreChipRow stores={savedStores} active={activeStore} onChange={setActiveStore} />
-          ) : null}
-        </>
-      )}
+          </>
+        )}
+      </ResponsiveContent>
       {loading ? (
         <View style={styles.pad}>
           {/* A clean spinner over the image grid skeleton — the brand chips
@@ -485,7 +493,10 @@ export default function FeedScreen() {
           ref={listRef}
           data={visibleProducts}
           keyExtractor={(p) => p.id}
-          contentContainerStyle={styles.list}
+          // Cards stay single-column (see file header note) but are capped +
+          // centered on tablet via contentMaxWidth — a no-op on phone, where
+          // contentMaxWidth equals the screen width.
+          contentContainerStyle={[styles.list, { maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' }]}
           showsVerticalScrollIndicator={false}
           onScroll={onScroll}
           scrollEventThrottle={64}

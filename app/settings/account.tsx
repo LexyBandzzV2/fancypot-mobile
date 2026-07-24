@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   StackHeader,
   Button,
+  ResponsiveContent,
   TextField,
   ThemedText,
   SectionLabel,
@@ -145,6 +146,7 @@ export default function AccountScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <ResponsiveContent>
         {/* Avatar. The circle clips the photo; the camera badge sits on a
             non-clipping outer wrapper so it floats just outside the circle's
             edge instead of overlapping the face. */}
@@ -247,10 +249,13 @@ export default function AccountScreen() {
             onPress={() => router.push('/settings/change-password')}
           />
         </SettingsGroup>
+        </ResponsiveContent>
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button label="Save changes" onPress={save} loading={saving} />
+        <ResponsiveContent>
+          <Button label="Save changes" onPress={save} loading={saving} />
+        </ResponsiveContent>
       </View>
 
       <BottomSheet visible={avatarSheet} onClose={() => setAvatarSheet(false)} title="Profile picture">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -6,7 +6,6 @@ import {
   RefreshControl,
   Pressable,
   Alert,
-  Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -28,6 +27,7 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
 import { useOutfits, type OutfitDisplay } from '@/hooks/useOutfits';
 import { useSavedItems } from '@/hooks/useSavedItems';
+import { useResponsive } from '@/hooks/useResponsive';
 import { addOutfitToCloset, type SavedItem } from '@/lib/api';
 
 type Tab = 'outfits' | 'items';
@@ -51,6 +51,14 @@ export default function SavedScreen() {
   // stops a second tap from creating a duplicate closet item.
   const [addedToCloset, setAddedToCloset] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
+  const { columns, width, contentMaxWidth } = useResponsive();
+  // Column count + tile width are derived from the live window width (via
+  // useResponsive) instead of a module-level Dimensions.get() snapshot, so
+  // both grids react to rotation/split-view and scale up on iPad.
+  const tileWidth = useMemo(
+    () => (width - H_PADDING * 2 - GAP * (columns - 1)) / columns,
+    [width, columns],
+  );
 
   // Outfits are the AI-composed looks (Style Me / Try-on). Items now come from
   // the real saved_items table (feed / Get the Look), so the Outfits tab shows
@@ -136,11 +144,20 @@ export default function SavedScreen() {
           </EmptyLibrary>
         ) : (
           <FlatList
+            // FlatList requires a fresh key when numColumns changes at runtime
+            // (e.g. rotating into/out of tablet column counts) or it throws.
+            key={`grid-outfits-${columns}`}
             data={outfitLooks}
             keyExtractor={(o) => o.id}
-            numColumns={NUM_COLUMNS}
+            numColumns={columns}
             columnWrapperStyle={styles.column}
-            contentContainerStyle={styles.list}
+            contentContainerStyle={[
+              styles.list,
+              // Caps the grid's overall width on large iPad so 4 columns
+              // don't stretch edge-to-edge; on phone contentMaxWidth ===
+              // width, so this is a no-op.
+              { maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' },
+            ]}
             showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl refreshing={false} onRefresh={reload} tintColor={colors.blushDeep} />
@@ -152,7 +169,7 @@ export default function SavedScreen() {
                 count > 0 ? `${count} ${count === 1 ? 'piece' : 'pieces'}` : item.occasion;
               return (
                 <Pressable
-                  style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+                  style={({ pressed }) => [styles.tile, { width: tileWidth }, pressed && styles.tilePressed]}
                   onPress={() =>
                     router.push({ pathname: '/style/outfit/[id]', params: { id: item.id } })
                   }
@@ -217,18 +234,27 @@ export default function SavedScreen() {
         </EmptyLibrary>
       ) : (
         <FlatList
+          // FlatList requires a fresh key when numColumns changes at runtime
+          // (e.g. rotating into/out of tablet column counts) or it throws.
+          key={`grid-items-${columns}`}
           data={savedItems}
           keyExtractor={(i) => i.id}
-          numColumns={NUM_COLUMNS}
+          numColumns={columns}
           columnWrapperStyle={styles.column}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[
+            styles.list,
+            // Caps the grid's overall width on large iPad so 4 columns don't
+            // stretch edge-to-edge; on phone contentMaxWidth === width, so
+            // this is a no-op.
+            { maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' },
+          ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl refreshing={false} onRefresh={reloadItems} tintColor={colors.blushDeep} />
           }
           renderItem={({ item }) => (
             <Pressable
-              style={({ pressed }) => [styles.tile, pressed && styles.tilePressed]}
+              style={({ pressed }) => [styles.tile, { width: tileWidth }, pressed && styles.tilePressed]}
               onPress={() => item.product_url && openProductUrl(item.product_url)}
               onLongPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -388,14 +414,12 @@ function SegmentPill({
   );
 }
 
-const NUM_COLUMNS = 2;
 const GAP = spacing.md;
 const H_PADDING = spacing.lg;
-// Fixed tile width (mirrors the Closet grid): with a computed half-width, a
+// Tile width (mirrors the Closet grid) is computed inside SavedScreen from
+// useResponsive's live column count/width: with a computed fraction width, a
 // lone last item stays a normal grid tile on the left instead of stretching
 // to fill the row (which `flex: 1` caused with an odd number of looks).
-const TILE_W =
-  (Dimensions.get('window').width - H_PADDING * 2 - GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 const GRID_CELL_SIZE = 45;
 const GRID_GAP = 12;
 const GRID_OPACITY = 0.15;
@@ -433,7 +457,8 @@ const makeStyles = (c: Colors) =>
     // Editorial look card, matching the web saved grid: radius 24, blush-glow
     // border, soft rose shadow, 3:4 image with name + meta beneath.
     tile: {
-      width: TILE_W,
+      // width is applied inline (see the two FlatLists above) since it
+      // depends on the live window width / column count, not just the theme.
       marginBottom: GAP,
       borderRadius: radius.lg,
       backgroundColor: c.white,
