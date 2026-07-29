@@ -140,10 +140,15 @@ export function useWardrobe() {
 
   /** Re-run styling for a piece whose processing failed or stalled. */
   const retryProcessing = useCallback(
-    (item: WardrobeDisplayItem) => {
+    async (item: WardrobeDisplayItem) => {
+      // Same third-party-AI consent as the original upload. Without this, a user
+      // who granted consent, uploaded, then revoked it in Settings could still
+      // push that photo to the AI provider from the retry long-press — which
+      // would make the Settings toggle's promise untrue.
+      if (!(await ensureConsent())) return;
       kickProcessing(item.id);
     },
-    [kickProcessing],
+    [ensureConsent, kickProcessing],
   );
 
   /** Rename / re-categorize / re-tag (occasions, vibes) a piece and refresh. */

@@ -6,13 +6,14 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheet, Button, ThemedText } from '@/components';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthProvider';
-import { colors, spacing } from '@/theme';
+import { useTheme } from './ThemeProvider';
+import { spacing } from '@/theme';
 
 /**
  * AI data-sharing consent.
@@ -25,16 +26,43 @@ import { colors, spacing } from '@/theme';
  * otherwise it shows the disclosure sheet and resolves with the user's choice.
  * The grant is stored on `profiles.preferences.ai_consent` so it persists across
  * web, iOS and Android.
+ *
+ * Apple's first submission was rejected under 5.1.1(i)/5.1.2(i) because the
+ * disclosure said only "third-party AI services" — the guideline requires
+ * *naming* who receives the data. RECIPIENTS below is that list, and it must
+ * stay in step with what the edge functions actually call and with the hosted
+ * privacy policy at fancypot.org/privacy (rendered in-app at /legal/privacy).
  */
+
+/** The third parties that actually receive user photos. Named, per 5.1.2(i). */
+const RECIPIENTS = [
+  {
+    name: 'Google (Gemini)',
+    detail:
+      'Reads the clothing and outfit photos you submit to identify pieces, remove backgrounds, build outfits, and generate try-on images. Reached through the Lovable AI Gateway.',
+  },
+  {
+    name: 'SerpAPI (Google Lens)',
+    detail:
+      'Receives the outfit photo you snap in Get the Look, to find similar pieces you can shop.',
+  },
+] as const;
 interface AIConsentValue {
   ensureConsent: () => Promise<boolean>;
   hasConsent: boolean;
+  /**
+   * Flip the grant from Settings. Revoking means the disclosure sheet is shown
+   * again before the next AI action — consent has to be withdrawable in-app,
+   * not only by emailing support.
+   */
+  setConsent: (granted: boolean) => Promise<void>;
 }
 
 const AIConsentContext = createContext<AIConsentValue | undefined>(undefined);
 
 export function AIConsentProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const { colors } = useTheme();
   const { user, profile, refreshProfile } = useAuth();
   const [visible, setVisible] = useState(false);
   const resolverRef = useRef<((v: boolean) => void) | null>(null);
@@ -49,50 +77,102 @@ export function AIConsentProvider({ children }: { children: React.ReactNode }) {
     });
   }, [hasConsent]);
 
-  const decide = useCallback(
-    async (agree: boolean) => {
-      setVisible(false);
-      if (agree && user) {
-        const prev = (profile?.preferences ?? {}) as Record<string, unknown>;
-        await supabase
-          .from('profiles')
-          .update({
-            preferences: { ...prev, ai_consent: true, ai_consent_at: new Date().toISOString() },
-          })
-          .eq('user_id', user.id);
-        await refreshProfile();
-      }
-      resolverRef.current?.(agree);
-      resolverRef.current = null;
+  const setConsent = useCallback(
+    async (granted: boolean) => {
+      if (!user) return;
+      const prev = (profile?.preferences ?? {}) as Record<string, unknown>;
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          preferences: {
+            ...prev,
+            ai_consent: granted,
+            ai_consent_at: granted ? new Date().toISOString() : null,
+          },
+        })
+        .eq('user_id', user.id);
+      if (error) throw error;
+      await refreshProfile();
     },
     [user, profile, refreshProfile],
   );
 
+  const decide = useCallback(
+    async (agree: boolean) => {
+      setVisible(false);
+      if (agree) {
+        try {
+          await setConsent(true);
+        } catch {
+          // The grant failed to persist. The user did agree, so let this action
+          // through — they'll simply be asked again next time.
+        }
+      }
+      resolverRef.current?.(agree);
+      resolverRef.current = null;
+    },
+    [setConsent],
+  );
+
   const value = useMemo<AIConsentValue>(
-    () => ({ ensureConsent, hasConsent }),
-    [ensureConsent, hasConsent],
+    () => ({ ensureConsent, hasConsent, setConsent }),
+    [ensureConsent, hasConsent, setConsent],
   );
 
   return (
     <AIConsentContext.Provider value={value}>
       {children}
       <BottomSheet visible={visible} onClose={() => decide(false)} title="AI photo processing">
-        <View style={styles.iconRow}>
-          <Ionicons name="sparkles" size={20} color={colors.pinkWarm} />
-          <ThemedText variant="label" color={colors.ink}>
-            Before we style you
+        {/* Scrollable: the disclosure has to name every recipient, which runs
+            longer than a short phone screen can show in one go. */}
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.iconRow}>
+            <Ionicons name="sparkles" size={20} color={colors.pinkWarm} />
+            <ThemedText variant="label" color={colors.ink}>
+              Before we send your photo
+            </ThemedText>
+          </View>
+          <ThemedText variant="body" color={colors.inkMuted} style={styles.body}>
+            To build looks and run try-ons, Fancy Pot sends the photos you choose to two
+            outside services:
           </ThemedText>
-        </View>
-        <ThemedText variant="body" color={colors.inkMuted} style={styles.body}>
-          To analyze outfits, build looks, and run virtual try-ons, Fancy Pot sends the
-          photos you choose to secure third-party AI services. Your images are used only to
-          create these results for you — never to train models, advertise, or identify you.
-        </ThemedText>
-        <Pressable onPress={() => router.push('/legal/privacy')} hitSlop={8} style={styles.link}>
-          <ThemedText variant="labelSmall" color={colors.blushDeep}>
-            Read our Privacy Policy
+
+          {RECIPIENTS.map((r) => (
+            <View key={r.name} style={styles.recipient}>
+              <View style={[styles.dot, { backgroundColor: colors.pinkWarm }]} />
+              <View style={styles.recipientBody}>
+                <ThemedText variant="label" color={colors.ink}>
+                  {r.name}
+                </ThemedText>
+                <ThemedText variant="labelSmall" color={colors.inkMuted}>
+                  {r.detail}
+                </ThemedText>
+              </View>
+            </View>
+          ))}
+
+          <View style={[styles.callout, { backgroundColor: colors.pinkWarmGlow }]}>
+            <Ionicons name="body-outline" size={16} color={colors.ink} />
+            <ThemedText variant="labelSmall" color={colors.ink} style={styles.calloutText}>
+              Virtual try-on sends a full-body photo of you.
+            </ThemedText>
+          </View>
+
+          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.body}>
+            Only the photo you pick is sent, plus any occasion or vibe you typed. We never
+            send your name, email, phone number, payment details, or location. Your photos
+            are used only to create the result you asked for — never to train AI models,
+            never for advertising, and never to identify you. Both companies are required to
+            protect your data to the same standard we do, and keep it only as long as it
+            takes to return your result. You can turn this off any time in Settings.
           </ThemedText>
-        </Pressable>
+
+          <Pressable onPress={() => router.push('/legal/privacy')} hitSlop={8} style={styles.link}>
+            <ThemedText variant="labelSmall" color={colors.blushDeep}>
+              Read our Privacy Policy
+            </ThemedText>
+          </Pressable>
+        </ScrollView>
         <Button label="Agree & continue" onPress={() => decide(true)} />
         <View style={{ height: spacing.sm }} />
         <Button label="Not now" variant="ghost" onPress={() => decide(false)} />
@@ -108,7 +188,20 @@ export function useAIConsent(): AIConsentValue {
 }
 
 const styles = StyleSheet.create({
+  scroll: { maxHeight: 340 },
   iconRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
   body: { marginBottom: spacing.md },
+  recipient: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
+  dot: { width: 6, height: 6, borderRadius: 3, marginTop: 7 },
+  recipientBody: { flex: 1, gap: 2 },
+  callout: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: 10,
+    marginBottom: spacing.md,
+  },
+  calloutText: { flex: 1 },
   link: { alignSelf: 'flex-start', marginBottom: spacing.lg },
 });

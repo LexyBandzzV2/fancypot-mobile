@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Button, ResponsiveContent, Screen, TextField, ThemedText } from '@/components';
 import { supabase } from '@/lib/supabase';
+import { edgeFunctionMessage } from '@/lib/api';
 import { useAuth } from '@/providers/AuthProvider';
 import { spacing } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -37,7 +38,8 @@ export default function VerifyPhone() {
       if (error) throw error;
       setStep('code');
     } catch (e: any) {
-      setError(e?.message ?? 'Could not send the code.');
+      const detail = await edgeFunctionMessage(e);
+      setError(detail ?? e?.message ?? 'Could not send the code. You can skip this for now.');
     } finally {
       setLoading(false);
     }
@@ -57,18 +59,26 @@ export default function VerifyPhone() {
       if (error) throw error;
       await refreshProfile();
       Alert.alert('Verified', 'Your phone number is verified.');
-      router.back();
+      dismiss();
     } catch (e: any) {
-      setError(e?.message ?? 'That code was not correct.');
+      const detail = await edgeFunctionMessage(e);
+      setError(detail ?? e?.message ?? 'That code was not correct.');
     } finally {
       setLoading(false);
     }
   };
 
+  // This is an optional trust gate layered on an account that already exists, so
+  // it must never trap anyone — if the SMS never arrives, they still get in.
+  const dismiss = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(tabs)');
+  };
+
   return (
     <Screen scroll edgeTop>
       <ResponsiveContent maxWidth={520}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.close}>
+        <Pressable onPress={dismiss} hitSlop={12} style={styles.close}>
           <Ionicons name="close" size={26} color={colors.ink} />
         </Pressable>
         <ThemedText variant="h1" style={styles.title}>
@@ -76,7 +86,7 @@ export default function VerifyPhone() {
         </ThemedText>
         <ThemedText variant="body" color={colors.inkMuted} style={styles.body}>
           {step === 'phone'
-            ? 'We use this to keep AI features fair and secure.'
+            ? 'Optional — it keeps styling requests fair and secure. Your account is already set up, so you can skip this and do it later in Settings.'
             : `Enter the code we sent to ${phone}.`}
         </ThemedText>
 
@@ -111,6 +121,12 @@ export default function VerifyPhone() {
             </Pressable>
           </>
         )}
+
+        <Pressable onPress={dismiss} style={styles.skip} hitSlop={8}>
+          <ThemedText variant="label" color={colors.inkMuted}>
+            Skip for now
+          </ThemedText>
+        </Pressable>
       </ResponsiveContent>
     </Screen>
   );
@@ -121,4 +137,5 @@ const styles = StyleSheet.create({
   title: { marginBottom: spacing.sm },
   body: { marginBottom: spacing.xl },
   resend: { alignSelf: 'center', marginTop: spacing.lg },
+  skip: { alignSelf: 'center', marginTop: spacing.xl, padding: spacing.sm },
 });

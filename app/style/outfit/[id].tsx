@@ -15,6 +15,7 @@ import { radius, spacing, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
+import { useAIConsent } from '@/providers/AIConsentProvider';
 import { useOutfits } from '@/hooks/useOutfits';
 import { recommendPieces, type PiecePick } from '@/lib/api';
 import { openLookSource } from '@/lib/affiliate';
@@ -31,6 +32,7 @@ export default function OutfitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { outfits, loading, save } = useOutfits();
   const { profile } = useAuth();
+  const { hasConsent } = useAIConsent();
 
   const outfit = outfits.find((o) => o.id === id) ?? null;
 
@@ -49,6 +51,10 @@ export default function OutfitDetailScreen() {
     const signed = outfit?.signedUrl;
     if (!outfit || !signed) return;
     if (fetchedFor.current === outfit.id) return;
+    // Only fetch recommendations if the user has already granted AI consent.
+    // This screen can be reached from Saved without going through the consent
+    // gate, so we skip the best-effort fetch if consent hasn't been granted yet.
+    if (!hasConsent) return;
     fetchedFor.current = outfit.id;
     let cancelled = false;
     (async () => {
@@ -73,7 +79,7 @@ export default function OutfitDetailScreen() {
     };
     // prefs intentionally omitted — fetchedFor guards a single fetch per outfit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outfit?.id, outfit?.signedUrl]);
+  }, [outfit?.id, outfit?.signedUrl, hasConsent]);
 
   // Saving a pick creates a Saved item: the outfit image carrying the pick's
   // store link, so it lands in Saved → Items with a working "Get the look".

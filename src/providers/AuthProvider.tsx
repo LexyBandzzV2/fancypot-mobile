@@ -3,6 +3,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useCallback,
 } from 'react';
@@ -46,6 +47,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const PROFILE_COLS =
     'id, user_id, display_name, avatar_url, plan, phone, phone_verified, preferences, ai_blocked';
 
+  // The user whose profile we most recently asked for. Profile loads are
+  // deferred off the auth callback (see below), so a quick sign-out/sign-in can
+  // land an older response after a newer one — this drops the stale write.
+  const latestUserId = useRef<string | null>(null);
+
   const loadProfile = useCallback(async (userId: string) => {
     // profiles is keyed by user_id (its id column is a separate row UUID).
     // maybeSingle avoids a 406 if the row hasn't landed yet.
@@ -54,6 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .select(PROFILE_COLS)
       .eq('user_id', userId)
       .maybeSingle();
+
+    if (latestUserId.current !== userId) return;
 
     if (data) {
       setProfile(data as Profile);
@@ -71,29 +79,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .upsert({ user_id: userId }, { onConflict: 'user_id' })
       .select(PROFILE_COLS)
       .maybeSingle();
+    if (latestUserId.current !== userId) return;
     setProfile((created as Profile) ?? null);
   }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    supabase.auth.getSession().then(async ({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session);
-      if (data.session?.user) {
-        await loadProfile(data.session.user.id);
+      const userId = data.session?.user?.id ?? null;
+      latestUserId.current = userId;
+      if (!userId) {
+        setInitializing(false);
+        return;
       }
-      setInitializing(false);
+      loadProfile(userId).finally(() => {
+        if (mounted) setInitializing(false);
+      });
+    }).catch(() => {
+      // getSession can reject on a SecureStore read failure or processLock timeout.
+      // Failing silently leaves the splash screen forever. Reset the gate.
+      if (mounted) setInitializing(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, next) => {
+    /**
+     * Never `await` a supabase call in here, and never make this callback
+     * `async`. GoTrue runs `exchangeCodeForSession` (the Google OAuth leg) and
+     * every token refresh *while holding its internal auth lock*, and it awaits
+     * each subscriber before releasing it. Any supabase call made from in here
+     * needs `getSession()`, which wants that same lock — a circular await with
+     * no timeout on the nested branch. That deadlock hangs Google sign-in
+     * forever and, because the lock is never released, freezes every later
+     * query app-wide until the app is relaunched.
+     *
+     * So: set state synchronously, and defer the profile fetch to a macrotask,
+     * which cannot run until the lock has been released.
+     */
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
       if (!mounted) return;
       setSession(next);
-      if (next?.user) {
-        await loadProfile(next.user.id);
-      } else {
+      const userId = next?.user?.id ?? null;
+      latestUserId.current = userId;
+      if (!userId) {
         setProfile(null);
+        return;
       }
+      setTimeout(() => {
+        if (mounted) void loadProfile(userId);
+      }, 0);
     });
 
     return () => {
@@ -108,7 +143,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      // If email confirmation is on, the link has to come back to the app, not
+      // to the website — useAuthDeepLinks exchanges the code it carries. Needs
+      // `fancypot://auth-confirm` on the Supabase redirect allowlist.
+      options: { emailRedirectTo: 'fancypot://auth-confirm' },
+    });
     if (error) throw error;
     // If email confirmation is on, there is no session yet.
     return { needsConfirmation: !data.session };
@@ -127,7 +169,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (session?.user) await loadProfile(session.user.id);
+    const userId = session?.user?.id;
+    if (!userId) return;
+    latestUserId.current = userId;
+    await loadProfile(userId);
   }, [session, loadProfile]);
 
   const value = useMemo<AuthContextValue>(

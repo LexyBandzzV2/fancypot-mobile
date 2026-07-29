@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import * as Sentry from '@sentry/react-native';
 import { supabase } from './supabase';
 
 /**
@@ -81,7 +82,16 @@ export async function signInWithGoogle(): Promise<{ userId: string } | null> {
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
   if (result.type !== 'success' || !result.url) {
-    // User closed the browser / cancelled — silent no-op.
+    // Nearly always a genuine cancel, so stay silent in the UI. But a redirect
+    // URI that Supabase has not allowlisted looks identical from here — the
+    // browser simply never hands back a `fancypot://` URL — so leave a trail
+    // rather than letting a misconfiguration masquerade as a user cancel.
+    Sentry.addBreadcrumb({
+      category: 'auth',
+      level: 'info',
+      message: 'Google auth session closed without returning a redirect',
+      data: { resultType: result.type, redirectTo },
+    });
     return null;
   }
 

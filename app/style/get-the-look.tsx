@@ -26,6 +26,7 @@ import { radius, spacing, fillObject, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useImagePicker } from '@/hooks/useImagePicker';
+import { useAIAction } from '@/hooks/useAIAction';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAds } from '@/providers/AdsProvider';
 import { getTheLookSearch, saveItem, UsageLimitError, type LookMatch } from '@/lib/api';
@@ -39,8 +40,9 @@ export default function GetTheLookScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { fromLibrary, fromCamera } = useImagePicker();
+  const { gate } = useAIAction();
   const { user } = useAuth();
-  const { maybeShowInterstitial, showAiGate } = useAds();
+  const { maybeShowInterstitial } = useAds();
   const [results, setResults] = useState<LookMatch[]>([]);
   const [index, setIndex] = useState(0);
   const [kept, setKept] = useState<LookMatch[]>([]);
@@ -53,9 +55,9 @@ export default function GetTheLookScreen() {
     const picked = source === 'camera' ? await fromCamera() : await fromLibrary();
     if (!picked) return;
 
-    // Free-tier monetization: play the full-screen ad before the search runs.
-    // No-op for paid users / when no ad is loaded.
-    await showAiGate();
+    // Apple 5.1.2(i) / Google Prominent Disclosure: phone verification + AI consent
+    // + free-tier ad gate before sending the photo to a third-party AI service.
+    if (!(await gate())) return;
     setSearching(true);
     let uploadedPath: string | null = null;
     try {

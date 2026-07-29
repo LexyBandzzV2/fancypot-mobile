@@ -70,26 +70,47 @@ export class UsageLimitError extends Error {
   }
 }
 
+/**
+ * Unwrap a failed `functions.invoke`. Supabase reports every non-2xx as the
+ * opaque "Edge Function returned a non-2xx status code" and hides the real
+ * `{ error, code }` body on FunctionsHttpError's `context` response.
+ */
+async function readFunctionError(
+  error: unknown,
+): Promise<{ status: number; message: string | null; code: unknown } | null> {
+  const res: Response | undefined = (error as { context?: Response })?.context;
+  if (!res || typeof res.json !== 'function') return null;
+  let payload: { error?: unknown; code?: unknown } | null = null;
+  try {
+    payload = await res.json();
+  } catch {
+    // Non-JSON body — the status is still worth reporting.
+  }
+  return {
+    status: res.status,
+    message: typeof payload?.error === 'string' ? payload.error : null,
+    code: payload?.code,
+  };
+}
+
+/** The human-readable message behind a failed `functions.invoke`, if there is one. */
+export async function edgeFunctionMessage(error: unknown): Promise<string | null> {
+  return (await readFunctionError(error))?.message ?? null;
+}
+
 async function invokeAI<T>(fn: string, body: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.functions.invoke<T>(fn, { body });
   if (error) {
-    // FunctionsHttpError exposes the response for structured limit errors.
-    const res: Response | undefined = (error as { context?: Response }).context;
-    if (res && typeof res.json === 'function') {
-      let payload: { error?: unknown; code?: unknown } | null = null;
-      try {
-        payload = await res.json();
-      } catch {
-        // Non-JSON body — fall through to the raw error below.
-      }
-      const message = typeof payload?.error === 'string' ? payload.error : null;
-      if (res.status === 429) {
+    const detail = await readFunctionError(error);
+    if (detail) {
+      const { status, message, code } = detail;
+      if (status === 429) {
         throw new UsageLimitError(message ?? 'Rate limited', 'rate_limited');
       }
-      if (res.status === 402 || res.status === 403) {
+      if (status === 402 || status === 403) {
         throw new UsageLimitError(
           message ?? 'You have reached your plan limit.',
-          payload?.code === 'ai_blocked' ? 'blocked' : 'over_limit',
+          code === 'ai_blocked' ? 'blocked' : 'over_limit',
         );
       }
       // Any OTHER status (400 validation, 500 crash…) is NOT a plan limit —
