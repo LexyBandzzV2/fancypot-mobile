@@ -7,6 +7,22 @@ import { useTheme } from '@/providers/ThemeProvider';
 import { Button } from './Button';
 import { ThemedText } from './Typography';
 
+/**
+ * Google sign-in is off until the Google Cloud OAuth client exists.
+ *
+ * The shared Supabase project has the Google provider enabled but no client
+ * secret, so `/authorize?provider=google` answers "Unsupported provider:
+ * missing OAuth secret" and the browser closes with nothing — which is what
+ * Apple saw as "Google sign in failed" in review. Shipping a button that
+ * cannot work is worse than not shipping it, so it stays hidden; Google
+ * accounts can still register with email + password.
+ *
+ * To turn it back on: create the OAuth client in Google Cloud, add its client
+ * ID + secret under Supabase Auth → Google, then flip this to `true`. The
+ * handlers on both auth screens and `signInWithGoogle` are still wired up.
+ */
+const GOOGLE_SIGN_IN_ENABLED = false;
+
 interface SocialAuthButtonsProps {
   mode: 'sign-in' | 'sign-up';
   onApple: () => void | Promise<void>;
@@ -43,6 +59,13 @@ export function SocialAuthButtons({
     };
   }, []);
 
+  const showApple = Platform.OS === 'ios' && appleAvailable;
+  // With Google hidden, Apple is the only provider left — so on a device that
+  // can't offer it (Android, or iOS before the availability check resolves)
+  // there is nothing to introduce, and the bare "or" divider would float above
+  // an empty space.
+  if (!showApple && !GOOGLE_SIGN_IN_ENABLED) return null;
+
   return (
     <View>
       <View style={styles.divider}>
@@ -53,7 +76,7 @@ export function SocialAuthButtons({
         <View style={[styles.line, { backgroundColor: colors.border }]} />
       </View>
 
-      {Platform.OS === 'ios' && appleAvailable ? (
+      {showApple ? (
         <AppleAuthentication.AppleAuthenticationButton
           buttonType={
             mode === 'sign-up'
@@ -68,20 +91,27 @@ export function SocialAuthButtons({
               : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
           }
           cornerRadius={TAP_TARGET / 2}
-          style={[styles.appleButton, loading && styles.appleButtonDisabled]}
+          style={[
+            styles.appleButton,
+            // Only needs to clear the Google button when there is one.
+            GOOGLE_SIGN_IN_ENABLED && styles.appleButtonSpaced,
+            loading && styles.appleButtonDisabled,
+          ]}
           // The native button has no disabled prop — swallow presses while busy instead.
           onPress={loading ? () => {} : onApple}
         />
       ) : null}
 
-      <Button
-        label="Continue with Google"
-        variant="outline"
-        onPress={onGoogle}
-        loading={loading && loadingProvider === 'google'}
-        disabled={loading && loadingProvider !== 'google'}
-        style={styles.googleButton}
-      />
+      {GOOGLE_SIGN_IN_ENABLED ? (
+        <Button
+          label="Continue with Google"
+          variant="outline"
+          onPress={onGoogle}
+          loading={loading && loadingProvider === 'google'}
+          disabled={loading && loadingProvider !== 'google'}
+          style={styles.googleButton}
+        />
+      ) : null}
     </View>
   );
 }
@@ -94,10 +124,8 @@ const styles = StyleSheet.create({
   },
   line: { flex: 1, height: 1 },
   dividerLabel: { marginHorizontal: spacing.md, ...type.labelSmall },
-  appleButton: {
-    height: TAP_TARGET,
-    marginBottom: spacing.md,
-  },
+  appleButton: { height: TAP_TARGET },
+  appleButtonSpaced: { marginBottom: spacing.md },
   appleButtonDisabled: { opacity: 0.5 },
   googleButton: { marginBottom: 0 },
 });
