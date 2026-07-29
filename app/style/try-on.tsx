@@ -200,8 +200,10 @@ export default function TryOnScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* ResponsiveContent centers + caps this single-column flow on tablet
             (a no-op on phone, where contentMaxWidth equals the screen width)
-            so the photo/outfit picker and result don't span the whole iPad. */}
-        <ResponsiveContent>
+            so the photo/outfit picker and result don't span the whole iPad. The
+            try-on result is a tall 7:10 image, so cap by viewport height too —
+            otherwise it runs off the bottom and hides the save/share row. */}
+        <ResponsiveContent mediaAspect={0.7}>
         {result ? (
           <View style={styles.resultWrap}>
             <Card style={styles.resultCard} padded={false}>

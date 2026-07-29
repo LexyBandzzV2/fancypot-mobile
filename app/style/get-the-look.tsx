@@ -173,7 +173,7 @@ export default function GetTheLookScreen() {
       {/* Caps the upload/swipe/results content width on large iPad so the
           swipe card and kept-looks grid don't stretch edge-to-edge; on phone
           contentMaxWidth === width, so this is a transparent no-op. */}
-      <ResponsiveContent style={styles.content}>
+      <ResponsiveContent mediaAspect={0.85} style={styles.content}>
         {results.length === 0 ? (
           <View style={styles.start}>
             {/* Web upload.tsx: soft-pink circle with the camera glyph. */}

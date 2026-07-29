@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { View, StyleSheet, Pressable, ScrollView } from 'react-native';
+import { View, StyleSheet, Pressable, ScrollView, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheet, Button, ThemedText } from '@/components';
@@ -63,6 +63,7 @@ const AIConsentContext = createContext<AIConsentValue | undefined>(undefined);
 export function AIConsentProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { colors } = useTheme();
+  const { height } = useWindowDimensions();
   const { user, profile, refreshProfile } = useAuth();
   const [visible, setVisible] = useState(false);
   const resolverRef = useRef<((v: boolean) => void) | null>(null);
@@ -124,8 +125,10 @@ export function AIConsentProvider({ children }: { children: React.ReactNode }) {
       {children}
       <BottomSheet visible={visible} onClose={() => decide(false)} title="AI photo processing">
         {/* Scrollable: the disclosure has to name every recipient, which runs
-            longer than a short phone screen can show in one go. */}
-        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+            longer than a short phone screen can show in one go. The cap scales
+            with the viewport — a flat 340 clipped it mid-sentence on iPad,
+            where there is room — while keeping both buttons on screen. */}
+        <ScrollView style={{ maxHeight: Math.max(300, height * 0.45) }} showsVerticalScrollIndicator={false}>
           <View style={styles.iconRow}>
             <Ionicons name="sparkles" size={20} color={colors.pinkWarm} />
             <ThemedText variant="label" color={colors.ink}>
@@ -195,7 +198,6 @@ export function useAIConsent(): AIConsentValue {
 }
 
 const styles = StyleSheet.create({
-  scroll: { maxHeight: 340 },
   iconRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
   body: { marginBottom: spacing.md },
   recipient: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },

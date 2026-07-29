@@ -58,7 +58,12 @@ const INITIAL_SCRAPED_ROWS = 1000;
 export default function FeedScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const { contentMaxWidth } = useResponsive();
+  const { mediaMaxWidth } = useResponsive();
+  // Feed cards are a 3:4 image with the price/save/open row under it. That
+  // image is width-driven, so at the full tablet content width it renders
+  // ~970pt tall in portrait and ~1240pt in landscape — taller than the iPad
+  // viewport, which pushed the whole footer row off-screen. Cap by height.
+  const feedCardMaxWidth = mediaMaxWidth(3 / 4);
   const { profile, user } = useAuth();
   const router = useRouter();
   // The three sources are held separately: curated (feed-page) is
@@ -493,10 +498,10 @@ export default function FeedScreen() {
           ref={listRef}
           data={visibleProducts}
           keyExtractor={(p) => p.id}
-          // Cards stay single-column (see file header note) but are capped +
-          // centered on tablet via contentMaxWidth — a no-op on phone, where
-          // contentMaxWidth equals the screen width.
-          contentContainerStyle={[styles.list, { maxWidth: contentMaxWidth, width: '100%', alignSelf: 'center' }]}
+          // Cards stay single-column but are capped + centered on tablet via
+          // feedCardMaxWidth — a no-op on phone, where that resolves to the
+          // screen width.
+          contentContainerStyle={[styles.list, { maxWidth: feedCardMaxWidth, width: '100%', alignSelf: 'center' }]}
           showsVerticalScrollIndicator={false}
           onScroll={onScroll}
           scrollEventThrottle={64}

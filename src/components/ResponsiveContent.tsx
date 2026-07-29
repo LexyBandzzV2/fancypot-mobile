@@ -10,6 +10,14 @@ interface ResponsiveContentProps {
    * narrower measure — e.g. forms read better around 520.
    */
   maxWidth?: number;
+  /**
+   * Aspect ratio (width / height) of the hero image this column is built
+   * around. Set it when the column's height is driven by a tall image, so the
+   * cap also accounts for viewport height — otherwise on iPad the image alone
+   * grows taller than the screen and pushes the controls below it out of view.
+   * Ignored when `maxWidth` is given, and a no-op on phone.
+   */
+  mediaAspect?: number;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -22,9 +30,9 @@ interface ResponsiveContentProps {
  * Phone: `contentMaxWidth` equals the screen width, so `maxWidth` is a no-op and
  * layout is byte-for-byte what it was before. Only tablet widths change.
  */
-export function ResponsiveContent({ children, maxWidth, style }: ResponsiveContentProps) {
-  const { contentMaxWidth } = useResponsive();
-  const cap = maxWidth ?? contentMaxWidth;
+export function ResponsiveContent({ children, maxWidth, mediaAspect, style }: ResponsiveContentProps) {
+  const { contentMaxWidth, mediaMaxWidth } = useResponsive();
+  const cap = maxWidth ?? (mediaAspect ? mediaMaxWidth(mediaAspect) : contentMaxWidth);
   return (
     <View style={[{ width: '100%', maxWidth: cap, alignSelf: 'center' }, style]}>
       {children}

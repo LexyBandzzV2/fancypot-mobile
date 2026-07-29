@@ -313,8 +313,10 @@ export default function StylistScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* ResponsiveContent centers + caps this single-column flow on tablet
             (a no-op on phone, where contentMaxWidth equals the screen width)
-            so the pieces grid / result don't span the whole iPad. */}
-        <ResponsiveContent>
+            so the pieces grid / result don't span the whole iPad. The result is
+            a 4:5 image, so cap by viewport height too — otherwise it runs off
+            the bottom of a landscape iPad and hides the buttons under it. */}
+        <ResponsiveContent mediaAspect={0.8}>
         {cooking ? (
           <View style={styles.cookingWrap}>
             <CookingLoader

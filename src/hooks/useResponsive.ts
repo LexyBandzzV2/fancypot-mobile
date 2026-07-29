@@ -36,6 +36,19 @@ export interface Responsive {
   contentMaxWidth: number;
   /** Horizontal page gutter — grows a little on tablet so content breathes. */
   gutter: number;
+  /**
+   * Width cap for a column whose hero image drives its height.
+   *
+   * A `width: '100%'` + `aspectRatio` image is width-driven, so at the full
+   * tablet `contentMaxWidth` a portrait card grows taller than the screen and
+   * pushes everything under it (price, save/open row, action buttons) out of
+   * view. Worst in landscape, where an iPad has only ~820pt of height to give.
+   *
+   * Pass the image's aspect ratio (width / height) and get the widest the
+   * column can be while keeping that image to `fraction` of the viewport
+   * height. Phone is unaffected — there the cap is just the screen width.
+   */
+  mediaMaxWidth: (aspectRatio: number, fraction?: number) => number;
 }
 
 export const TABLET_MIN_WIDTH = 700;
@@ -45,6 +58,7 @@ export function useResponsive(): Responsive {
   const { width, height } = useWindowDimensions();
   const isTablet = width >= TABLET_MIN_WIDTH;
   const isLargeTablet = width >= LARGE_TABLET_MIN_WIDTH;
+  const contentMaxWidth = isLargeTablet ? 960 : isTablet ? 760 : width;
 
   return {
     width,
@@ -53,7 +67,13 @@ export function useResponsive(): Responsive {
     isLargeTablet,
     isLandscape: width > height,
     columns: isLargeTablet ? 4 : isTablet ? 3 : 2,
-    contentMaxWidth: isLargeTablet ? 960 : isTablet ? 760 : width,
+    contentMaxWidth,
     gutter: isLargeTablet ? spacing.xxl : isTablet ? spacing.xl : spacing.lg,
+    // The 360 floor stops a short landscape viewport from squeezing the column
+    // so narrow that the copy and buttons beside the image become cramped.
+    mediaMaxWidth: (aspectRatio: number, fraction = 0.55) =>
+      isTablet
+        ? Math.min(contentMaxWidth, Math.max(360, height * fraction * aspectRatio))
+        : contentMaxWidth,
   };
 }
