@@ -164,7 +164,14 @@ export function AIConsentProvider({ children }: { children: React.ReactNode }) {
             are used only to create the result you asked for — never to train AI models,
             never for advertising, and never to identify you. Both companies are required to
             protect your data to the same standard we do, and keep it only as long as it
-            takes to return your result. You can turn this off any time in Settings.
+            takes to return your result.
+          </ThemedText>
+
+          <ThemedText variant="labelSmall" color={colors.inkMuted} style={styles.body}>
+            If you tap Don't Allow, Style Me, Virtual Try-On, Get the Look, and
+            automatic photo tagging won't run — you can still browse, build your
+            closet, and save looks manually. You can change your answer any time
+            in Settings.
           </ThemedText>
 
           <Pressable onPress={() => router.push('/legal/privacy')} hitSlop={8} style={styles.link}>
@@ -173,9 +180,9 @@ export function AIConsentProvider({ children }: { children: React.ReactNode }) {
             </ThemedText>
           </Pressable>
         </ScrollView>
-        <Button label="Agree & continue" onPress={() => decide(true)} />
+        <Button label="Allow" onPress={() => decide(true)} />
         <View style={{ height: spacing.sm }} />
-        <Button label="Not now" variant="ghost" onPress={() => decide(false)} />
+        <Button label="Don't Allow" variant="ghost" onPress={() => decide(false)} />
       </BottomSheet>
     </AIConsentContext.Provider>
   );
