@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -157,11 +157,12 @@ export default function Paywall() {
           </ThemedText>
         </Pressable>
 
+        {/* App Store only — naming any other store here got the binary rejected
+            under Apple 2.3.10 (references to other platforms). */}
         <ThemedText variant="labelSmall" color={colors.inkMuted} center style={styles.fine}>
-          Payment is charged to your {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account.
-          Subscriptions auto-renew unless turned off at least 24 hours before the period ends. Manage
-          or cancel anytime in your {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account settings.
-          Prices may vary by region.
+          Payment is charged to your App Store account. Subscriptions auto-renew unless
+          turned off at least 24 hours before the period ends. Manage or cancel anytime in
+          your App Store account settings. Prices may vary by region.
         </ThemedText>
         </ResponsiveContent>
       </ScrollView>
@@ -182,7 +183,7 @@ export default function Paywall() {
               icon={<Ionicons name="sparkles" size={16} color={colors.cream} />}
             />
           </View>
-          {/* Apple 3.1.2 / Google Play: functional Terms + Privacy links on the purchase screen. */}
+          {/* Apple 3.1.2: functional Terms + Privacy links on the purchase screen. */}
           <View style={styles.legalLinks}>
             <ThemedText variant="labelSmall" color={colors.inkMuted}>
               By continuing, you agree to our{' '}

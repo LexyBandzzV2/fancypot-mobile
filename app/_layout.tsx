@@ -28,6 +28,7 @@ import { ThemeProvider, useTheme } from '@/providers/ThemeProvider';
 import { useAuthDeepLinks } from '@/hooks/useAuthDeepLinks';
 import { ErrorScreen } from '@/components';
 import { initSentry } from '@/lib/sentry';
+import { ACCEPTED_VERSION } from './legal/accept';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 initSentry();
@@ -39,24 +40,47 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 /**
- * Redirects between the (auth) and (tabs) groups based on session state.
- * Runs after the initial session check so we don't flash the wrong screen.
+ * Redirects between the (auth) and (tabs) groups based on session state, and
+ * holds a signed-in user on the Terms + privacy disclosure until they accept it.
+ *
+ * The terms gate is what Apple 5.1.1(i) asks for — the full "what we collect /
+ * how / every use / who we share with and their protections" statement, shown
+ * before the app is usable. It deliberately does NOT gate the two hosted legal
+ * documents, since the disclosure screen links out to them.
  */
 function useProtectedRoute() {
-  const { session, initializing } = useAuth();
+  const { session, profile, initializing } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  const prefs = (profile?.preferences ?? {}) as {
+    terms_accepted_at?: string | null;
+    terms_version?: string | null;
+  };
+  // Re-ask when the disclosure itself has materially changed, not just when it
+  // has never been answered.
+  const termsAccepted = !!prefs.terms_accepted_at && prefs.terms_version === ACCEPTED_VERSION;
 
   useEffect(() => {
     if (initializing) return;
     const inAuthGroup = segments[0] === '(auth)';
+    const inLegal = segments[0] === 'legal';
 
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/welcome');
-    } else if (session && inAuthGroup) {
-      router.replace('/(tabs)');
+      return;
     }
-  }, [session, initializing, segments, router]);
+    if (session && inAuthGroup) {
+      router.replace('/(tabs)');
+      return;
+    }
+    // Wait for the profile to land before deciding — `profile` is null for a
+    // beat after sign-in, and gating on that would bounce an accepted user
+    // through the disclosure on every cold start.
+    if (session && profile && !termsAccepted && !inLegal) {
+      router.replace('/legal/accept');
+    }
+  }, [session, profile, termsAccepted, initializing, segments, router]);
 }
 
 function RootNavigator() {
@@ -99,6 +123,8 @@ function RootNavigator() {
       <Stack.Screen name="settings/change-email" />
       <Stack.Screen name="settings/delete-account" options={{ presentation: 'modal' }} />
       <Stack.Screen name="legal/[doc]" options={{ presentation: 'modal' }} />
+      {/* The disclosure is a gate, not a page — no back gesture off it. */}
+      <Stack.Screen name="legal/accept" options={{ gestureEnabled: false }} />
     </Stack>
   );
 }

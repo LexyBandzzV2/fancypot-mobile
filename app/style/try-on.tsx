@@ -117,7 +117,7 @@ export default function TryOnScreen() {
       //    ("image host not allowed"). Inline it on-device too so it has no host to
       //    reject. Done inside run() so the loader covers the fetch and a failed
       //    fetch surfaces through the same error alert.
-      const res = await run(async () => {
+      const res = await run('tryOn', async () => {
         const outfitImage = await imageUrlToDataUri(outfit.signedUrl!);
         if (!outfitImage) throw new Error('Could not load the selected outfit image. Try another look.');
         return tryOn({

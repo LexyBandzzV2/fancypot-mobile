@@ -6,7 +6,6 @@ import React, {
   useState,
   useCallback,
 } from 'react';
-import { Platform } from 'react-native';
 import Purchases, { LOG_LEVEL } from '@/lib/purchases';
 import type { CustomerInfo, PurchasesOffering } from 'react-native-purchases';
 import { config } from '@/lib/config';
@@ -44,8 +43,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [clientEntitlement, setClientEntitlement] = useState<EntitlementId>('free');
   const [ready, setReady] = useState(false);
 
-  const apiKey =
-    Platform.OS === 'ios' ? config.revenueCatIosKey : config.revenueCatAndroidKey;
+  const apiKey = config.revenueCatIosKey;
 
   // Configure the SDK once.
   useEffect(() => {

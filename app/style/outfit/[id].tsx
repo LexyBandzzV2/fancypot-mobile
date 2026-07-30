@@ -51,10 +51,11 @@ export default function OutfitDetailScreen() {
     const signed = outfit?.signedUrl;
     if (!outfit || !signed) return;
     if (fetchedFor.current === outfit.id) return;
-    // Only fetch recommendations if the user has already granted AI consent.
-    // This screen can be reached from Saved without going through the consent
-    // gate, so we skip the best-effort fetch if consent hasn't been granted yet.
-    if (!hasConsent) return;
+    // Only fetch recommendations if the user has already granted consent for
+    // this feature. The screen opens straight from Saved, so there is no user
+    // gesture to hang a prompt on — silently skipping is correct, and the
+    // recommendations appear once consent is granted from a screen that asks.
+    if (!hasConsent('recommend')) return;
     fetchedFor.current = outfit.id;
     let cancelled = false;
     (async () => {

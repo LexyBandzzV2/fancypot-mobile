@@ -60,10 +60,9 @@ export function SocialAuthButtons({
   }, []);
 
   const showApple = Platform.OS === 'ios' && appleAvailable;
-  // With Google hidden, Apple is the only provider left — so on a device that
-  // can't offer it (Android, or iOS before the availability check resolves)
-  // there is nothing to introduce, and the bare "or" divider would float above
-  // an empty space.
+  // With Google hidden, Apple is the only provider left — so before the
+  // availability check resolves there is nothing to introduce, and the bare
+  // "or" divider would float above an empty space.
   if (!showApple && !GOOGLE_SIGN_IN_ENABLED) return null;
 
   return (

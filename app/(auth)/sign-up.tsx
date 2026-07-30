@@ -149,14 +149,30 @@ export default function SignUp() {
             loadingProvider={socialLoading}
           />
 
-          <ThemedText
-            variant="labelSmall"
-            color={colors.inkMuted}
-            center
-            style={styles.terms}
-          >
-            By continuing you agree to our Terms and Privacy Policy.
-          </ThemedText>
+          {/* The real agreement is the full disclosure on /legal/accept, which
+              the root guard forces before the app opens. This line only sets the
+              expectation; the links let anyone read the documents first. */}
+          <View style={styles.terms}>
+            <ThemedText variant="labelSmall" color={colors.inkMuted} center>
+              Next you'll review how Fancy Pot uses your data and which AI providers
+              receive it. You'll need to agree before using the app.
+            </ThemedText>
+            <View style={styles.termsLinks}>
+              <Pressable onPress={() => router.push('/legal/terms')} hitSlop={8}>
+                <ThemedText variant="labelSmall" color={colors.blushDeep}>
+                  Terms
+                </ThemedText>
+              </Pressable>
+              <ThemedText variant="labelSmall" color={colors.inkMuted}>
+                ·
+              </ThemedText>
+              <Pressable onPress={() => router.push('/legal/privacy')} hitSlop={8}>
+                <ThemedText variant="labelSmall" color={colors.blushDeep}>
+                  Privacy Policy
+                </ThemedText>
+              </Pressable>
+            </View>
+          </View>
 
           <View style={styles.footer}>
             <ThemedText variant="body" color={colors.inkMuted}>
@@ -187,7 +203,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   noticeText: { flex: 1 },
-  terms: { marginTop: spacing.md },
+  terms: { marginTop: spacing.md, gap: spacing.xs },
+  termsLinks: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',

@@ -26,9 +26,9 @@ import { useAuth } from './AuthProvider';
 import { useSubscription } from './SubscriptionProvider';
 import { rewardsRemainingToday, recordRewardWatched, REWARD_DAILY_CAP } from '@/lib/ads/rewardCap';
 
-// Ads only run on the native iOS/Android builds. On web (the in-browser preview)
-// the SDK is stubbed and this whole provider stays inert.
-const adsSupported = Platform.OS === 'ios' || Platform.OS === 'android';
+// Ads only run in the native iOS build. On web (the in-browser preview) the
+// SDK is stubbed and this whole provider stays inert.
+const adsSupported = Platform.OS === 'ios';
 // Don't show interstitials back-to-back — feels janky and risks Apple rejection.
 const MIN_INTERSTITIAL_GAP_MS = 90 * 1000;
 // The pre-AI gate fires before EVERY generation (that's the free-tier deal —
@@ -73,13 +73,11 @@ const AdsContext = createContext<AdsContextValue | undefined>(undefined);
 // test unit if the env placeholder wasn't replaced — so a build never crashes.
 function interstitialUnitId(): string {
   if (__DEV__ || !adsSupported) return TestIds.INTERSTITIAL;
-  const real = Platform.OS === 'ios' ? config.admob.iosInterstitial : config.admob.androidInterstitial;
-  return real || TestIds.INTERSTITIAL;
+  return config.admob.iosInterstitial || TestIds.INTERSTITIAL;
 }
 function rewardedUnitId(): string {
   if (__DEV__ || !adsSupported) return TestIds.REWARDED;
-  const real = Platform.OS === 'ios' ? config.admob.iosRewarded : config.admob.androidRewarded;
-  return real || TestIds.REWARDED;
+  return config.admob.iosRewarded || TestIds.REWARDED;
 }
 
 export function AdsProvider({ children }: { children: React.ReactNode }) {

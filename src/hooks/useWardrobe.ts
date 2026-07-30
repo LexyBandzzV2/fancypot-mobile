@@ -127,7 +127,7 @@ export function useWardrobe() {
       if (!user) throw new Error('Not signed in');
       // Uploading a piece triggers AI classification + background removal, so the
       // same third-party-AI consent applies here as on the explicit AI screens.
-      const consented = await ensureConsent();
+      const consented = await ensureConsent('wardrobe');
       if (!consented) return null;
       const path = await uploadWardrobeImage(user.id, base64);
       const row = await insertWardrobeItem(user.id, path); // may throw on limit
@@ -145,7 +145,7 @@ export function useWardrobe() {
       // who granted consent, uploaded, then revoked it in Settings could still
       // push that photo to the AI provider from the retry long-press — which
       // would make the Settings toggle's promise untrue.
-      if (!(await ensureConsent())) return;
+      if (!(await ensureConsent('wardrobe'))) return;
       kickProcessing(item.id);
     },
     [ensureConsent, kickProcessing],

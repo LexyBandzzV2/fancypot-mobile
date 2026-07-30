@@ -1,10 +1,10 @@
-# Fancy Pot — Mobile (iOS & Android)
+# Fancy Pot — Mobile (iOS)
 
 A **fully native** Expo / React Native rebuild of the [Fancy Pot](https://fancypot.org)
 web app (`closet-conjurer-app`). This is **not** a WebView wrapper — every screen is
 built from scratch with native navigation, bottom sheets, haptics and gestures. It shares
 the **same Supabase backend** as the website, so a user's account, closet, saved outfits,
-usage history and subscription tier are identical across web, iOS and Android.
+usage history and subscription tier are identical across web and iOS.
 
 ---
 
@@ -87,7 +87,7 @@ npx expo start                       # dev server; press i / a, or scan in Expo 
 
 > \* **Expo Go caveat:** `react-native-purchases` (RevenueCat) requires a **development
 > build**, not Expo Go. Everything else runs in Expo Go. To exercise IAP:
-> `npx expo run:ios` / `npx expo run:android`, or `eas build --profile development`.
+> `npx expo run:ios`, or `eas build --profile development`.
 
 Type-check anytime with `npm run typecheck`.
 
@@ -100,7 +100,6 @@ All values are **publishable** (safe to ship). No secret keys live in the app.
 | `EXPO_PUBLIC_SUPABASE_URL` | Existing project URL (`https://gizqpfbmqgwhbalywkqv.supabase.co`) |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Existing anon key (RLS-protected) |
 | `EXPO_PUBLIC_REVENUECAT_IOS_KEY` | RevenueCat public iOS SDK key |
-| `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` | RevenueCat public Android SDK key |
 | `EXPO_PUBLIC_SKIMLINKS_ID` | Skimlinks affiliate program ID (optional; product links wrapped for commission when set) |
 | `EXPO_PUBLIC_SENTRY_DSN` | Sentry DSN (optional; error monitoring — crashes from real devices appear in your Sentry dashboard) |
 
@@ -193,14 +192,12 @@ eas init                       # writes extra.eas.projectId in app.json
 
 # add RevenueCat keys as build-time secrets (Supabase values already in eas.json)
 eas secret:create --name EXPO_PUBLIC_REVENUECAT_IOS_KEY --value appl_xxx
-eas secret:create --name EXPO_PUBLIC_REVENUECAT_ANDROID_KEY --value goog_xxx
 
 eas build --profile development --platform ios      # dev client (IAP testing)
 eas build --profile preview --platform all          # internal QA (.apk / ad-hoc)
 eas build --profile production --platform all       # store binaries
 
 eas submit --profile production --platform ios       # → App Store Connect
-eas submit --profile production --platform android   # → Play Console
 ```
 
 Fill the `REPLACE_WITH_*` placeholders in [`eas.json`](./eas.json) before submitting.

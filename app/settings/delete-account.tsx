@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Alert, Platform } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { StackHeader, Button, ResponsiveContent, TextField, ThemedText, Card } from '@/components';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/AuthProvider';
@@ -8,7 +8,7 @@ import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
 
 /**
- * In-app account deletion — required for App Store / Play Store approval.
+ * In-app account deletion — required for App Store approval.
  * Calls the `delete-account` edge function (service-role) which erases the
  * user's rows + storage and deletes the auth user, then signs out locally.
  */
@@ -49,7 +49,7 @@ export default function DeleteAccount() {
             <ThemedText variant="body" color={colors.inkMuted} style={styles.body}>
               Deleting your account permanently removes your closet, saved outfits, preferences,
               and history from Fancy Pot. Any active subscription must be cancelled separately in
-              your {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account.
+              your App Store account.
             </ThemedText>
           </Card>
 

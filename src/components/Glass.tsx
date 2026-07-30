@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { BlurView, type BlurViewProps } from 'expo-blur';
 import { fillObject } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -27,34 +27,19 @@ interface GlassProps {
  * for sizing/border-radius/positioning; it's applied to the clipping
  * container so the blur, tint, and border always match it.
  *
- * Theme-aware: blur tint, color tint, edge highlight, and the Android
- * fallback scrim all follow the current light/dark palette (see `glass*`
- * tokens in theme/colors.ts) — so a card frosts over cream in light mode and
- * over the warm plum-black in dark mode.
- *
- * Android caveat: Android's native blur support is weaker/less consistent
- * than iOS's (some OEM skins render it as a no-op). To compensate, on
- * Android we (1) pass the `dimezisBlurView` experimental method for a real
- * blur on more devices, and (2) always layer an extra translucent scrim on
- * top so the surface still reads "frosted" even if the blur itself renders
- * as nothing.
+ * Theme-aware: blur tint, color tint, and edge highlight all follow the
+ * current light/dark palette (see `glass*` tokens in theme/colors.ts) — so a
+ * card frosts over cream in light mode and over the warm plum-black in dark
+ * mode.
  */
 export function Glass({ intensity = 40, tint, tintColor, style, children }: GlassProps) {
   const { colors } = useTheme();
   const resolvedTint = tintColor ?? colors.glassFill;
   return (
     <View style={[styles.container, { borderColor: colors.glassEdge }, style]}>
-      <BlurView
-        style={fillObject}
-        intensity={intensity}
-        tint={tint ?? colors.glassTint}
-        experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
-      />
+      <BlurView style={fillObject} intensity={intensity} tint={tint ?? colors.glassTint} />
       {resolvedTint !== 'transparent' ? (
         <View style={[fillObject, { backgroundColor: resolvedTint }]} pointerEvents="none" />
-      ) : null}
-      {Platform.OS === 'android' ? (
-        <View style={[fillObject, { backgroundColor: colors.glassScrim }]} pointerEvents="none" />
       ) : null}
       {children}
     </View>

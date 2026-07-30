@@ -19,7 +19,6 @@
     "preview": {
       "distribution": "internal",
       "ios": { "simulator": false },
-      "android": { "buildType": "apk" },
       "channel": "preview",
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://gizqpfbmqgwhbalywkqv.supabase.co",
@@ -27,11 +26,8 @@
         "EXPO_PUBLIC_SENTRY_DSN": "https://fc8d8ed7a18e2c30cfe4a584b13f68de@o4511757647347712.ingest.us.sentry.io/4511757689618432",
         "EXPO_PUBLIC_SKIMLINKS_ID": "306436X1794681",
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_dJtYbRtQVjiYgkVVYyvvgWrZanP",
-        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "REPLACE_WITH_REVENUECAT_ANDROID_PUBLIC_KEY",
         "EXPO_PUBLIC_ADMOB_IOS_INTERSTITIAL": "ca-app-pub-2901397404746354/9293998671",
         "EXPO_PUBLIC_ADMOB_IOS_REWARDED": "ca-app-pub-2901397404746354/5406724556",
-        "EXPO_PUBLIC_ADMOB_ANDROID_INTERSTITIAL": "REPLACE_WITH_ADMOB_ANDROID_INTERSTITIAL_UNIT_ID",
-        "EXPO_PUBLIC_ADMOB_ANDROID_REWARDED": "REPLACE_WITH_ADMOB_ANDROID_REWARDED_UNIT_ID",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "SENTRY_ALLOW_FAILURE": "true"
       }
@@ -45,11 +41,8 @@
         "EXPO_PUBLIC_SENTRY_DSN": "https://fc8d8ed7a18e2c30cfe4a584b13f68de@o4511757647347712.ingest.us.sentry.io/4511757689618432",
         "EXPO_PUBLIC_SKIMLINKS_ID": "306436X1794681",
         "EXPO_PUBLIC_REVENUECAT_IOS_KEY": "appl_dJtYbRtQVjiYgkVVYyvvgWrZanP",
-        "EXPO_PUBLIC_REVENUECAT_ANDROID_KEY": "REPLACE_WITH_REVENUECAT_ANDROID_PUBLIC_KEY",
         "EXPO_PUBLIC_ADMOB_IOS_INTERSTITIAL": "ca-app-pub-2901397404746354/9293998671",
         "EXPO_PUBLIC_ADMOB_IOS_REWARDED": "ca-app-pub-2901397404746354/5406724556",
-        "EXPO_PUBLIC_ADMOB_ANDROID_INTERSTITIAL": "REPLACE_WITH_ADMOB_ANDROID_INTERSTITIAL_UNIT_ID",
-        "EXPO_PUBLIC_ADMOB_ANDROID_REWARDED": "REPLACE_WITH_ADMOB_ANDROID_REWARDED_UNIT_ID",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "SENTRY_ALLOW_FAILURE": "true"
       }
@@ -60,10 +53,6 @@
       "ios": {
         "ascAppId": "6790611276",
         "appleTeamId": "789XUXSG47"
-      },
-      "android": {
-        "serviceAccountKeyPath": "./play-service-account.json",
-        "track": "internal"
       }
     }
   }

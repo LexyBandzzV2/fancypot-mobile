@@ -255,7 +255,7 @@ export default function StylistScreen() {
     try {
       // Consent + interstitial ad gate run HERE, in the foreground, before we
       // hand the raw generate call to the background job.
-      const ok = await gate();
+      const ok = await gate('stylist');
       if (!ok) return;
       setEngaged(true);
       // Fire-and-continue: the provider owns the generation, so it finishes and

@@ -7,7 +7,7 @@ import { type PropsWithChildren } from 'react';
  * layout falls back to ~980px and the phone frame only shows a slice (content
  * clipped on the right, buttons pushed off-screen). Height:100% on html/body/#root
  * gives the app's flex layout a bounded height so bottom-anchored actions sit
- * correctly. This file has no effect on the native iOS/Android builds.
+ * correctly. This file has no effect on the native iOS build.
  */
 export default function Root({ children }: PropsWithChildren) {
   return (

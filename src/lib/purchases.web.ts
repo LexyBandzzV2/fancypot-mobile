@@ -1,6 +1,6 @@
 // Web stub for RevenueCat. `react-native-purchases` is native-only, so on web
 // (used only for the in-browser preview) we provide no-op methods. Real IAP is
-// only available in the iOS/Android builds. The app already treats the backend
+// only available in the iOS build. The app already treats the backend
 // `profiles.plan` as the source of truth, so gating still behaves correctly.
 
 export const LOG_LEVEL = { VERBOSE: 'VERBOSE', DEBUG: 'DEBUG', INFO: 'INFO', WARN: 'WARN', ERROR: 'ERROR' } as any;
@@ -25,7 +25,7 @@ const Purchases: any = {
   addCustomerInfoUpdateListener() {},
   removeCustomerInfoUpdateListener() {},
   async purchasePackage() {
-    throw new Error('In-app purchases are only available in the iOS/Android app.');
+    throw new Error('In-app purchases are only available in the iOS app.');
   },
   async restorePurchases() {
     return emptyCustomerInfo;

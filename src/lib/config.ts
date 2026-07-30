@@ -16,10 +16,10 @@ function required(name: string, value: string | undefined): string {
   return value;
 }
 
-// Real RevenueCat public keys are prefixed "appl_" (iOS) / "goog_" (Android).
-// Anything else (empty, REPLACE_WITH_ placeholders, typos) is treated as unset
-// so SubscriptionProvider takes its graceful no-IAP path instead of crashing
-// the SDK at configure time.
+// Real RevenueCat iOS public keys are prefixed "appl_". Anything else (empty,
+// REPLACE_WITH_ placeholders, typos) is treated as unset so
+// SubscriptionProvider takes its graceful no-IAP path instead of crashing the
+// SDK at configure time.
 function revenueCatKey(prefix: string, value: string | undefined): string {
   return value && value.startsWith(prefix) ? value : '';
 }
@@ -41,18 +41,15 @@ export const config = {
     'EXPO_PUBLIC_SUPABASE_ANON_KEY',
     process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
   ),
-  // RevenueCat public SDK keys (platform specific). Optional at dev time so the
-  // app still boots without IAP configured; the paywall degrades gracefully.
+  // RevenueCat public SDK key. Optional at dev time so the app still boots
+  // without IAP configured; the paywall degrades gracefully.
   revenueCatIosKey: revenueCatKey('appl_', process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY),
-  revenueCatAndroidKey: revenueCatKey('goog_', process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY),
-  // AdMob ad-unit ids (platform specific). Empty => AdsProvider uses Google's
-  // test units. Real units are injected per-build via eas.json, like the RC keys.
-  // Note: the AdMob *app* id (a separate value) lives in app.json, since it is
-  // baked into the native binary at build time, not read at runtime.
+  // AdMob ad-unit ids. Empty => AdsProvider uses Google's test units. Real
+  // units are injected per-build via eas.json, like the RC key. Note: the
+  // AdMob *app* id (a separate value) lives in app.json, since it is baked
+  // into the native binary at build time, not read at runtime.
   admob: {
     iosInterstitial: admobUnit(process.env.EXPO_PUBLIC_ADMOB_IOS_INTERSTITIAL),
-    androidInterstitial: admobUnit(process.env.EXPO_PUBLIC_ADMOB_ANDROID_INTERSTITIAL),
     iosRewarded: admobUnit(process.env.EXPO_PUBLIC_ADMOB_IOS_REWARDED),
-    androidRewarded: admobUnit(process.env.EXPO_PUBLIC_ADMOB_ANDROID_REWARDED),
   },
 } as const;

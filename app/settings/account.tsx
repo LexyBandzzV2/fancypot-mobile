@@ -19,6 +19,7 @@ import { radius, spacing, useThemedStyles } from '@/theme';
 import type { Colors } from '@/theme/colors';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useAuth } from '@/providers/AuthProvider';
+import { useAIConsent } from '@/providers/AIConsentProvider';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useSignedAvatar } from '@/hooks/useSignedAvatar';
 import { supabase } from '@/lib/supabase';
@@ -42,8 +43,6 @@ export default function AccountScreen() {
     bio?: string;
     birth_date?: string;
     show_zodiac?: boolean;
-    ai_consent?: boolean;
-    ai_consent_at?: string | null;
   };
   const initialDate = parseBirthDate(prefs.birth_date);
 
@@ -54,14 +53,12 @@ export default function AccountScreen() {
   const [yyyy, setYyyy] = useState(initialDate ? String(initialDate.year) : '');
   // Default ON — absence of the key means "show".
   const [showZodiac, setShowZodiac] = useState(prefs.show_zodiac !== false);
-  // Default OFF — absence of the key means "never granted". Saved through the
-  // same Save button as everything else on this screen, so it can't race the
-  // preferences merge below.
-  const [aiConsent, setAiConsent] = useState(prefs.ai_consent === true);
-  // Only write the grant if this screen actually touched it. The value is seeded
-  // once at mount, so without this an untouched Save would push stale state over
-  // a grant/revocation made since — from the consent sheet, or from the web app.
-  const [aiTouched, setAiTouched] = useState(false);
+  // AI consent is per-feature and owned by AIConsentProvider, so it is written
+  // straight through rather than batched into this screen's Save — that keeps
+  // one writer for the grants and avoids an untouched Save clobbering a grant
+  // made since mount (from a consent sheet, or from the web app).
+  const { anyConsent, setConsent } = useAIConsent();
+  const [aiBusy, setAiBusy] = useState(false);
   const [pickedUri, setPickedUri] = useState<string | null>(null);
   const [pickedBase64, setPickedBase64] = useState<string | null>(null);
   const [removeAvatar, setRemoveAvatar] = useState(false);
@@ -129,14 +126,6 @@ export default function AccountScreen() {
       else delete nextPrefs.birth_date;
       if (showZodiac) nextPrefs.show_zodiac = true;
       else nextPrefs.show_zodiac = false;
-      // AI data-sharing grant. Apple 5.1.2(i) requires it be withdrawable in-app,
-      // so this writes both directions — but only if the switch was actually
-      // touched, so an unrelated Save can't clobber a newer value from elsewhere.
-      if (aiTouched) {
-        nextPrefs.ai_consent = aiConsent;
-        if (!aiConsent) nextPrefs.ai_consent_at = null;
-        else if (!nextPrefs.ai_consent_at) nextPrefs.ai_consent_at = new Date().toISOString();
-      }
 
       const { error } = await supabase
         .from('profiles')
@@ -248,16 +237,23 @@ export default function AccountScreen() {
 
         {/* Apple 5.1.2(i): the AI data-sharing grant has to be withdrawable
             in-app, not only by emailing support. */}
-        <SectionLabel hint="Turn this off and Fancy Pot stops sending your photos to Google (Gemini) or SerpAPI. AI features stay off until you turn it back on.">
+        <SectionLabel hint="Turn this off and Fancy Pot stops sending your photos to Google (Gemini) or SerpAPI — every AI feature switches off until you allow it again. Turning it on allows all AI features.">
           AI PHOTO PROCESSING
         </SectionLabel>
         <View style={styles.zodiacToggleRow}>
           <ThemedText variant="label">Allow AI photo processing</ThemedText>
           <Switch
-            value={aiConsent}
-            onValueChange={(v) => {
-              setAiTouched(true);
-              setAiConsent(v);
+            value={anyConsent}
+            disabled={aiBusy}
+            onValueChange={async (v) => {
+              setAiBusy(true);
+              try {
+                await setConsent(v);
+              } catch (e: any) {
+                Alert.alert('Could not save', e?.message ?? 'Please try again.');
+              } finally {
+                setAiBusy(false);
+              }
             }}
             trackColor={{ false: colors.border, true: colors.pinkWarm }}
             thumbColor={colors.white}

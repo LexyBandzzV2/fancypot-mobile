@@ -24,21 +24,6 @@
         "ITSAppUsesNonExemptEncryption": false
       }
     },
-    "android": {
-      "package": "org.fancypot.app",
-      "versionCode": 1,
-      "adaptiveIcon": {
-        "backgroundColor": "#FFF8F8",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
-      },
-      "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.RECORD_AUDIO"
-      ],
-      "predictiveBackGestureEnabled": false
-    },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
@@ -70,7 +55,6 @@
         "react-native-google-mobile-ads",
         {
           "iosAppId": "ca-app-pub-2901397404746354~3191624750",
-          "androidAppId": "ca-app-pub-3940256099942544~3347511713",
           "userTrackingUsageDescription": "Fancy Pot uses this to show ads that fit your style and keep the app free to use. Your info is never sold.",
           "delayAppMeasurementInit": true,
           "skAdNetworkItems": [

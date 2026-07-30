@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Platform, Linking } from 'react-native';
+import { View, StyleSheet, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StackHeader, Card, Button, ResponsiveContent, ThemedText } from '@/components';
@@ -18,12 +18,11 @@ export default function ManageSubscription() {
   const styles = useThemedStyles(makeStyles);
   const { tier, restore } = useSubscription();
 
+  // App Store only. A second store's URL that used to sit behind a Platform
+  // check still shipped as a string in the iOS bundle, which is the kind of
+  // other-platform reference Apple 2.3.10 rejects.
   const openStore = () => {
-    const url =
-      Platform.OS === 'ios'
-        ? 'https://apps.apple.com/account/subscriptions'
-        : 'https://play.google.com/store/account/subscriptions';
-    Linking.openURL(url);
+    Linking.openURL('https://apps.apple.com/account/subscriptions');
   };
 
   const [price, cadence] = tier.priceLabel.includes('/')

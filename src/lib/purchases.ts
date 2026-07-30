@@ -1,4 +1,4 @@
-// Default (native) RevenueCat SDK. Metro resolves this on iOS/Android and
+// Default (native) RevenueCat SDK. Metro resolves this on iOS and
 // TypeScript uses it for types. The web build uses purchases.web.ts instead,
 // which Metro prefers via the `.web` extension.
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
