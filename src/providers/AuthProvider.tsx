@@ -106,13 +106,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     /**
      * Never `await` a supabase call in here, and never make this callback
-     * `async`. GoTrue runs `exchangeCodeForSession` (the Google OAuth leg) and
-     * every token refresh *while holding its internal auth lock*, and it awaits
-     * each subscriber before releasing it. Any supabase call made from in here
-     * needs `getSession()`, which wants that same lock — a circular await with
-     * no timeout on the nested branch. That deadlock hangs Google sign-in
-     * forever and, because the lock is never released, freezes every later
-     * query app-wide until the app is relaunched.
+     * `async`. GoTrue runs `exchangeCodeForSession` (the password-reset leg)
+     * and every token refresh *while holding its internal auth lock*, and it
+     * awaits each subscriber before releasing it. Any supabase call made from
+     * in here needs `getSession()`, which wants that same lock — a circular
+     * await with no timeout on the nested branch. That deadlock hangs the
+     * sign-in forever and, because the lock is never released, freezes every
+     * later query app-wide until the app is relaunched.
      *
      * So: set state synchronously, and defer the profile fetch to a macrotask,
      * which cannot run until the lock has been released.

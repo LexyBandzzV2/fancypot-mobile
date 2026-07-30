@@ -55,8 +55,8 @@ export default function GetTheLookScreen() {
     const picked = source === 'camera' ? await fromCamera() : await fromLibrary();
     if (!picked) return;
 
-    // Apple 5.1.2(i) / Google Prominent Disclosure: name the recipient and get
-    // consent before the photo goes anywhere, then the free-tier ad gate.
+    // Apple 5.1.2(i): name the recipient and get consent before the photo goes
+    // anywhere, then the free-tier ad gate.
     if (!(await gate('getTheLook'))) return;
     setSearching(true);
     let uploadedPath: string | null = null;

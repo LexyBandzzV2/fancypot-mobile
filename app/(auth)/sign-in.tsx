@@ -20,7 +20,7 @@ import {
   Wordmark,
 } from '@/components';
 import { useAuth } from '@/providers/AuthProvider';
-import { signInWithApple, signInWithGoogle } from '@/lib/socialAuth';
+import { signInWithApple } from '@/lib/socialAuth';
 import { spacing } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 
@@ -33,7 +33,7 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   const onSubmit = async () => {
     setError(null);
@@ -54,7 +54,7 @@ export default function SignIn() {
 
   const onAppleSignIn = async () => {
     setError(null);
-    setSocialLoading('apple');
+    setAppleLoading(true);
     try {
       // Existing users are already verified — a session here is enough,
       // the root protected-route guard handles the rest.
@@ -62,19 +62,7 @@ export default function SignIn() {
     } catch (e: any) {
       Alert.alert('Apple sign-in failed', e?.message ?? 'Please try again.');
     } finally {
-      setSocialLoading(null);
-    }
-  };
-
-  const onGoogleSignIn = async () => {
-    setError(null);
-    setSocialLoading('google');
-    try {
-      await signInWithGoogle();
-    } catch (e: any) {
-      Alert.alert('Google sign-in failed', e?.message ?? 'Please try again.');
-    } finally {
-      setSocialLoading(null);
+      setAppleLoading(false);
     }
   };
 
@@ -132,15 +120,13 @@ export default function SignIn() {
             label="Sign in"
             onPress={onSubmit}
             loading={loading}
-            disabled={socialLoading !== null}
+            disabled={appleLoading}
           />
 
           <SocialAuthButtons
             mode="sign-in"
             onApple={onAppleSignIn}
-            onGoogle={onGoogleSignIn}
-            loading={loading || socialLoading !== null}
-            loadingProvider={socialLoading}
+            loading={loading || appleLoading}
           />
 
           <View style={styles.footer}>

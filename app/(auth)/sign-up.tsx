@@ -19,7 +19,7 @@ import {
   Wordmark,
 } from '@/components';
 import { useAuth } from '@/providers/AuthProvider';
-import { signInWithApple, signInWithGoogle } from '@/lib/socialAuth';
+import { signInWithApple } from '@/lib/socialAuth';
 import { spacing } from '@/theme';
 import { useTheme } from '@/providers/ThemeProvider';
 
@@ -32,7 +32,7 @@ export default function SignUp() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   const onSubmit = async () => {
     setError(null);
@@ -59,31 +59,18 @@ export default function SignUp() {
     }
   };
 
-  // Social sign-up creates the same fresh account a password sign-up would,
+  // Apple sign-up creates the same fresh account a password sign-up would,
   // so it needs the same one-time phone-verification prompt.
   const onAppleSignUp = async () => {
     setError(null);
-    setSocialLoading('apple');
+    setAppleLoading(true);
     try {
       const result = await signInWithApple();
       if (result) router.push('/verify-phone');
     } catch (e: any) {
       Alert.alert('Apple sign-in failed', e?.message ?? 'Please try again.');
     } finally {
-      setSocialLoading(null);
-    }
-  };
-
-  const onGoogleSignUp = async () => {
-    setError(null);
-    setSocialLoading('google');
-    try {
-      const result = await signInWithGoogle();
-      if (result) router.push('/verify-phone');
-    } catch (e: any) {
-      Alert.alert('Google sign-in failed', e?.message ?? 'Please try again.');
-    } finally {
-      setSocialLoading(null);
+      setAppleLoading(false);
     }
   };
 
@@ -138,15 +125,13 @@ export default function SignUp() {
             label="Create account"
             onPress={onSubmit}
             loading={loading}
-            disabled={socialLoading !== null}
+            disabled={appleLoading}
           />
 
           <SocialAuthButtons
             mode="sign-up"
             onApple={onAppleSignUp}
-            onGoogle={onGoogleSignUp}
-            loading={loading || socialLoading !== null}
-            loadingProvider={socialLoading}
+            loading={loading || appleLoading}
           />
 
           {/* The real agreement is the full disclosure on /legal/accept, which

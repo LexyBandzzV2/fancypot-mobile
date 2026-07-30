@@ -27,7 +27,7 @@ import { uploadWardrobeImage } from '@/lib/storage';
 import { zodiacFor, parseBirthDate, toBirthDate } from '@/lib/zodiac';
 
 /**
- * Account editor — the profile fields Apple/Google expect to be user-editable.
+ * Account editor — the profile fields Apple expects to be user-editable.
  * Display name + avatar are real `profiles` columns; bio + birth_date live in
  * the `preferences` jsonb (no schema change, same as the web app). Email, phone
  * and password each open their own dedicated flow.

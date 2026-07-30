@@ -30,10 +30,6 @@ export function useAuthDeepLinks() {
   useEffect(() => {
     const handle = async (url: string | null) => {
       if (!url) return;
-      // The Google OAuth redirect (fancypot://auth-callback?code=…) is owned
-      // by signInWithGoogle's in-app browser session — don't consume its
-      // one-time code here or the pending exchange there would fail.
-      if (url.includes('auth-callback')) return;
       const { code, type } = parseAuthLink(url);
       if (code) {
         try {

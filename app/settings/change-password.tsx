@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabase';
 /**
  * Change the signed-in user's password. Supabase's updateUser only needs an
  * active session (no current-password re-entry), so this is a simple two-field
- * confirm form. Users who signed up with Apple/Google have no password to
+ * confirm form. Users who signed up with Apple have no password to
  * change — updateUser would set one, which is fine (it adds email+password as
  * a second way in to the same account).
  */
