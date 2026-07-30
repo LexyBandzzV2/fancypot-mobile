@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Pressable, Alert, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -158,9 +158,10 @@ export default function Paywall() {
         </Pressable>
 
         <ThemedText variant="labelSmall" color={colors.inkMuted} center style={styles.fine}>
-          Payment is charged to your App Store / Google Play account. Subscriptions
-          auto-renew unless turned off at least 24 hours before the period ends. Manage
-          or cancel anytime in your store account settings. Prices may vary by region.
+          Payment is charged to your {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account.
+          Subscriptions auto-renew unless turned off at least 24 hours before the period ends. Manage
+          or cancel anytime in your {Platform.OS === 'ios' ? 'App Store' : 'Google Play'} account settings.
+          Prices may vary by region.
         </ThemedText>
         </ResponsiveContent>
       </ScrollView>

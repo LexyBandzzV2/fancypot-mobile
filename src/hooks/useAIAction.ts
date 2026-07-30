@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { UsageLimitError } from '@/lib/api';
 import { useAIConsent } from '@/providers/AIConsentProvider';
-import { useAuth } from '@/providers/AuthProvider';
 import { useAds } from '@/providers/AdsProvider';
 
 /**
@@ -16,31 +15,27 @@ import { useAds } from '@/providers/AdsProvider';
 export function useAIAction() {
   const router = useRouter();
   const { ensureConsent } = useAIConsent();
-  const { profile } = useAuth();
   const { canOfferReward, watchRewardedForBonus, showAiGate } = useAds();
   const [running, setRunning] = useState(false);
 
   /**
-   * The pre-AI gate WITHOUT running any action: phone verification → data
-   * consent → interstitial ad. Resolves true only when every gate is cleared,
-   * so a caller can run the AI call itself (e.g. hand it to a background job
-   * that outlives this screen). Returns false — silently or after a prompt —
-   * when the user must verify / declines consent.
+   * The pre-AI gate WITHOUT running any action: data consent → interstitial ad.
+   * Resolves true only when every gate is cleared, so a caller can run the AI
+   * call itself (e.g. hand it to a background job that outlives this screen).
+   * Returns false — silently or after a prompt — when the user declines consent.
+   *
+   * Consent must be the FIRST thing checked here, and nothing else may block
+   * ahead of it. This used to run a phone-verification check first, and that
+   * check had no way to proceed if verification was skipped or SMS delivery
+   * failed — "Skip" just navigated back to the same screen, so tapping the AI
+   * button re-ran the same unmet check. A reviewer (or any user) without a
+   * working phone number could never reach this screen's consent prompt on
+   * Style Me / Try-On / Get the Look, which Apple read as "no disclosure exists"
+   * on those flows even though it existed and worked on the wardrobe-upload
+   * path. Phone verification remains available from Settings; it just can't
+   * gate the one screen Apple requires to always be reachable.
    */
   const gate = useCallback(async (): Promise<boolean> => {
-    // One-time phone verification gate: browsing stays open, but AI features
-    // require a verified phone so the free tier can't be farmed via fake accounts.
-    if (profile && !profile.phone_verified) {
-      Alert.alert(
-        'Verify your number first',
-        'To keep Fancy Pot fair for everyone, verify your phone once before using AI features.',
-        [
-          { text: 'Not now', style: 'cancel' },
-          { text: 'Verify', onPress: () => router.push('/verify-phone') },
-        ],
-      );
-      return false;
-    }
     // Apple 5.1.2(i) / Google Prominent Disclosure: get consent before sending
     // the user's photos to third-party AI. No-op after the first grant.
     const consented = await ensureConsent();
@@ -50,7 +45,7 @@ export function useAIAction() {
     // it never blocks the feature — the ad just gates it when available.
     await showAiGate();
     return true;
-  }, [router, ensureConsent, profile, showAiGate]);
+  }, [ensureConsent, showAiGate]);
 
   const run = useCallback(
     async <T>(action: () => Promise<T>): Promise<T | null> => {
